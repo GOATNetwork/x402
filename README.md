@@ -24,7 +24,7 @@ The exact set of supported chains depends on each merchant's GoatX402 Core confi
 
 Based on current docs/examples, referenced networks include:
 
-- GOAT Networks (`2345`)
+- GOAT Network (`2345`)
 - Ethereum (`1`)
 - Polygon (`137`)
 - Arbitrum (`42161`)
