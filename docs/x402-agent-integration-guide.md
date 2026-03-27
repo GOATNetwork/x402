@@ -311,14 +311,13 @@ Use the following as baseline acceptance criteria:
 
 ---
 
-## 13. Relationship to the protocol document and API reference
+## 13. Relationship to the API reference
 
 This guide describes the **role, boundaries, deliverables, and implementation flow** of the Agent/Skill.
 
-Related documents:
+Related document:
 
-- `docs/x402-agent-access-protocol-v0.1.md`: protocol and agent interaction boundaries
-- `docs/x402-doc-en/x402-api-reference.md`: API capability, endpoint semantics, and response structure
+- `docs/x402-api-reference.md`: API capability, endpoint semantics, and response structure
 
 The relationship is:
 
