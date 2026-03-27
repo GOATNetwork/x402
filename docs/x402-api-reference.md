@@ -18,7 +18,7 @@ Also review:
 - the `GOATNetwork/x402` repository
 - `API.md`
 - `DEVELOPER_FAST.md`
-- `goatx402-sdk/docs/Integration.md`
+- `docs/Integration.md`
 - `goatx402-sdk-server-ts/src/*`
 - `goatx402-demo/server/index.ts`
 
@@ -423,7 +423,7 @@ Recommended references:
 - `API.md`
 - `goatx402-demo/README.md`
 - `goatx402-demo/server/index.ts`
-- `goatx402-sdk/docs/Integration.md`
+- `docs/Integration.md`
 - `goatx402-contract/README.md`
 - `goatx402-contract/QUICK_START.md`
 - `goatx402-contract/MERCHANT_CALLBACK.md`

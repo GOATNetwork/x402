@@ -52,7 +52,7 @@ Create your merchant account and obtain access for the next stages of setup and 
 For a more detailed registration guide, please refer to:
 
 - **GOAT x402 Merchant Guide (Chinese)**  
-  https://github.com/GOATNetwork/x402/blob/main/goatx402-sdk/docs/merchant-guide.md
+  https://github.com/GOATNetwork/x402/blob/main/docs/merchant-guide.md
 
 ## Information You Should Prepare in Advance
 
@@ -323,7 +323,7 @@ x402 currently uses a **fixed-fee per order model**, not a percentage-based take
 It is recommended to read this guide together with:
 
 - **Merchant Registration / Merchant Guide (Chinese)**  
-  https://github.com/GOATNetwork/x402/blob/main/goatx402-sdk/docs/merchant-guide.md
+  https://github.com/GOATNetwork/x402/blob/main/docs/merchant-guide.md
 - **x402 FAQ (English)**
 - **Why x402 (English)**
 - **Merchant Guide (English)**
