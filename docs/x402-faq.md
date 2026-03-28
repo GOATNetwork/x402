@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document summarizes common questions about GOAT Network x402, including architecture, security, user experience, settlement, decentralization, wallet compatibility, developer integration, and compliance.
+This document summarizes common questions about GOAT Network x402, including architecture, security, user experience, settlement, decentralization, wallet compatibility, and developer integration.
 
 ---
 
@@ -114,7 +114,7 @@ Any wallet that supports:
 
 - standard ERC-20 token transfers
 - EIP-712 typed-data signatures
-- gasless flows through EIP-3009 or Permit2 signatures
+- supported signature-based payment flows when applicable
 
 Tested wallets include MetaMask, Coinbase Wallet, and Rainbow.
 
@@ -150,7 +150,7 @@ Usually one:
 - **DIRECT mode**: a single ERC-20 transfer
 - **DELEGATE mode with callback**: one signature that covers both payment and callback authorization
 
-If the token requires an approval first (for example, Permit2-based tokens), that is an additional one-time transaction.
+If the token flow requires an approval-style step, that may introduce an additional setup action depending on the integration path.
 
 #### What if I do not hold tokens on the merchant’s preferred chain?
 
@@ -208,10 +208,9 @@ Merchants maintain a USD-denominated fee balance:
 
 Currently supported:
 
-- USDC (native EIP-3009 support)
+- USDC
 - USDT
-- DAI (through Permit2)
-- more tokens can be added based on demand
+- additional token support may be expanded over time based on product and merchant requirements
 
 #### What about volatile assets like ETH or BTC?
 

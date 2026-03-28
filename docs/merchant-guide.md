@@ -185,7 +185,7 @@ Fill in:
 > ⚠️ **Important:**
 > - Each Chain + Token combination can only have one address — duplicates will be rejected
 > - Address must be a valid EVM address (`0x` + 40 hex)
-> - DELEGATE merchants **cannot add Solana chain addresses**
+> - Available chain and token configuration depends on the merchant setup and current platform support matrix
 
 ### 6.3 View Added Addresses
 

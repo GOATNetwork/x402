@@ -18,7 +18,7 @@ Also review:
 - the `GOATNetwork/x402` repository
 - `API.md`
 - `DEVELOPER_FAST.md`
-- `docs/Integration.md`
+- `docs/x402-integration.md`
 - `goatx402-sdk-server-ts/src/*`
 - `goatx402-demo/server/index.ts`
 
@@ -135,7 +135,7 @@ The official x402 page currently lists the following support matrix:
 | Arbitrum | 42161 | USDC, USDT | Live |
 | BSC | 56 | USDC, USDT | Live |
 | Metis | 1088 | USDT | Live |
-| Solana | — | USDC, USDT | Coming Soon |
+| Solana | — | USDC, USDT | Live |
 
 > Important: the actual supported chains and tokens always depend on each merchant's Core configuration. Do not hardcode support purely from the static table.
 
@@ -423,7 +423,7 @@ Recommended references:
 - `API.md`
 - `goatx402-demo/README.md`
 - `goatx402-demo/server/index.ts`
-- `docs/Integration.md`
+- `docs/x402-integration.md`
 - `goatx402-contract/README.md`
 - `goatx402-contract/QUICK_START.md`
 - `goatx402-contract/MERCHANT_CALLBACK.md`

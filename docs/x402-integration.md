@@ -1,4 +1,4 @@
-# GoatX402 SDK Integration Guide
+# GOAT x402 Integration Guide
 
 ## Table of Contents
 
@@ -23,7 +23,7 @@
 
 ### 1.1 What is GoatX402
 
-GoatX402 is a comprehensive cryptocurrency payment processing platform supporting EVM chains and Solana. It provides two payment receiving modes to meet different merchant needs.
+GOAT x402 is a cross-chain payment infrastructure for merchants, applications, and agent-oriented workflows, supporting EVM chains and Solana. It provides two payment receiving modes to meet different merchant needs.
 
 ### 1.2 SDK Components
 
