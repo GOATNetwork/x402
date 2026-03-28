@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,3 L0,6 Z" fill="#111" />
+    </marker>
+    <style>
+      .title { font: 700 28px Arial, sans-serif; fill: #111; }
+      .head { font: 700 22px Arial, sans-serif; fill: #111; }
+      .label { font: 18px Arial, sans-serif; fill: #111; }
+      .small { font: 16px Arial, sans-serif; fill: #333; }
+      .note { font: 16px Arial, sans-serif; fill: #222; }
+      .line { stroke: #111; stroke-width: 2.5; marker-end: url(#arrow); fill: none; }
+      .vline { stroke: #111; stroke-width: 3; }
+      .box { fill: #f7f7f7; stroke: #ccc; stroke-width: 1.5; rx: 8; }
+      .num { font: 700 15px Arial, sans-serif; fill: #111; }
+      .numCircle { fill: #fff; stroke: #111; stroke-width: 2; }
+    </style>
+  </defs>
+
+  <text x="700" y="45" text-anchor="middle" class="title">GOAT X402 Payment Flow</text>
+
+  <!-- Participants -->
+  <text x="180" y="95" text-anchor="middle" class="head">Client</text>
+  <text x="520" y="95" text-anchor="middle" class="head">Merchant Server</text>
+  <text x="860" y="95" text-anchor="middle" class="head">GOAT X402 Core / Facilitator</text>
+  <text x="1180" y="95" text-anchor="middle" class="head">Settlement Chain</text>
+
+  <line x1="180" y1="120" x2="180" y2="760" class="vline"/>
+  <line x1="520" y1="120" x2="520" y2="760" class="vline"/>
+  <line x1="860" y1="120" x2="860" y2="760" class="vline"/>
+  <line x1="1180" y1="120" x2="1180" y2="760" class="vline"/>
+
+  <!-- 1 -->
+  <line x1="190" y1="150" x2="510" y2="150" class="line"/>
+  <text x="350" y="140" text-anchor="middle" class="label">GET /api/resource</text>
+  <circle cx="530" cy="150" r="14" class="numCircle"/><text x="530" y="155" text-anchor="middle" class="num">1</text>
+
+  <!-- 2 -->
+  <line x1="510" y1="210" x2="190" y2="210" class="line"/>
+  <text x="350" y="200" text-anchor="middle" class="label">402 Payment Required + PAYMENT-REQUIRED header</text>
+  <circle cx="530" cy="210" r="14" class="numCircle"/><text x="530" y="215" text-anchor="middle" class="num">2</text>
+
+  <!-- 3 note -->
+  <rect x="35" y="250" width="250" height="70" class="box"/>
+  <text x="50" y="278" class="note">3) Client selects method,</text>
+  <text x="50" y="302" class="note">creates/signs payment payload</text>
+
+  <!-- 4 -->
+  <line x1="190" y1="340" x2="510" y2="340" class="line"/>
+  <text x="350" y="330" text-anchor="middle" class="label">Retry request + PAYMENT-SIGNATURE</text>
+  <circle cx="530" cy="340" r="14" class="numCircle"/><text x="530" y="345" text-anchor="middle" class="num">4</text>
+
+  <!-- 5 -->
+  <line x1="530" y1="400" x2="850" y2="400" class="line"/>
+  <text x="690" y="390" text-anchor="middle" class="label">POST /verify (payload + requirement)</text>
+  <circle cx="870" cy="400" r="14" class="numCircle"/><text x="870" y="405" text-anchor="middle" class="num">5</text>
+
+  <!-- 6 -->
+  <line x1="850" y1="450" x2="530" y2="450" class="line"/>
+  <text x="690" y="440" text-anchor="middle" class="label">Verification result</text>
+  <circle cx="870" cy="450" r="14" class="numCircle"/><text x="870" y="455" text-anchor="middle" class="num">6</text>
+
+  <!-- 7 -->
+  <rect x="560" y="490" width="260" height="60" class="box"/>
+  <text x="575" y="527" class="note">7) Server prepares fulfillment</text>
+
+  <!-- 8 -->
+  <line x1="530" y1="580" x2="850" y2="580" class="line"/>
+  <text x="690" y="570" text-anchor="middle" class="label">POST /settle</text>
+  <circle cx="870" cy="580" r="14" class="numCircle"/><text x="870" y="585" text-anchor="middle" class="num">8</text>
+
+  <!-- 9 -->
+  <line x1="880" y1="620" x2="1170" y2="620" class="line"/>
+  <text x="1030" y="610" text-anchor="middle" class="label">Submit settlement tx</text>
+  <circle cx="1190" cy="620" r="14" class="numCircle"/><text x="1190" y="625" text-anchor="middle" class="num">9</text>
+
+  <!-- 10 -->
+  <line x1="1170" y1="660" x2="880" y2="660" class="line"/>
+  <text x="1030" y="650" text-anchor="middle" class="label">Tx confirmed</text>
+  <circle cx="1190" cy="660" r="14" class="numCircle"/><text x="1190" y="665" text-anchor="middle" class="num">10</text>
+
+  <!-- 11 -->
+  <line x1="850" y1="700" x2="530" y2="700" class="line"/>
+  <text x="690" y="690" text-anchor="middle" class="label">Settled response</text>
+  <circle cx="870" cy="700" r="14" class="numCircle"/><text x="870" y="705" text-anchor="middle" class="num">11</text>
+
+  <!-- 12 -->
+  <line x1="510" y1="740" x2="190" y2="740" class="line"/>
+  <text x="350" y="730" text-anchor="middle" class="label">200 OK + resource + PAYMENT-RESPONSE</text>
+  <circle cx="530" cy="740" r="14" class="numCircle"/><text x="530" y="745" text-anchor="middle" class="num">12</text>
+
+  <text x="40" y="810" class="small">Notes:</text>
+  <text x="40" y="835" class="small">• Merchant may choose sync wait or async mode for settlement confirmation.</text>
+  <text x="40" y="858" class="small">• Multi-chain behavior depends on GOAT X402 Core config (chain/token/fee/callback).</text>
+</svg>
