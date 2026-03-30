@@ -89,7 +89,9 @@ Install both packages into the working project from local paths. Verify that eac
 
 ### 4. Add Backend x402 Capabilities
 
-Add fixed x402 backend APIs:
+Use the following `/api/x402/*` routes as the **recommended integration interface convention** for this skill. Teams may adapt the route structure to match their existing backend architecture, as long as the payment flow, validation rules, and backend responsibilities remain consistent.
+
+Recommended x402 backend APIs:
 
 - `GET /api/health`
 - `GET /api/x402/config`
