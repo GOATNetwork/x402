@@ -1,0 +1,4 @@
+interface:
+  display_name: "X402 DApp Integration"
+  short_description: "Integrate x402 into an existing DApp"
+  default_prompt: "Use the x402 dapp integration skill to add x402 payments to an existing DApp."
