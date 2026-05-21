@@ -1,22 +1,17 @@
 #!/usr/bin/env bash
-# canton-init.sh — one-time data seed after `docker compose up -d`.
+# canton-init.sh — one-time data + key seed after `docker compose up -d canton-localnet`.
 #
-# Mints an initial Holding for Alice via Daml Script (uses the pre-built
-# DAR committed at goatx402-canton/dist/payment-0.0.1.dar).
-# Writes ./state/source-holding.json which the facilitator + e2e-cli
-# read at runtime.
+# Generates everything the facilitator + merchant need before they can start:
+#   1. Participant signing keypair (ed25519, PKCS#8 PEM) for receipt signing.
+#   2. Per-payer custodial keys, payer-key registry, X-Payer-Token map (Alice).
+#   3. Initial Holding for Alice (Topup) → state/source-holding.json.
+#   4. Merchant identity files (merchant-id.txt, issuer-id.txt) for the merchant env.
 #
-# Requires the Daml SDK on PATH (or at ~/.daml/bin/daml). Run once per
-# clean `docker compose up -d` cycle; idempotent on re-run (extra
-# Holdings are harmless, e2e picks the latest one).
+# Idempotent: re-running on an already-initialised state dir is safe (extra
+# Holdings stack up, but the e2e picks the latest).
 #
-# Env knobs:
-#   CANTON_HOST   default localhost
-#   CANTON_PORT   default 5031 (host-mapped from container 5011)
-#   ISSUER_PARTY  default Issuer
-#   PAYER_PARTY   default Alice
-#   AMOUNT        default 100.0
-#   CURRENCY      default USD-canton
+# Requires the Daml SDK + openssl + jq on the host. After this script,
+# `docker compose up -d` brings the rest of the stack online.
 
 set -euo pipefail
 
@@ -28,10 +23,13 @@ if ! command -v daml >/dev/null 2>&1; then
   if [[ -x "$HOME/.daml/bin/daml" ]]; then
     export PATH="$HOME/.daml/bin:$PATH"
   else
-    err "daml CLI not found. Install with: curl -sSL https://get.daml.com/ | sh -s 2.10.0"
+    err "daml CLI not found. Install: curl -sSL https://get.daml.com/ | sh -s 2.10.0"
     exit 2
   fi
 fi
+for cmd in openssl jq; do
+  command -v "$cmd" >/dev/null || { err "$cmd not on PATH"; exit 2; }
+done
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DAR="$REPO_ROOT/goatx402-canton/dist/payment-0.0.1.dar"
@@ -39,59 +37,91 @@ DAR="$REPO_ROOT/goatx402-canton/dist/payment-0.0.1.dar"
 
 CANTON_HOST="${CANTON_HOST:-localhost}"
 CANTON_PORT="${CANTON_PORT:-5031}"
-ISSUER_PARTY="${ISSUER_PARTY:-Issuer}"
-PAYER_PARTY="${PAYER_PARTY:-Alice}"
-AMOUNT="${AMOUNT:-100.0}"
-CURRENCY="${CURRENCY:-USD-canton}"
 STATE_DIR="$REPO_ROOT/state"
-TOPUP_RESULT="$STATE_DIR/source-holding.json"
-
+TOPUP_AMOUNT="${TOPUP_AMOUNT:-100.0}"
+TOPUP_CURRENCY="${TOPUP_CURRENCY:-USD-canton}"
 mkdir -p "$STATE_DIR"
 
 # ---------------------------------------------------------------------------
-# Wait for the participant to be ready.
+# 1. Wait for canton + resolve party ids (filter by party prefix; canton
+#    console doesn't set display_name when parties.enable() is used).
 # ---------------------------------------------------------------------------
-note "waiting for ${CANTON_HOST}:${CANTON_PORT}"
-for i in $(seq 1 60); do
-  if daml ledger list-parties --host "$CANTON_HOST" --port "$CANTON_PORT" >/dev/null 2>&1; then
-    break
-  fi
+note "waiting for canton at ${CANTON_HOST}:${CANTON_PORT}"
+for _ in $(seq 1 60); do
+  daml ledger list-parties --host "$CANTON_HOST" --port "$CANTON_PORT" >/dev/null 2>&1 && break
   sleep 2
 done
 daml ledger list-parties --host "$CANTON_HOST" --port "$CANTON_PORT" >/dev/null
 
-# ---------------------------------------------------------------------------
-# Resolve party IDs (Issuer + Alice are allocated by bootstrap.canton).
-# ---------------------------------------------------------------------------
-ISSUER_ID=$(daml ledger list-parties --host "$CANTON_HOST" --port "$CANTON_PORT" --json \
-  | jq -r --arg d "$ISSUER_PARTY" '.[] | select(.display_name == $d) | .party' | head -n1)
-PAYER_ID=$(daml ledger list-parties --host "$CANTON_HOST" --port "$CANTON_PORT" --json \
-  | jq -r --arg d "$PAYER_PARTY" '.[] | select(.display_name == $d) | .party' | head -n1)
-
-[[ -n "$ISSUER_ID" && -n "$PAYER_ID" ]] || {
-  err "could not resolve party ids — bootstrap.canton may have failed (issuer=${ISSUER_ID} payer=${PAYER_ID})"
-  exit 1
+resolve_party() {
+  local prefix="$1"
+  daml ledger list-parties --host "$CANTON_HOST" --port "$CANTON_PORT" --json 2>/dev/null \
+    | jq -r --arg p "${prefix}::" '.[] | select(.party | startswith($p)) | .party' \
+    | head -n1
 }
-note "Issuer = ${ISSUER_ID}"
-note "Alice  = ${PAYER_ID}"
+
+ISSUER_ID=$(resolve_party "Issuer")
+ALICE_ID=$(resolve_party "Alice")
+FACILITATOR_ID=$(resolve_party "facilitator")
+MERCHANT_ID=$(resolve_party "merchant")
+
+for v in ISSUER_ID ALICE_ID FACILITATOR_ID MERCHANT_ID; do
+  if [[ -z "${!v}" ]]; then
+    err "could not resolve party for prefix derived from $v — bootstrap.canton may not have run"
+    exit 1
+  fi
+done
+note "Issuer      = ${ISSUER_ID}"
+note "Alice       = ${ALICE_ID}"
+note "facilitator = ${FACILITATOR_ID}"
+note "merchant    = ${MERCHANT_ID}"
 
 # ---------------------------------------------------------------------------
-# Topup via Daml Script. Inputs / outputs are tiny JSON blobs.
+# 2. Participant signing key (ed25519 PKCS#8 PEM). Used by the facilitator
+#    to sign CantonReceipt blobs; the merchant verifies with the matching pubkey.
 # ---------------------------------------------------------------------------
-INPUT=$(mktemp)
-OUTPUT=$(mktemp)
+# PARTICIPANT_SIGNING_KEY_PATH expects base64(raw 64-byte ed25519 private key)
+# (32-byte seed + 32-byte pubkey concatenated). PARTICIPANT_PUBKEY_PATH expects
+# base64(raw 32-byte pubkey). Use a small Go helper for portability — openssl
+# emits PEM/DER PKCS#8 which doesn't match either format directly.
+P_KEY="$STATE_DIR/participant-signing.ed25519"
+P_PUB="$STATE_DIR/participant-pubkey.json"
+if [[ ! -f "$P_KEY" || ! -f "$P_PUB" ]]; then
+  note "generating participant signing keypair"
+  go run "$REPO_ROOT/scripts/gen-signing-key.go" "$P_KEY" "$P_PUB"
+  chmod 600 "$P_KEY"
+fi
+# trusted_issuer_map.json — informational; the env_file below is what facilitator reads.
+echo "{\"$TOPUP_CURRENCY\": \"$ISSUER_ID\"}" > "$STATE_DIR/trusted-issuer-map.json"
+
+# ---------------------------------------------------------------------------
+# 3. Per-payer custodial keys + payer-key registry + X-Payer-Token map (Alice).
+# ---------------------------------------------------------------------------
+note "running init-custodial-keys.sh for Alice"
+PAYER_PARTIES="$ALICE_ID" \
+CUSTODIAL_KEY_DIR="$STATE_DIR/custodial" \
+PAYER_KEY_REGISTRY_PATH="$STATE_DIR/payer-keys.json" \
+PAYER_TOKEN_FILE="$STATE_DIR/payer-tokens.json" \
+bash "$REPO_ROOT/scripts/init-custodial-keys.sh"
+
+# ---------------------------------------------------------------------------
+# 4. Mint an initial Holding for Alice via Scripts.Topup:topup.
+# ---------------------------------------------------------------------------
+TOPUP_RESULT="$STATE_DIR/source-holding.json"
+
+INPUT=$(mktemp) ; OUTPUT=$(mktemp)
 trap 'rm -f "$INPUT" "$OUTPUT"' EXIT
 
 cat > "$INPUT" <<EOF
 {
   "issuer":   "${ISSUER_ID}",
-  "owner":    "${PAYER_ID}",
-  "amount":   "${AMOUNT}",
-  "currency": "${CURRENCY}"
+  "payer":    "${ALICE_ID}",
+  "amount":   "${TOPUP_AMOUNT}",
+  "currency": "${TOPUP_CURRENCY}"
 }
 EOF
 
-note "minting ${AMOUNT} ${CURRENCY} Holding for Alice"
+note "minting ${TOPUP_AMOUNT} ${TOPUP_CURRENCY} Holding for Alice"
 daml script \
   --dar "$DAR" \
   --ledger-host "$CANTON_HOST" --ledger-port "$CANTON_PORT" \
@@ -100,20 +130,45 @@ daml script \
   --output-file "$OUTPUT"
 
 CONTRACT_ID=$(jq -r '.' "$OUTPUT")
-[[ -n "$CONTRACT_ID" && "$CONTRACT_ID" != "null" ]] || {
-  err "topup returned no contract id"
-  exit 1
-}
+[[ -n "$CONTRACT_ID" && "$CONTRACT_ID" != "null" ]] || { err "topup returned no contract id"; exit 1; }
 note "minted Holding ${CONTRACT_ID}"
 
-cat > "$TOPUP_RESULT" <<EOF
-{
-  "issuer_party":  "${ISSUER_ID}",
-  "payer_party":   "${PAYER_ID}",
-  "amount":        "${AMOUNT}",
-  "currency":      "${CURRENCY}",
-  "contract_id":   ${CONTRACT_ID}
-}
+# contract_id is a hex string; use --arg (not --argjson).
+jq -n \
+  --arg issuer "$ISSUER_ID" \
+  --arg payer "$ALICE_ID" \
+  --arg amount "$TOPUP_AMOUNT" \
+  --arg currency "$TOPUP_CURRENCY" \
+  --arg cid "$CONTRACT_ID" \
+  '{issuer_party: $issuer, payer_party: $payer, amount: $amount, currency: $currency, contract_id: $cid}' \
+  > "$TOPUP_RESULT"
+note "wrote $TOPUP_RESULT"
+
+# Also write the source-holding map shape the dev_source_holding endpoint expects:
+# { partyId: contractId }
+jq -n --arg p "$ALICE_ID" --arg cid "$CONTRACT_ID" '{($p): $cid}' \
+  > "$STATE_DIR/source-holding-map.json"
+
+# ---------------------------------------------------------------------------
+# 5. Merchant identity files (the merchant env reads these at boot).
+# ---------------------------------------------------------------------------
+echo -n "$MERCHANT_ID" > "$STATE_DIR/merchant-id.txt"
+echo -n "$ISSUER_ID"   > "$STATE_DIR/issuer-id.txt"
+
+# ---------------------------------------------------------------------------
+# 6. Generated env_files consumed by docker-compose (facilitator/merchant).
+# ---------------------------------------------------------------------------
+cat > "$STATE_DIR/facilitator.env" <<EOF
+TRUSTED_ISSUER_MAP={"${TOPUP_CURRENCY}":"${ISSUER_ID}"}
+CURRENCY_ALLOW_LIST=${TOPUP_CURRENCY}
 EOF
-note "wrote ${TOPUP_RESULT}"
-note "init done — facilitator + e2e-cli are ready to use this Holding"
+
+cat > "$STATE_DIR/merchant.env" <<EOF
+MERCHANT_PARTY_ID=${MERCHANT_ID}
+MERCHANT_TRUSTED_ISSUER=${ISSUER_ID}
+MERCHANT_RESOURCE=/resource
+MERCHANT_AMOUNT=1.00
+MERCHANT_CURRENCY=${TOPUP_CURRENCY}
+EOF
+
+note "init done — ready for: docker compose up -d facilitator merchant canton-demo"
