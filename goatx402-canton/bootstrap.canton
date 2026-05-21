@@ -1,0 +1,27 @@
+// Canton bootstrap script for the goatx402-canton localnet.
+// Starts the single participant + single domain defined in
+// simple-topology.conf (bind-mounted at /workspace/canton/), connects
+// the participant to the domain, then keeps the daemon alive.
+//
+// The Ledger API is exposed at :5011, admin API at :5012, domain
+// public API at :5018.
+//
+// `scripts/canton-up.sh` greps stdout for the well-known marker
+// printed below to confirm readiness — do not change it without
+// updating that script.
+
+nodes.local.start()
+participant1.domains.connect_local(mydomain)
+
+println("=== goatx402 canton localnet ready ===")
+println("  participant1 ledger api  -> :5011")
+println("  participant1 admin api   -> :5012")
+println("  mydomain     public api  -> :5018")
+println("  mydomain     admin api   -> :5019")
+
+// Allocate a default party for the facilitator and the merchant so the
+// smoke test does not have to do this every time.
+val facilitator = participant1.parties.enable("facilitator")
+val merchant = participant1.parties.enable("merchant")
+println(s"  facilitator party = ${facilitator.toString}")
+println(s"  merchant     party = ${merchant.toString}")
