@@ -24,7 +24,8 @@ EOF
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    cd goatx402-merchant && go build -o /out/merchant ./cmd/server
+    cd goatx402-merchant && \
+      CGO_ENABLED=0 GOOS=linux go build -o /out/merchant ./cmd/server
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=builder /out/merchant /usr/local/bin/merchant

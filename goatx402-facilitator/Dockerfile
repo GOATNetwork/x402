@@ -33,10 +33,13 @@ EOF
 # Pre-fetch all deps so the build step can be incremental.
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    cd goatx402-facilitator && go build -o /out/facilitator ./cmd/server
+    cd goatx402-facilitator && \
+      GOOS=linux go build -o /out/facilitator ./cmd/server
 
 # ---------------------------------------------------------------------
-FROM gcr.io/distroless/static-debian12:nonroot
+# Use distroless/base — facilitator links CGO sqlite (mattn/go-sqlite3),
+# so we need glibc + dynamic loader at runtime.
+FROM gcr.io/distroless/base-debian12:nonroot
 
 COPY --from=builder /out/facilitator /usr/local/bin/facilitator
 

@@ -25,7 +25,8 @@ EOF
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    cd goatx402-canton-cli && go build -o /out/x402-canton ./cmd/x402-canton
+    cd goatx402-canton-cli && \
+      CGO_ENABLED=0 GOOS=linux go build -o /out/x402-canton ./cmd/x402-canton
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=builder /out/x402-canton /usr/local/bin/x402-canton

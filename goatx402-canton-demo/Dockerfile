@@ -3,15 +3,18 @@
 
 # syntax=docker/dockerfile:1.7
 
-FROM node:20-bookworm-slim AS builder
+FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
-# Enable pnpm via corepack (ships with node:20).
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Pin pnpm 9 (latest 11.x triggers ERR_UNKNOWN_BUILTIN_MODULE on this base).
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+# Lockfile was generated under the package's old name (@goat-canton-payment/client-web).
+# Renaming the package broke --frozen-lockfile; install without it on first build,
+# then commit the regenerated lockfile in a follow-up if pinning matters in CI.
+RUN pnpm install --no-frozen-lockfile
 
 COPY . .
 RUN pnpm run build
