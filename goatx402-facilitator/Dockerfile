@@ -13,12 +13,22 @@ FROM golang:1.25-bookworm AS builder
 
 WORKDIR /src
 
-# Copy the whole workspace so go.work + replace directives resolve.
-# .dockerignore restricts what actually transfers.
-COPY go.work go.work.sum* ./
+# Copy only the modules facilitator actually needs. Generate a slim
+# go.work inside the builder so the missing siblings (merchant,
+# canton-cli) don't fail workspace resolution.
 COPY goatx402-sdk-server-go/ ./goatx402-sdk-server-go/
 COPY goatx402-receipt/ ./goatx402-receipt/
 COPY goatx402-facilitator/ ./goatx402-facilitator/
+
+RUN cat > go.work <<'EOF'
+go 1.25.0
+
+use (
+	./goatx402-sdk-server-go
+	./goatx402-receipt
+	./goatx402-facilitator
+)
+EOF
 
 # Pre-fetch all deps so the build step can be incremental.
 RUN --mount=type=cache,target=/root/.cache/go-build \

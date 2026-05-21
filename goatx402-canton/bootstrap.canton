@@ -13,15 +13,23 @@
 nodes.local.start()
 participant1.domains.connect_local(mydomain)
 
+// Upload the pre-built Daml package. The DAR is committed under
+// goatx402-canton/dist/ so we don't need a daml SDK at runtime.
+participant1.dars.upload("/workspace/canton/dist/payment-0.0.1.dar")
+
 println("=== goatx402 canton localnet ready ===")
 println("  participant1 ledger api  -> :5011")
 println("  participant1 admin api   -> :5012")
 println("  mydomain     public api  -> :5018")
 println("  mydomain     admin api   -> :5019")
 
-// Allocate a default party for the facilitator and the merchant so the
-// smoke test does not have to do this every time.
+// Allocate every party the goatx402 stack needs in one place so the
+// HTTP layer never blocks waiting for party creation:
+val issuer      = participant1.parties.enable("Issuer")
+val alice       = participant1.parties.enable("Alice")
 val facilitator = participant1.parties.enable("facilitator")
-val merchant = participant1.parties.enable("merchant")
-println(s"  facilitator party = ${facilitator.toString}")
+val merchant    = participant1.parties.enable("merchant")
+println(s"  Issuer       party = ${issuer.toString}")
+println(s"  Alice        party = ${alice.toString}")
+println(s"  facilitator  party = ${facilitator.toString}")
 println(s"  merchant     party = ${merchant.toString}")

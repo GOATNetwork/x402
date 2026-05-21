@@ -7,11 +7,20 @@ FROM golang:1.25-bookworm AS builder
 
 WORKDIR /src
 
-COPY go.work go.work.sum* ./
+# Slim workspace — only what merchant needs.
 COPY goatx402-sdk-server-go/ ./goatx402-sdk-server-go/
 COPY goatx402-receipt/ ./goatx402-receipt/
-COPY goatx402-facilitator/ ./goatx402-facilitator/
 COPY goatx402-merchant/ ./goatx402-merchant/
+
+RUN cat > go.work <<'EOF'
+go 1.25.0
+
+use (
+	./goatx402-sdk-server-go
+	./goatx402-receipt
+	./goatx402-merchant
+)
+EOF
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \

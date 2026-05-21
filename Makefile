@@ -15,6 +15,9 @@ canton-down: ## Stop Canton localnet
 canton-smoke: canton-up ## Build DAR + upload + allocate parties + mint initial Holding
 	@bash scripts/canton-smoke.sh
 
+canton-init: ## Mint initial Holding into Alice's wallet (post-`compose up`)
+	@bash scripts/canton-init.sh
+
 canton-e2e: ## End-to-end smoke (canton localnet round-trip)
 	@bash scripts/e2e-smoke.sh
 

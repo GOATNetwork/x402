@@ -52,30 +52,12 @@ services:
       retries: 24
       start_period: 30s
 
-  # ──────────────────────────────────────────────────────────────────────
-  # One-shot Daml bootstrap: build DAR + upload + allocate parties + topup.
-  # Writes ./state/source-holding.json on success. Re-runs are safe.
-  # ──────────────────────────────────────────────────────────────────────
-  daml-bootstrap:
-    build:
-      context: ./goatx402-canton
-      dockerfile: Dockerfile.bootstrap
-    container_name: goatx402-canton-bootstrap
-    depends_on:
-      canton-localnet:
-        condition: service_healthy
-    environment:
-      CANTON_HOST: canton-localnet
-      CANTON_PORT: "5011"        # internal container port (host maps to 5031)
-      STATE_DIR: /state
-      ISSUER_PARTY: Issuer
-      PAYER_PARTY: Alice
-      TOPUP_AMOUNT: "100.0"
-      TOPUP_CURRENCY: USD-canton
-    volumes:
-      - ./goatx402-canton/daml:/workspace/daml
-      - ./state:/state
-    restart: "no"   # one-shot
+  # NOTE: DAR upload + party allocation happen inside canton-localnet's
+  # bootstrap.canton (uploads goatx402-canton/dist/payment-0.0.1.dar,
+  # allocates Issuer + Alice + facilitator + merchant). The one
+  # remaining one-shot step — minting an initial Holding for Alice —
+  # runs on the host via `make canton-init` (uses host-side daml SDK).
+  # No daml-sdk Docker image needed.
 
   # ──────────────────────────────────────────────────────────────────────
   # Facilitator — the canton-daml x402 server.
@@ -86,8 +68,8 @@ services:
       dockerfile: goatx402-facilitator/Dockerfile
     container_name: goatx402-facilitator
     depends_on:
-      daml-bootstrap:
-        condition: service_completed_successfully
+      canton-localnet:
+        condition: service_healthy
     environment:
       # Network
       ADDR: "0.0.0.0:8080"
