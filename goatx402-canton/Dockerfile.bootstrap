@@ -1,0 +1,35 @@
+# goatx402-canton/Dockerfile.bootstrap
+#
+# One-shot container that:
+#   1. Builds the Daml DAR from goatx402-canton/daml/ (needs Daml SDK 2.10).
+#   2. Waits for the canton-localnet participant on gRPC :5011 to be ready.
+#   3. Uploads the DAR via `daml ledger upload-dar`.
+#   4. Allocates Issuer + Alice parties (idempotent).
+#   5. Runs Scripts.Topup:topup to mint a fresh Holding for Alice.
+#   6. Writes /state/source-holding.json with the resulting ContractId.
+#
+# Image pinned to digitalasset/daml-sdk:2.10.0 so DAR build is reproducible
+# without requiring `daml` on the host.
+
+# syntax=docker/dockerfile:1.7
+
+FROM digitalasset/daml-sdk:2.10.0
+
+# Tools the bootstrap script uses beyond daml itself: jq for parsing, curl
+# for healthchecks. The SDK image is Debian-based; apt is available.
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      jq curl ca-certificates netcat-openbsd && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Daml package source — bind-mounted at compose time too, but copy here so
+# `docker build` mode also works.
+COPY daml/ /workspace/daml/
+
+# Bootstrap script — see scripts/canton-bootstrap.sh in repo root.
+COPY canton-bootstrap.sh /usr/local/bin/canton-bootstrap.sh
+RUN chmod +x /usr/local/bin/canton-bootstrap.sh
+
+ENTRYPOINT ["/usr/local/bin/canton-bootstrap.sh"]

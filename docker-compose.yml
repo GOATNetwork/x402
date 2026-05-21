@@ -1,0 +1,180 @@
+# Top-level docker-compose for the canton/initial-port branch.
+#
+# Goal: `docker-compose up -d` brings up the entire canton x402 stack from a
+# clean checkout — canton localnet, Daml DAR bootstrap, facilitator,
+# merchant, and the SPA demo.
+#
+# Ports are namespaced (5031, 8080, 7070, 4173) so this stack runs alongside
+# any existing canton localnet on the legacy 5011 range.
+#
+# Verified images:
+#   canton-open-source@sha256:98068c061913cdfaa3898b480a2c0a343b59144d3942678a4929cadb51e5f52a
+#   digitalasset/daml-sdk:2.10.0
+#
+# Bring up:    docker compose up -d
+# Tail logs:   docker compose logs -f facilitator merchant
+# Tear down:   docker compose down [-v to also drop volumes]
+# E2E test:    docker compose run --rm e2e-cli /usr/local/bin/x402-canton ...
+
+name: goatx402-canton
+
+networks:
+  default:
+    name: goatx402-canton
+
+services:
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Canton localnet (long-running participant + domain).
+  # ──────────────────────────────────────────────────────────────────────
+  canton-localnet:
+    image: digitalasset/canton-open-source@sha256:98068c061913cdfaa3898b480a2c0a343b59144d3942678a4929cadb51e5f52a
+    container_name: goatx402-canton-localnet
+    command:
+      - daemon
+      - -c
+      - /workspace/canton/simple-topology.conf
+      - --bootstrap
+      - /workspace/canton/bootstrap.canton
+    volumes:
+      - ./goatx402-canton:/workspace/canton:ro
+    ports:
+      # host:container — host side namespaced to 5031-5039
+      - "5031:5011"   # participant ledger api
+      - "5032:5012"   # participant admin api
+      - "5038:5018"   # domain public api
+      - "5039:5019"   # domain admin api
+    healthcheck:
+      # Canton container has bash + the JVM but no nc. Use /dev/tcp probe.
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/5011"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 30s
+
+  # ──────────────────────────────────────────────────────────────────────
+  # One-shot Daml bootstrap: build DAR + upload + allocate parties + topup.
+  # Writes ./state/source-holding.json on success. Re-runs are safe.
+  # ──────────────────────────────────────────────────────────────────────
+  daml-bootstrap:
+    build:
+      context: ./goatx402-canton
+      dockerfile: Dockerfile.bootstrap
+    container_name: goatx402-canton-bootstrap
+    depends_on:
+      canton-localnet:
+        condition: service_healthy
+    environment:
+      CANTON_HOST: canton-localnet
+      CANTON_PORT: "5011"        # internal container port (host maps to 5031)
+      STATE_DIR: /state
+      ISSUER_PARTY: Issuer
+      PAYER_PARTY: Alice
+      TOPUP_AMOUNT: "100.0"
+      TOPUP_CURRENCY: USD-canton
+    volumes:
+      - ./goatx402-canton/daml:/workspace/daml
+      - ./state:/state
+    restart: "no"   # one-shot
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Facilitator — the canton-daml x402 server.
+  # ──────────────────────────────────────────────────────────────────────
+  facilitator:
+    build:
+      context: .
+      dockerfile: goatx402-facilitator/Dockerfile
+    container_name: goatx402-facilitator
+    depends_on:
+      daml-bootstrap:
+        condition: service_completed_successfully
+    environment:
+      # Network
+      ADDR: "0.0.0.0:8080"
+      # Canton ledger
+      PARTICIPANT_HOST: canton-localnet
+      PARTICIPANT_PORT: "5011"
+      # State + secrets — mounted from ./state on host
+      STORE_DSN: "file:/state/facilitator.db?cache=shared&_journal_mode=WAL"
+      CUSTODIAL_KEY_DIR: /state/custodial
+      PAYER_TOKEN_FILE: /state/payer-tokens.json
+      PAYER_KEY_REGISTRY_PATH: /state/payer-keys.json
+      PARTICIPANT_SIGNING_KEY_PATH: /state/participant-signing.ed25519
+      PARTICIPANT_PUBKEY_PATH: /state/participant-pubkey.json
+      # PoC mode: unsafe-auth-like for localnet only.
+      CANTON_PROD: "false"
+    volumes:
+      - ./state:/state
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/facilitator", "--healthcheck"]
+      # The facilitator currently doesn't expose --healthcheck; the
+      # depends_on condition `service_started` is enough for now. The
+      # test line is kept as a TODO marker for the day the binary grows
+      # a self-test flag.
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Merchant — the x402 demo paywall.
+  # ──────────────────────────────────────────────────────────────────────
+  merchant:
+    build:
+      context: .
+      dockerfile: goatx402-merchant/Dockerfile
+    container_name: goatx402-merchant
+    depends_on:
+      facilitator:
+        condition: service_started
+    environment:
+      ADDR: "0.0.0.0:7070"
+      FACILITATOR_URL: "http://facilitator:8080"
+      RESOURCE_PATH: "/resource"
+      AMOUNT: "1.00"
+      CURRENCY: USD-canton
+      TRUSTED_ISSUER_FILE: /state/issuer-id.txt   # bootstrap writes this; fallback to env if missing
+      PARTICIPANT_PUBKEY_PATH: /state/participant-pubkey.json
+      MERCHANT_FILE: /state/merchant-id.txt
+    volumes:
+      - ./state:/state
+    ports:
+      - "7070:7070"
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Canton-demo SPA — Vite/React frontend served via nginx.
+  # ──────────────────────────────────────────────────────────────────────
+  canton-demo:
+    build:
+      context: ./goatx402-canton-demo
+      dockerfile: Dockerfile
+    container_name: goatx402-canton-demo
+    depends_on:
+      merchant:
+        condition: service_started
+    ports:
+      - "4173:4173"
+
+  # ──────────────────────────────────────────────────────────────────────
+  # E2E runner — opt-in via `docker compose run --rm e2e-cli`.
+  # Not started automatically by `docker-compose up -d`.
+  # ──────────────────────────────────────────────────────────────────────
+  e2e-cli:
+    build:
+      context: .
+      dockerfile: goatx402-canton-cli/Dockerfile
+    container_name: goatx402-canton-cli
+    profiles: ["e2e"]
+    depends_on:
+      merchant:
+        condition: service_started
+    environment:
+      MERCHANT_URL: "http://merchant:7070"
+      FACILITATOR_URL: "http://facilitator:8080"
+      RESOURCE_PATH: "/resource"
+    volumes:
+      - ./state:/state
+    # Default entrypoint runs the CLI's help; override with
+    # `docker compose run --rm e2e-cli <args>` to exercise a flow.
