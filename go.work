@@ -1,7 +1,11 @@
-go 1.25
+go 1.25.0
 
 // Branch root workspace. Lists every module that lives in this tree.
 // Upstream module (goatx402-sdk-server-go) is included unchanged.
-// Canton modules are added by Stage 2/3 of the port (see docs/canton/port-plan.html).
+// Canton modules added by the canton/initial-port port stages.
 
-use ./goatx402-sdk-server-go
+use (
+	./goatx402-facilitator
+	./goatx402-receipt
+	./goatx402-sdk-server-go
+)

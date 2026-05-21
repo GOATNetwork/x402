@@ -26,3 +26,13 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 ADMIN_API.md
+
+# canton port state (generated at runtime)
+state/
+logs/
+
+# Daml SDK build cache
+**/.daml/
+
+# Go module cache (local)
+**/go.sum.local
