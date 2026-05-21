@@ -1,0 +1,45 @@
+# Canton port CI — builds and tests the canton/initial-port branch.
+# Triggers: pushes to canton/* branches and PRs that target main with canton scope.
+#
+# Stage 0 stub: this only sanity-checks the existing upstream module so the
+# branch baseline is green before any canton code lands. Real jobs (canton-up,
+# canton-smoke, canton-e2e) are added in Stage 7.
+
+name: canton
+
+on:
+  push:
+    branches:
+      - 'canton/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'goatx402-canton/**'
+      - 'goatx402-facilitator/**'
+      - 'goatx402-merchant/**'
+      - 'goatx402-canton-cli/**'
+      - 'goatx402-canton-demo/**'
+      - 'goatx402-receipt/**'
+      - 'scripts/**'
+      - '.github/workflows/canton.yml'
+
+jobs:
+  baseline:
+    name: baseline upstream build still passes
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - name: build existing upstream SDK
+        run: |
+          cd goatx402-sdk-server-go
+          go build ./...
+          go vet ./...
+
+  # Future jobs (added in Stage 7):
+  #   - canton-stack: setup-daml + boot canton localnet + go test ./goatx402-*
+  #   - canton-e2e:   run scripts/e2e-smoke.sh with CI-sized iterations
+  #   - playwright:   opt-in, label-gated, runs cross-sdk-parity
