@@ -31,7 +31,7 @@
     "ethers": "^6.9.0"
   },
   "optionalDependencies": {
-    "goatx402-sdk": "^0.1.0"
+    "goatx402-sdk": "^0.1.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

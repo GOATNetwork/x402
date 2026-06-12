@@ -1,6 +1,6 @@
 {
   "name": "goatx402-sdk-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "GoatX402 Server SDK for Node.js - handles API authentication securely on the backend",
   "type": "module",
   "main": "dist/index.js",
