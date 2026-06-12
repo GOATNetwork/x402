@@ -5,6 +5,8 @@
  * Order data is received from your backend (which uses goatx402-sdk-server).
  */
 
+import type { TransactionResponse } from 'ethers'
+
 // ============================================================================
 // Order Types (received from backend)
 // ============================================================================
@@ -148,5 +150,168 @@ export class PaymentError extends Error {
     this.name = 'PaymentError'
     this.code = code
     this.txHash = txHash
+  }
+}
+
+// ============================================================================
+// MPP (Machine Payments Protocol) Types
+// ============================================================================
+
+/**
+ * MPP challenge issued by Core's /mpp/v1/challenge endpoint.
+ *
+ * The challenge is a server-signed (HMAC) commitment to a price + payee
+ * + token + chain for a specific (merchant_id, payer_addr,
+ * request_canonical) tuple. The buyer pays on-chain and submits the
+ * tx_hash + MAC back to /mpp/v1/verify to receive a Payment-Receipt.
+ *
+ * Fields use camelCase (SDK convention). The corresponding wire JSON
+ * uses snake_case (challenge_id, expiry_unix, amount_wei, chain_id,
+ * token_contract, mac, route_pricing_version, recipient).
+ */
+export interface MPPChallenge {
+  challengeId: string
+  expiryUnix: number
+  amountWei: string
+  chainId: number
+  tokenContract: string
+  recipient: string
+  mac: string
+  routePricingVersion: number
+}
+
+/**
+ * Lifecycle phases reported via the optional onPhase callback. Callers
+ * use these to render progress UI without having to wrap each MPPClient
+ * call site themselves.
+ */
+export type MPPPhase =
+  | 'requesting_challenge'
+  | 'challenge_received'
+  | 'sending_transaction'
+  | 'transaction_sent'
+  | 'transaction_replaced' // wallet fee-bump / "speed up" produced a new tx_hash; verify now follows it
+  | 'verifying'
+  | 'verify_pending' // received 202 + Retry-After
+  | 'verified'
+  | 'failed'
+
+/**
+ * Successful MPP verification result. Callers attach receiptHeader to
+ * subsequent requests to the merchant's protected resource as a
+ * `Payment-Receipt:` header.
+ */
+export interface MPPVerifyResult {
+  /** Full "payload.sig.alg" Payment-Receipt header value */
+  receiptHeader: string
+  /** Decoded JSON receipt payload (the "payload" segment of receiptHeader) */
+  receiptBody: Record<string, unknown>
+  txHash: string
+  challengeId: string
+}
+
+/**
+ * Inputs to the high-level MPPClient.pay() composition. Lower-level
+ * callers can use requestChallenge / payChallenge / verifyChallenge
+ * directly.
+ */
+export interface MPPPayParams {
+  merchantId: string
+  routeCanonical: string
+  /**
+   * Optional finer-grained request fingerprint. Must equal
+   * routeCanonical OR start with `routeCanonical + ":"` — Core
+   * enforces this strict-prefix binding so a low-price route can't
+   * be paired with a high-price request_canonical.
+   * Defaults to routeCanonical when omitted.
+   */
+  requestCanonical?: string
+  /**
+   * Max verify polling attempts (including the first). Defaults to
+   * 16, pinned UNDER Core's per-(tx_hash, order_id) server budget
+   * (TxOrderBudget=18) so a normal flow cannot exhaust the server's
+   * non-refundable retry tokens. ~80s of polling at the typical 5s
+   * Retry-After. Slower chains require BOTH a higher
+   * mpp.rate_limit.tx_order_budget on Core AND an explicit higher
+   * maxVerifyAttempts here — bumping the SDK alone hides a 429
+   * budget-exhausted failure mode.
+   */
+  maxVerifyAttempts?: number
+  /** Progress callback for UI updates. */
+  onPhase?: (phase: MPPPhase, detail?: unknown) => void
+}
+
+/**
+ * Typed error surfaced by every MPPClient method. Callers branch on
+ * `code` to render expected vs unexpected failures (e.g.
+ * challenge_expired ≠ user_rejected ≠ network_error).
+ *
+ * Stable codes (subject to extension, never renamed):
+ *   - "network_error" / "parse_error" — SDK-side
+ *   - "route_not_found" / "invalid_request" — Core /challenge errors
+ *   - "chain_mismatch" / "user_rejected" / "payment_failed" — payment-side
+ *   - "challenge_expired" / "challenge_already_consumed" /
+ *     "challenge_tx_hash_mismatch" / "payer_mismatch" — Core /verify
+ *     pre-settle rejections
+ *   - "bad_request" — Core /verify settle validation failure (e.g.
+ *     underpayment, wrong recipient)
+ *   - "verify_timeout" — SDK gave up after maxAttempts
+ *   - "service_unavailable" — Core 503 (RPC breaker open / transient)
+ *   - "receipt_missing" / "receipt_malformed" — verify 200 without a
+ *     usable Payment-Receipt header (server bug or CORS misconfig)
+ */
+/**
+ * Recovery payload attached to MPPError instances thrown by the
+ * high-level pay() composition AFTER an on-chain transfer has been
+ * broadcast. Lets callers retry verification of the already-paid tx
+ * without re-prompting the wallet:
+ *
+ *   try { await client.pay(...) } catch (err) {
+ *     if (err instanceof MPPError && err.recoverable) {
+ *       return await client.verifyChallenge(err.recoverable)
+ *     }
+ *     throw err
+ *   }
+ *
+ * Only populated when the failure occurred during verify polling.
+ * Errors from earlier phases (requestChallenge, payChallenge before
+ * broadcast, wallet rejection) leave this undefined.
+ *
+ * payerAddr is the address Core bound the challenge to — typically
+ * what signer.getAddress() returned when pay() started. It is included
+ * here (rather than re-derived from the current signer at retry time)
+ * so recovery survives wallet disconnects and account switches between
+ * pay() failing and the caller retrying: Core verifies against the
+ * original payer_addr, and a mid-flow account switch would otherwise
+ * produce a payer_mismatch on a tx that was already correctly paid.
+ */
+export interface MPPRecoverable {
+  challenge: MPPChallenge
+  txHash: string
+  payerAddr: string
+  /**
+   * The broadcast TransactionResponse (present when the failure occurred
+   * during verify polling after payChallenge). `txHash` above is the latest
+   * hash KNOWN at throw time — a fee-bump / "speed up" replacement detected
+   * during polling is already reflected there. In the rare case the provider
+   * reports the replacement only AFTER verify polling exhausted, `txHash` may
+   * still be the pre-replacement hash; callers that must be robust to that can
+   * `await tx.wait()` (ethers rejects with TRANSACTION_REPLACED carrying the
+   * new tx) and resume `verifyChallenge` with the replacement hash. Undefined
+   * for pre-broadcast failures.
+   */
+  tx?: TransactionResponse
+}
+
+export class MPPError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly httpStatus?: number,
+    public readonly cause?: unknown,
+    public readonly recoverable?: MPPRecoverable
+  ) {
+    super(message)
+    this.name = 'MPPError'
   }
 }

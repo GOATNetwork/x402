@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@goatnetwork/mpp-middleware':
+        specifier: link:../goatx402-mpp-middleware-ts
+        version: link:../goatx402-mpp-middleware-ts
       cors:
         specifier: ^2.8.5
         version: 2.8.6
@@ -21,11 +24,11 @@ importers:
         specifier: ^4.18.0
         version: 4.22.1
       goatx402-sdk:
-        specifier: file:../goatx402-sdk
-        version: file:../goatx402-sdk
+        specifier: link:../goatx402-sdk
+        version: link:../goatx402-sdk
       goatx402-sdk-server:
-        specifier: file:../goatx402-sdk-server-ts
-        version: file:../goatx402-sdk-server-ts
+        specifier: link:../goatx402-sdk-server-ts
+        version: link:../goatx402-sdk-server-ts
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -1009,12 +1012,6 @@ packages:
   glob-parent@6.0.2:
     resolution: {integrity: sha512-XxwI8EOhVQgWp6iDL+3b0r86f4d6AX6zSU55HfB4ydCEuXLXc5FcYeOu+nnGftS4TEju/11rt4KJPTMgbfmv4A==}
     engines: {node: '>=10.13.0'}
-
-  goatx402-sdk-server@file:../goatx402-sdk-server-ts:
-    resolution: {directory: ../goatx402-sdk-server-ts, type: directory}
-
-  goatx402-sdk@file:../goatx402-sdk:
-    resolution: {directory: ../goatx402-sdk, type: directory}
 
   gopd@1.2.0:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
@@ -2405,15 +2402,6 @@ snapshots:
   glob-parent@6.0.2:
     dependencies:
       is-glob: 4.0.3
-
-  goatx402-sdk-server@file:../goatx402-sdk-server-ts: {}
-
-  goatx402-sdk@file:../goatx402-sdk:
-    dependencies:
-      ethers: 6.16.0
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
   gopd@1.2.0: {}
 

@@ -36,6 +36,9 @@
 // Payment helper
 export { PaymentHelper } from './payment.js'
 
+// MPP (Machine Payments Protocol) helper
+export { MPPClient } from './mpp.js'
+
 // Contract helpers
 export { ERC20Token, parseUnits, formatUnits } from './contracts/index.js'
 
@@ -57,6 +60,13 @@ export type {
   // Payment types
   PaymentResult,
 
-  // Error types
-  PaymentError,
+  // MPP types
+  MPPChallenge,
+  MPPPayParams,
+  MPPPhase,
+  MPPRecoverable,
+  MPPVerifyResult,
 } from './types.js'
+
+// Error classes (exported as values, not types)
+export { PaymentError, MPPError } from './types.js'

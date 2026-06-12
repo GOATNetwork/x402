@@ -234,6 +234,7 @@ type MerchantToken struct {
 	ChainID       int    `json:"chain_id"`
 	Symbol        string `json:"symbol"`
 	TokenContract string `json:"token_contract"`
+	Decimals      int    `json:"decimals"`
 }
 
 // APIError represents an API error response

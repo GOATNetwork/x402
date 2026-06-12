@@ -3,15 +3,13 @@
  *
  * This hook communicates with the backend API for order creation
  * and uses the frontend SDK for wallet interactions.
+ *
+ * The Window.ethereum global declaration lives in useWallet.ts (the
+ * canonical, broader shape that includes isMetaMask + on/removeListener).
+ * A narrower duplicate here used to collide on TS 5.3+ with a TS2717
+ * "must have the same type" error; the import below pulls useWallet.ts
+ * into the same program so its augmentation is in scope.
  */
-
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>
-    }
-  }
-}
 
 import { useState, useCallback, useMemo } from 'react'
 import { ethers } from 'ethers'

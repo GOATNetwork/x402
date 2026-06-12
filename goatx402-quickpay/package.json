@@ -1,0 +1,51 @@
+{
+  "name": "goatx402-quickpay",
+  "version": "0.1.0",
+  "description": "GoatX402 QuickPay public payer/agent library and CLI",
+  "type": "module",
+  "bin": {
+    "goatx402-quickpay": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "ethers": "^6.9.0"
+  },
+  "optionalDependencies": {
+    "goatx402-sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.6.0"
+  },
+  "keywords": [
+    "goatx402",
+    "quickpay",
+    "x402",
+    "mpp",
+    "agent",
+    "payment",
+    "cli"
+  ],
+  "license": "MIT"
+}
