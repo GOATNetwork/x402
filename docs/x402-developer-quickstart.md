@@ -67,7 +67,26 @@ From the repository, you can access:
 
 ## Option 2: Integrate Through an Agent
 
-If your team uses an Agent-assisted integration flow, a provided skills file can help the Agent guide the integration process.
+If your team uses an agent-assisted payment flow, start from the merchant's QuickPay agent document:
+
+```text
+GET https://api.x402.goat.network/quickpay/{merchant_id}/agent.md
+```
+
+The agent document points to the matching `manifest.json` and public QuickPay session endpoints.
+
+## Install the Core SDKs
+
+```bash
+# Backend order creation and polling
+npm install goatx402-sdk-server
+
+# Frontend wallet payment helper
+npm install goatx402-sdk ethers
+
+# Agent / CLI QuickPay payer
+npm install goatx402-quickpay
+```
 
 ---
 
@@ -78,6 +97,12 @@ Configure the following values in your backend project:
 - API URL
 - API Key
 - API Secret
+
+```bash
+GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_KEY=your_api_key
+GOATX402_API_SECRET=your_api_secret
+```
 
 ## Important Notes
 
@@ -104,6 +129,30 @@ After order creation succeeds, the backend should return:
 - `orderId`
 - payment-related parameters
 - the context needed for the selected payment mode
+
+Minimal TypeScript backend example:
+
+```typescript
+import { GoatX402Client } from 'goatx402-sdk-server'
+
+const client = new GoatX402Client({
+  baseUrl: process.env.GOATX402_API_URL ?? 'https://api.x402.goat.network',
+  apiKey: process.env.GOATX402_API_KEY!,
+  apiSecret: process.env.GOATX402_API_SECRET!,
+})
+
+const order = await client.createOrder({
+  dappOrderId: `order_${Date.now()}`,
+  chainId: 137,
+  tokenSymbol: 'USDC',
+  tokenContract: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
+  fromAddress: '0xUserWalletAddress',
+  amountWei: '10000000',
+})
+
+// Order creation returns an x402 HTTP 402 challenge under the hood.
+// The SDK normalizes it into order.orderId, order.payToAddress, order.amountWei, and order.flow.
+```
 
 ---
 
@@ -162,6 +211,23 @@ Before going live, it is recommended to validate at least the following:
 - proof can be retrieved
 - error handling behaves as expected
 - fee balance is sufficient for order creation
+
+### Test environment endpoints and gas
+
+| Resource | GOAT Testnet3 (development) | GOAT Mainnet (production) |
+| --- | --- | --- |
+| Chain ID | `48816` | `2345` |
+| RPC | `https://rpc.testnet3.goat.network` | `https://rpc.goat.network` |
+| Explorer | `https://explorer.testnet3.goat.network` | `https://explorer.goat.network` |
+| Merchant Portal | operator-provided per deployment | `https://x402-merchant.goat.network` |
+| API base | operator-provided per deployment | `https://api.x402.goat.network` |
+
+GOAT Network is a Bitcoin L2, so native gas is BTC:
+
+- **Testnet3:** get BTC for gas from the [GOAT Testnet3 faucet](https://bridge.testnet3.goat.network/faucet); the minimum priority gas tip is `130000` wei.
+- **Mainnet:** there is no faucet — fund the payer/deployer wallet with production native gas.
+
+> The per-deployment Testnet3 API base and test token contracts are environment-specific — ask the GoatX402 team for your Testnet3 API base and test token addresses. Full operator detail (chains, tokens, RPC, deploy steps) is in `ONBOARDING.md`.
 
 ---
 

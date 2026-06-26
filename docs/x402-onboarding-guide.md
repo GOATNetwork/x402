@@ -51,8 +51,7 @@ Create your merchant account and obtain access for the next stages of setup and 
 
 For a more detailed registration guide, please refer to:
 
-- **GOAT x402 Merchant Guide (Chinese)**  
-  https://github.com/GOATNetwork/x402/blob/main/docs/merchant-guide.md
+- [GOAT x402 Merchant Guide (English)](./merchant-guide.md)
 
 ## Information You Should Prepare in Advance
 
@@ -66,6 +65,7 @@ For a more detailed registration guide, please refer to:
 - A created Merchant Account
 - A merchant identity that can continue into configuration
 - Access to proceed to the receiving setup step
+- A clear account-security plan, including whether each user should enable self-service 2FA in Settings
 
 ---
 
@@ -99,10 +99,12 @@ Set and verify the final receiving address.
 Choose the payment mode based on your business scenario:
 
 - **DIRECT**: the user pays directly to the merchant address
-- **DELEGATE**: the system participates in settlement and supports more advanced post-payment execution flows
+- **DELEGATE**: same-chain EVM settlement using EIP-3009 or Permit2, TSS submission, and an approved callback contract
 
 ### 5. Configure Callback / Execution Logic (if applicable)
 If your flow requires payment-triggered on-chain execution, complete the related callback or execution configuration here.
+
+If your flow needs public payment links or agent-native payments, use `DIRECT` and plan to enable QuickPay after receiving addresses are configured.
 
 ## What You Should Have After This Step
 
@@ -153,6 +155,8 @@ It is recommended that your development team store credentials in environment va
 - API Secret
 - Clear guidance on test vs production environments
 
+Production API integrations should use `https://api.x402.goat.network`.
+
 ---
 
 # Step 04 — Integrate x402 SDK
@@ -194,14 +198,27 @@ This approach is suitable for teams that:
 
 - want to reduce manual integration overhead
 - want an Agent to assist with the integration process
-- want to standardize integration using provided skill files
+- want to standardize payment execution through the merchant's public QuickPay agent surface
 
-In this mode, a provided **skills file** helps the Agent understand:
+In this mode, the merchant's QuickPay **agent guide** is the concrete agent-readable file:
 
-- how to configure the x402 integration flow
-- how to call the SDK
-- how to create orders and payment flows
-- how to prepare for testing and launch
+```text
+https://api.x402.goat.network/quickpay/<merchant_id>/agent.md
+```
+
+The same merchant also exposes a machine-readable manifest:
+
+```text
+https://api.x402.goat.network/quickpay/<merchant_id>/manifest.json
+```
+
+The QuickPay `agent.md` helps the Agent understand:
+
+- which public endpoints are safe to call
+- which tokens and chains are offered
+- how to create and poll QuickPay x402 sessions
+- how to pay custom amounts with `goatx402-quickpay`
+- which predefined Products are available through `product_key`, when configured
 
 This approach is better suited for teams that want a more standardized, AI-assisted, or workflow-driven integration process.
 
@@ -214,7 +231,8 @@ This approach is better suited for teams that want a more standardized, AI-assis
 - create orders
 - initiate payments
 - query payment status
-- retrieve proof (if applicable)
+- retrieve proof for confirmed orders
+- enable QuickPay and Products when public payment links or agent payments are needed
 - complete test environment validation
 - complete production launch preparation
 
@@ -252,6 +270,7 @@ It is recommended to verify the following in the test environment:
 - [ ] Receiving address has been confirmed
 - [ ] Settlement chain / token has been confirmed
 - [ ] Payment mode has been confirmed
+- [ ] Merchant users have reviewed 2FA and recovery-code setup
 
 ### Technical Integration
 - [ ] API key / secret has been switched to the correct environment
@@ -259,6 +278,8 @@ It is recommended to verify the following in the test environment:
 - [ ] Backend order creation flow has been fully tested
 - [ ] Status query and proof retrieval are working correctly
 - [ ] Callback configuration has been verified (if applicable)
+- [ ] QuickPay `agent.md` and `manifest.json` have been tested if agent payments are in scope
+- [ ] QuickPay Products have been created if fixed-price product checkout is in scope
 
 ### Documentation and Support
 - [ ] Support email is ready
@@ -268,7 +289,7 @@ It is recommended to verify the following in the test environment:
 
 ### Launch Preparation
 - [ ] The team has checked the **fee balance** in the Dashboard
-- [ ] If needed, the fee balance has been topped up
+- [ ] If needed, the fee balance has been topped up from the Topup page
 - [ ] Test orders have been successfully completed
 - [ ] Error messaging has been reviewed
 - [ ] The support path is clearly defined
@@ -287,7 +308,7 @@ If the fee balance is insufficient, order creation will fail with an error such 
 
 ## Direct and Delegate Pricing Model
 
-x402 currently uses a **fixed-fee per order model**, not a percentage-based take rate.
+x402 currently uses a **fixed-fee per order model**, not a percentage-based take rate. Fees are chain/admin configured; the values below are the documentation baseline and should be checked against the active fee configuration before launch.
 
 ### DIRECT
 - The default fixed fee is typically **$0.10 per order**
@@ -322,13 +343,13 @@ x402 currently uses a **fixed-fee per order model**, not a percentage-based take
 
 It is recommended to read this guide together with:
 
-- **Merchant Registration / Merchant Guide (Chinese)**  
-  https://github.com/GOATNetwork/x402/blob/main/docs/merchant-guide.md
-- **x402 FAQ (English)**
-- **Why x402 (English)**
-- **Merchant Guide (English)**
-- **Developer Quick Start**
-- **API Reference**
+- [Merchant Guide](./merchant-guide.md)
+- [x402 FAQ](./x402-faq.md)
+- [Why x402](./why-x402.md)
+- [Developer Quick Start](./x402-developer-quickstart.md)
+- [API Reference](./x402-api-reference.md)
+- [Agent Integration Guide](./x402-agent-integration-guide.md)
+- [DApp Integration Skill](./x402-dapp-integration-prompts/SKILL.md)
 
 ---
 

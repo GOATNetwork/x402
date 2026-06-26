@@ -1,24 +1,25 @@
 # GOAT x402 Merchant Onboarding Guide
 
-> This guide walks merchants through the complete process of registering, configuring, and managing their GOAT x402 payment integration.
+> This guide walks merchants through registering, configuring, and operating a GOAT x402 payment integration.
 
 ---
 
 ## Table of Contents
 
 1. [Overview](#1-overview)
-2. [Payment Modes: DIRECT vs DELEGATE](#2-payment-modes-direct-vs-delegate)
-3. [Register a Merchant Account (Apply)](#3-register-a-merchant-account-apply)
-4. [Approval & Login](#4-approval--login)
+2. [Payment Modes and Supported Chains](#2-payment-modes-and-supported-chains)
+3. [Register a Merchant Account](#3-register-a-merchant-account)
+4. [Approval, Login, and Account Security](#4-approval-login-and-account-security)
 5. [Dashboard Overview](#5-dashboard-overview)
-6. [Configure Receiving Addresses](#6-configure-receiving-addresses)
+6. [Configure Receiving Addresses and Callback Contracts](#6-configure-receiving-addresses-and-callback-contracts)
 7. [Merchant Settings](#7-merchant-settings)
 8. [API Keys Management](#8-api-keys-management)
 9. [Webhook Configuration](#9-webhook-configuration)
-10. [Team Management & Invite Codes](#10-team-management--invite-codes)
+10. [Team Management and Invite Codes](#10-team-management-and-invite-codes)
 11. [Order Management](#11-order-management)
-12. [Balance & Fees](#12-balance--fees)
-13. [Audit Logs](#13-audit-logs)
+12. [QuickPay and Products](#12-quickpay-and-products)
+13. [Balance, Fees, and Topup](#13-balance-fees-and-topup)
+14. [Audit Logs](#14-audit-logs)
 
 ---
 
@@ -27,67 +28,81 @@
 The GOAT x402 Merchant Portal is your management dashboard for:
 
 - Registering and managing your merchant identity
-- Configuring receiving addresses and supported chains/tokens
-- Managing API keys and webhook callbacks
-- Viewing orders, balances, and transaction history
-- Inviting team members to collaborate
+- Configuring receiving addresses, callback contracts, and supported chains/tokens
+- Managing team members, account security, API keys, and webhook callbacks
+- Viewing orders, balances, reconciliation, and audit history
+- Publishing QuickPay links, products, and agent-native payment surfaces
 
 **Access URLs:**
+
 - Merchant Portal: `https://x402-merchant.goat.network`
+- Production API: `https://api.x402.goat.network`
 
 ---
 
-## 2. Payment Modes: DIRECT vs DELEGATE
+## 2. Payment Modes and Supported Chains
 
-You must choose a payment mode during registration. **Please confirm which mode your business requires before registering — it cannot be changed after registration.**
+You choose a receive mode during registration. The receive mode is not a routine merchant self-service setting: changing it later requires admin action and is blocked while receiving addresses or callback contracts are configured.
 
-### DIRECT Mode (Direct Payment)
+### DIRECT Mode
 
-User payments go **directly to your wallet address**.
+User or agent payments go directly to your receiving wallet on the same chain as the order.
 
-- Fund flow: User Wallet → Merchant Wallet
-- Best for: Tips, donations, simple payments
-- Advantages: Simplest integration — just a few lines of code on frontend and backend
-- Limitations: Same-chain payments only, no contract callbacks
+- Fund flow: User wallet -> Merchant wallet
+- Mechanism: ERC-20 `transfer`
+- Best for: Tips, donations, simple checkout, QuickPay links, agent payments
+- Requirements: A receiving address for each chain/token you accept
+- Contract callback: Not used
+- Proof: Confirmed orders can expose payment proof for audit and reconciliation
 
-**Example:** A content platform where creators have a receiving address on GOAT Network. Fans can tip USDC directly from ETH or Polygon to the creator's address. No intermediary — funds go straight to the creator.
+**Example:** A content platform has a GOAT mainnet USDC receiving address. A buyer pays USDC on GOAT mainnet to that same-chain merchant address. The watcher matches the transfer to the order; no TSS settlement or callback contract is involved.
 
-### DELEGATE Mode (Custodial Settlement) — Recommended
+### DELEGATE Mode
 
-User payments first go to a TSS custodial wallet. The system automatically verifies, deducts fees, settles to the merchant, and triggers contract callbacks. The entire process is atomic.
+DELEGATE is a same-chain EVM custodial settlement path for flows that need payment-triggered contract execution.
 
-- Fund flow: User Wallet → TSS Custodial Wallet → Deduct Service Fee → Settle to Merchant → Trigger Callback Contract
-- Best for: Cross-chain payments, in-game purchases, per-call API billing, NFT minting
-- Advantages:
-  - Cross-chain routing — users pay from any supported chain, merchants receive on GOAT
-  - Native callbacks — automatically triggers merchant contracts on settlement, rolls back on failure
-  - Gas sponsorship — neither users nor merchants need to manage Gas on GOAT
-  - Verifiable Proof — every payment generates a settlement proof
-  - Platform fee — Core automatically deducts the service fee from settlement
-- Additional requirement: Deploy a callback contract and submit it for Admin approval
+- Fund flow: User authorization/payment -> TSS-controlled settlement path -> Merchant callback contract / merchant settlement on the same chain
+- Mechanism: EIP-3009 or Permit2 `SignatureTransfer`, TSS co-signing, SubmitMonitor submission, and merchant callback
+- Best for: In-game purchases, per-call API billing, NFT minting, and other same-chain post-payment execution
+- Requirements: One EVM chain per merchant, receiving address on that chain, and an admin-approved callback contract on that same chain
+- No bridging: DELEGATE does not let users pay on one chain while the merchant receives on another chain
+- Proof: Confirmed orders can expose verifiable proof
 
-**Example:** A blockchain game deploys an item purchase contract on GOAT Network. A player only has USDC on BSC — no GOAT chain assets or Gas. Player pays with USDC → Core automatically calls the game contract on GOAT → Player receives the item NFT. No bridge needed, Gas is sponsored by TSS.
+**Example:** A game operates on GOAT mainnet. The player authorizes a USDC payment on GOAT mainnet; Core verifies the order and the TSS-backed settlement path calls the game's approved GOAT callback contract. The player receives the item without any bridge or chain switch.
 
-### Comparison Table
+### Mode Comparison
 
 | Feature | DIRECT | DELEGATE |
-|---------|--------|----------|
-| Fund Flow | User → Merchant | User → TSS → Merchant |
-| Cross-chain | Same-chain only | ✅ Pay on Chain A → Receive on GOAT |
-| Contract Callback | Not supported | ✅ Atomic execution |
-| Gas Sponsorship | Not supported | ✅ TSS-sponsored |
-| Settlement Proof | Not supported | ✅ Verifiable Proof |
-| User needs GOAT assets | Depends | Not at all |
-| Integration Difficulty | ⭐ Simplest | ⭐⭐ Requires callback contract |
-| Best For | Tips, donations, simple payments | Cross-chain interactions, games, API billing, NFT minting |
+| --- | --- | --- |
+| Fund flow | User -> Merchant | Same-chain user authorization/payment -> TSS settlement path -> callback/merchant |
+| Chain scope | Same chain as the order | Same chain only; one EVM chain per merchant |
+| Contract callback | No | Yes, via admin-approved callback contract |
+| Gas sponsorship for callback/settlement | No callback path | TSS-submitted settlement/callback path |
+| Settlement proof | Yes, after confirmation | Yes, after confirmation |
+| QuickPay support | Yes | No |
+| Integration difficulty | Simplest | Requires callback contract review |
+| Best for | Simple payments and public payment links | Same-chain contract execution after payment |
 
-> **Recommendation:** Choose DIRECT if your DApp only needs simple payments. Choose DELEGATE if you need cross-chain payments or contract callbacks.
->
-> In short: **DIRECT is for receiving money. DELEGATE is for receiving money + triggering actions.**
+### Supported Mainnet Matrix
+
+| Chain | Chain ID | DIRECT | DELEGATE | Explorer |
+| --- | ---: | --- | --- | --- |
+| Ethereum | `1` | Yes | Yes | `etherscan.io` |
+| Polygon | `137` | Yes | Yes | `polygonscan.com` |
+| BSC | `56` | Yes | Yes | `bscscan.com` |
+| Arbitrum | `42161` | Yes | Yes | `arbiscan.io` |
+| Optimism | `10` | Yes | Yes | `optimistic.etherscan.io` |
+| Avalanche | `43114` | Yes | Yes | `snowtrace.io` |
+| Base | `8453` | Yes | Yes | `basescan.org` |
+| Berachain | `80094` | Yes | Yes | `berascan.com` |
+| X Layer | `196` | Yes | Yes | `web3.okx.com/explorer/x-layer/evm` |
+| GOAT | `2345` | Yes | Yes | `explorer.goat.network` |
+| Metis | `1088` | Yes | No | `andromeda-explorer.metis.io` |
+| Tempo | `4217` | Yes | No | `explore.tempo.xyz` |
 
 ---
 
-## 3. Register a Merchant Account (Apply)
+## 3. Register a Merchant Account
 
 ### 3.1 Open the Registration Page
 
@@ -99,31 +114,27 @@ Visit the Merchant Portal and click the **Apply** tab to access the registration
 
 ![Registration Form](./images/08-apply-form-detail.png)
 
-Fill in the following fields:
-
 | Field | Description | Format Requirements |
-|-------|-------------|---------------------|
-| **Merchant ID** | Unique merchant identifier, cannot be changed after registration | Letters, numbers, and underscores only. **No spaces allowed.** Example: `Test_1`, `My_Shop_01` |
-| **Merchant Name** | Display name, can be changed later | Any text |
-| **Receive Type** | Payment mode | Select `DIRECT` or `DELEGATE` from dropdown (see Section 2) |
-| **Email** | Login email | Valid email address |
-| **Password** | Login password | Recommended: 8+ characters with letters and numbers |
-
-> ⚠️ **Merchant ID Format:** Only English letters, numbers, and underscores (`_`) are allowed. **No spaces or special characters.** Examples: `Tarot_App`, `GameStore_01`. Cannot be changed once registered.
+| --- | --- | --- |
+| **Merchant ID** | Unique merchant identifier; cannot be changed after registration | Letters, numbers, hyphens, and underscores only. Reserved IDs and `topup-` / `topup_` prefixes are not available. |
+| **Merchant Name** | Display name; can be changed later | Any merchant display text |
+| **Receive Type** | Payment mode | Select `DIRECT` or `DELEGATE` after confirming the chain/mode matrix above |
+| **Email** | Owner login email | Valid email address |
+| **Password** | Owner login password | 8 to 72 characters |
 
 ### 3.3 Submit Application
 
 Click **Submit Application** when done.
 
-After submission, the system will display "Waiting for admin approval." You cannot log in until approved. Attempting to log in will show: "merchant account is pending approval."
+After submission, the system displays a pending-approval state. Self-registration creates the merchant and owner user, but does not issue access tokens until an admin approves the merchant.
 
 ---
 
-## 4. Approval & Login
+## 4. Approval, Login, and Account Security
 
 ### 4.1 Admin Approval
 
-After registration, a GOAT x402 administrator will review your application, typically within 24 hours. You will be notified once approved.
+After registration, a GOAT x402 administrator reviews the application. Approval enables the merchant; rejection records a reason for the applicant.
 
 ### 4.2 Login
 
@@ -131,7 +142,50 @@ Once approved, open the Merchant Portal and switch to the **Login** tab.
 
 ![Login Page](./images/09-login.png)
 
-Enter the email and password you used during registration, then click **Login** to access the dashboard.
+Enter the email and password used during registration. If 2FA is enabled for the user, complete the TOTP or recovery-code challenge before entering the dashboard.
+
+Login intentionally uses generic failures for pending, disabled, locked, or invalid accounts so that attackers cannot infer account state.
+
+### 4.3 Password Change and Forced Reset
+
+Every authenticated merchant user can change their own password:
+
+```text
+POST /merchant/v1/account/change-password
+```
+
+Request fields:
+
+| Field | Description |
+| --- | --- |
+| `current_password` | Current password, or the one-time temporary password from an admin reset |
+| `new_password` | New password; 8 to 72 characters, different from the current password, and not equal to the user email |
+
+When an admin resets a merchant user's password, the account is marked `must_change_password=true`. The user can log in with the temporary password, but the session is confined to `POST /merchant/v1/account/change-password` until a new password is set. Changing the password clears the forced-change flag and bumps `mfa_epoch`, evicting other refresh tokens.
+
+### 4.4 Lockout Rules
+
+| Surface | Failed attempts | Lock duration | Response behavior |
+| --- | ---: | --- | --- |
+| Login password | 5 | 15 minutes | Generic `401` |
+| Current password check on change-password | 5 | 15 minutes | `400` until locked, then `429` |
+| TOTP or recovery-code verification | 5 | 15 minutes | `403` until locked, then `429` |
+
+### 4.5 Self-Service 2FA
+
+2FA is per user. Use the Settings page to enroll, confirm, or disable TOTP.
+
+| Operation | API path | Notes |
+| --- | --- | --- |
+| Start enrollment | `POST /merchant/v1/totp/enroll` | Returns the TOTP setup data and QR payload |
+| Confirm enrollment | `POST /merchant/v1/totp/confirm` | Enables TOTP and returns one-time recovery codes |
+| Disable 2FA | `POST /merchant/v1/totp/disable` | Requires a valid TOTP code or unused recovery code |
+
+Store recovery codes securely. They are meant for account recovery if the authenticator is unavailable.
+
+### 4.6 Lost Password or Authenticator
+
+If you lose your password or 2FA authenticator and cannot recover with a one-time recovery code, contact the GoatX402 platform team to request a reset. A platform administrator can issue a one-time temporary password (which forces a password change on your next login) or reset your 2FA. This is an admin-assisted operation; the administrator procedure lives in the operator runbook (`ONBOARDING.md`).
 
 ---
 
@@ -144,56 +198,63 @@ After login, you'll land on the Dashboard page.
 The Dashboard displays:
 
 | Card | Description |
-|------|-------------|
-| **Fee Balance** | Current fee balance (for platform transaction fees) |
+| --- | --- |
+| **Fee Balance** | Current prepaid fee balance |
 | **Today** | Today's order count and volume |
 | **This Week** | This week's order count and volume |
 | **This Month** | This month's order count and volume |
 
 Below the cards:
-- **Order Statistics** — Total order count
-- **Recent Orders** — Latest orders list
 
-New merchants will show all zeros — this is normal.
+- **Order Statistics** - Total order count
+- **Recent Orders** - Latest orders list
+
+New merchants show zero counts until orders are created and paid.
 
 ---
 
-## 6. Configure Receiving Addresses
+## 6. Configure Receiving Addresses and Callback Contracts
 
 Go to the **Settings** page and find the **Receiving Addresses** section.
 
-### 6.1 Initial State
-
-New merchants have no receiving addresses configured.
-
-![Empty Receiving Addresses](./images/05-receiving-addresses-empty.png)
-
-### 6.2 Add a Receiving Address
+### 6.1 Add a Receiving Address
 
 Click **Add Address** in the top right to open the form.
 
 ![Add Receiving Address](./images/06-add-receiving-address.png)
 
-Fill in:
-
 | Field | Description |
-|-------|-------------|
-| **Chain** | Select a chain (e.g., GOAT Testnet3, BSC Testnet) |
-| **Token** | Select a token (e.g., USDC, USDT) |
+| --- | --- |
+| **Chain** | Select a supported mainnet chain, such as GOAT (`2345`), Base (`8453`), X Layer (`196`), or Metis (`1088`) |
+| **Token** | Select a configured token, such as USDC or USDT |
 | **Address** | Your EVM receiving address (`0x` + 40 hex characters) |
 
-> ⚠️ **Important:**
-> - Each Chain + Token combination can only have one address — duplicates will be rejected
-> - Address must be a valid EVM address (`0x` + 40 hex)
-> - Available chain and token configuration depends on the merchant setup and current platform support matrix
+Important rules:
 
-### 6.3 View Added Addresses
-
-After adding, addresses appear in the list.
+- Each Chain + Token combination can only have one address.
+- Address and token contract must be valid EVM addresses.
+- Available chains/tokens come from platform configuration.
+- For `DELEGATE`, all receiving addresses must be on a single EVM chain.
+- For `DELEGATE`, the receiving-address chain must match the callback-contract chain.
 
 ![Receiving Addresses List](./images/07-receiving-addresses-list.png)
 
-The list shows each address's chain, token, token contract, and receiving address. Click **Remove** (red text) to delete an address.
+### 6.2 Callback Contracts for DELEGATE
+
+DELEGATE merchants must submit a callback contract for admin review before same-chain callback execution can be used.
+
+Merchant self-service endpoints:
+
+| Action | API path | Fields |
+| --- | --- | --- |
+| List active and pending/rejected submissions | `GET /merchant/v1/callback-contracts` | None |
+| Submit for review | `POST /merchant/v1/callback-contracts` | `chain_id`, `spent_address`, optional `spent_permit2_func_abi`, optional `spent_erc3009_func_abi`, optional `eip712_name`, optional `eip712_version` |
+| Cancel pending submission | `DELETE /merchant/v1/callback-contracts/submissions/:submission_id` | Path parameter |
+| Remove active contract | `DELETE /merchant/v1/callback-contracts/:chain_id` | Path parameter; blocked while in-flight orders exist on that chain |
+
+After you submit a callback contract it enters review and becomes active only after a platform administrator approves it. Contact the GoatX402 team to request review. (The administrator review procedure lives in the operator runbook, `ONBOARDING.md`.)
+
+The callback contract must be on the same chain as the DELEGATE merchant's receiving addresses. Metis and Tempo are DIRECT-only in the matrix above.
 
 ---
 
@@ -206,24 +267,19 @@ Go to the **Settings** page to view and edit merchant information.
 ### Profile Information
 
 | Field | Editable | Description |
-|-------|----------|-------------|
-| Merchant ID | ❌ Read-only | Set during registration |
-| Receive Type | ❌ Read-only | DIRECT or DELEGATE |
-| Status | ❌ Read-only | Enabled / Disabled |
-| Role | ❌ Read-only | Owner or Member |
-| Name | ✅ Editable | Merchant display name |
-| Logo URL | ✅ Editable | Merchant logo image URL |
+| --- | --- | --- |
+| Merchant ID | No | Set during registration |
+| Receive Type | No | `DIRECT` or `DELEGATE`; admin-only change, blocked while addresses/contracts exist |
+| Status | No | Enabled / Disabled |
+| Role | No | Owner or Member |
+| Name | Yes | Merchant display name |
+| Logo URL | Yes | Merchant logo image URL |
 
 Click **Save Changes** after modifications.
 
-### Cross-chain Limits
+### Limits
 
-The Settings page also displays cross-chain limit configuration:
-
-- `max_frozen_amount_usd` — Maximum frozen amount (USD)
-- `max_pending_orders` — Maximum pending orders
-
-These limits are set by Admin and cannot be modified by merchants.
+The Settings and QuickPay pages may display limits configured by the platform, such as maximum frozen amount, pending orders, maximum open QuickPay sessions, or per-merchant daily session caps. These are operational controls and may be admin-configured.
 
 ---
 
@@ -235,39 +291,40 @@ Go to the **Developer** page to view and manage API keys.
 
 ### After Rotation
 
-After clicking **Rotate API Keys**, the system generates new keys and displays a prompt. The API Key and API Secret are only shown in full at this moment — save them immediately.
+After clicking **Rotate API Keys**, the system generates a new API Key and API Secret. The secret is shown only once; save it immediately.
 
 ![API Keys Rotated](./images/22-apikeys-rotated.png)
 
-### API Keys Fields
-
 | Field | Description |
-|-------|-------------|
+| --- | --- |
 | **API Key** | Public key for identifying your merchant |
-| **API Secret** | Private key for HMAC signature verification. **Shown only once when generated** |
+| **API Secret** | Private HMAC key; shown only once when generated |
 | **Last Updated** | Last rotation timestamp |
 
-### Instructions
+Use API keys only from your backend:
 
-1. On first visit, click **Rotate API Keys** to generate keys
-2. **Save the API Secret immediately** — it's only shown once
-3. Clicking Rotate again generates new keys — **old keys are invalidated immediately**
-4. Use the API Key and API Secret in your backend SDK configuration:
-
-```
+```bash
+GOATX402_API_URL=https://api.x402.goat.network
 GOATX402_API_KEY=your_API_Key
 GOATX402_API_SECRET=your_API_Secret
 ```
 
-> ⚠️ **Security Warning:**
-> - API Secret belongs on the backend only — **never expose it in frontend code or public repositories**
-> - If you suspect a key leak, Rotate immediately to generate new keys
+Server-side calls to `/api/v1/*` are HMAC protected and require:
+
+| Header | Required |
+| --- | --- |
+| `X-API-Key` | Yes |
+| `X-Timestamp` | Yes |
+| `X-Nonce` | Yes |
+| `X-Sign` | Yes |
+
+Do not expose the API Secret in frontend code or public repositories. If you suspect a key leak, rotate immediately; old keys are invalidated.
 
 ---
 
 ## 9. Webhook Configuration
 
-Webhooks notify you when order statuses change. When an order status updates, the system sends a POST request to your configured URL.
+Webhooks notify you when an order reaches the merchant-facing invoiced state. The current webhook event is `order.invoiced`; use order polling or reconciliation views for other status changes.
 
 ### 9.1 Add a Webhook
 
@@ -276,14 +333,15 @@ On the Developer page, click **Add Webhook**.
 ![Add Webhook](./images/14-developer-apikeys-webhook.png)
 
 | Field | Description |
-|-------|-------------|
-| **URL** | Your callback URL. **Must be HTTPS.** Example: `https://your-app.com/api/x402/callback` |
-| **Events** | Check the events to subscribe to. Currently supports `order.invoiced` (order settled) |
+| --- | --- |
+| **URL** | Your callback URL. Must be HTTPS. Example: `https://your-app.com/api/x402/callback` |
+| **Events** | Events to subscribe to. Current merchant-facing event: `order.invoiced` |
 
-> ⚠️ **Restrictions:**
-> - URL must be HTTPS — HTTP is not supported
-> - `localhost` URLs are not allowed (SSRF protection)
-> - Maximum **3 webhooks** per merchant
+Restrictions:
+
+- URL must be HTTPS.
+- `localhost` URLs are not allowed.
+- Maximum 3 webhooks per merchant.
 
 ### 9.2 Save the Webhook Secret
 
@@ -291,84 +349,55 @@ After creation, the system displays the **Webhook Secret**.
 
 ![Webhook Created](./images/15-developer-webhook-created.png)
 
-> ⚠️ **The Webhook Secret is shown only once!** Copy and save it immediately. It's used to verify that incoming webhook requests are genuinely from the GOAT x402 system and prevent forgery.
-
-### 9.3 Manage Webhooks
-
-After creation, you can see each webhook's URL, Events, and status (Active/Disabled) in the list. You can:
-
-- **Edit** — Change URL or toggle enabled/disabled
-- **Delete** — Remove the webhook
+The Webhook Secret is shown only once. Save it immediately and use it to verify incoming webhook requests.
 
 ---
 
-## 10. Team Management & Invite Codes
+## 10. Team Management and Invite Codes
 
-Merchant Owners can invite others to join the team. Invited members have **read-only access** — they can view Dashboard, Orders, and Balance, but **cannot modify** any merchant configuration.
+Merchant Owners can invite others to join the team. Invited members have read-only operational access and can manage their own account security.
 
 ### 10.1 Role Permission Comparison
 
 | Feature | Owner | Member |
-|---------|-------|--------|
-| View Dashboard | ✅ | ✅ |
-| View Orders | ✅ | ✅ |
-| View Balance | ✅ | ✅ |
-| Modify Settings (Profile, Addresses, etc.) | ✅ | ❌ |
-| Manage API Keys | ✅ | ❌ |
-| Manage Webhooks | ✅ | ❌ |
-| Manage Team / Invite Codes | ✅ | ❌ |
-| View Audit Logs | ✅ | ✅ |
+| --- | --- | --- |
+| View Dashboard | Yes | Yes |
+| View Orders | Yes | Yes |
+| View Balance | Yes | Yes |
+| Manage own password and 2FA | Yes | Yes |
+| Modify profile and receiving settings | Yes | No |
+| Manage callback contract submissions | Yes | No |
+| Manage API keys | Yes | No |
+| Manage webhooks | Yes | No |
+| Manage QuickPay and Products | Yes | No |
+| Manage Team / Invite Codes | Yes | No |
+| View Audit Logs | Yes | Yes |
 
-> Members will **not see the Team menu** in the navigation bar and cannot see any edit buttons for receiving addresses.
-
-### 10.2 Create an Invite Code (Owner)
+### 10.2 Create an Invite Code
 
 Go to the **Team** page and click **Create Invite Code**.
 
 ![Create Invite Code](./images/17-team-create-invite.png)
 
-- Invite code role is fixed as **Member**
-- Expiration defaults to **72 hours** (3 days), adjustable
-- Each invite code is **single-use only**
-
-### 10.3 Copy the Invite Code
-
-After creation, the system displays the full invite code.
+- Owner-created invite codes create `member` users.
+- Expiration defaults to 72 hours.
+- Each invite code is single-use.
 
 ![Invite Code Created](./images/18-team-invite-created.png)
 
-> ⚠️ **The full invite code is shown only once!** Click **Copy** immediately and share it with the invitee.
-
-### 10.4 Invite Code Status Management
-
-![Invite Codes List](./images/16-team-invite-codes.png)
-
-Invite codes have three possible statuses:
-
-| Status | Description |
-|--------|-------------|
-| **Active** (green) | Unused, can be shared. Owner can click **Revoke** to cancel |
-| **Used** (blue) | Already used, shows the user's email |
-| **Revoked** | Cancelled, can no longer be used |
-
-### 10.5 Invitee Registration (Member)
+### 10.3 Invitee Registration
 
 The invitee opens the Merchant Portal and switches to the **Invite** tab.
 
 ![Invite Registration](./images/19-invite-register.png)
 
 Fill in:
-- **Invite Code** — The code provided by the Owner
-- **Email** — Your own email
-- **Password** — Set a login password
 
-Click **Register** to complete registration. Invite code registration **does not require Admin approval** — you can log in immediately after registration.
+- **Invite Code** - The code provided by the Owner
+- **Email** - The invitee's email
+- **Password** - A password following the 8 to 72 character rule
 
-### 10.6 Member After Login
-
-Members can see Dashboard, Orders, Balance, and other pages, but the navigation bar has no Team menu and no edit buttons are visible for any configuration.
-
-![Member Dashboard](./images/20-member-dashboard.png)
+Invite-code registration does not require new merchant approval because the merchant is already approved.
 
 ---
 
@@ -381,101 +410,173 @@ Go to the **Orders** page to view all orders.
 ### Filters
 
 | Filter | Options |
-|--------|---------|
-| **Status** | All / Various order statuses |
+| --- | --- |
+| **Status** | All / order statuses |
 | **Flow** | All / DIRECT / DELEGATE |
-
-Click **Reset** to clear all filters.
 
 ### Order List Fields
 
 | Column | Description |
-|--------|-------------|
+| --- | --- |
 | ID | System order ID |
 | Dapp Order | DApp-side order number |
 | Flow | DIRECT or DELEGATE |
-| Token | Payment token (e.g., USDC) |
+| Token | Payment token, such as USDC |
 | Amount | Payment amount |
-| User | Payer's address (blue link, click to view on Explorer) |
+| User | Payer address |
 | Status | Order status |
 | Created | Creation time |
 
-Click **View** to see order details, including on-chain Payment and Payout transaction information.
+Click **View** to see order details, including payment and payout transaction data. For confirmed orders, use proof retrieval for audit, reconciliation, and downstream fulfillment evidence.
 
 ---
 
-## 12. Balance & Fees
+## 12. QuickPay and Products
+
+QuickPay is the public payment surface for human payers and AI agents. It requires:
+
+- Merchant is enabled
+- Receive type is `DIRECT`
+- QuickPay is enabled
+- At least one payable EVM token is configured with fee configuration
+
+DELEGATE merchants cannot publish QuickPay sessions.
+
+### 12.1 Configure QuickPay
+
+QuickPay must first be enabled for your merchant account by a platform administrator — contact the GoatX402 team to enable it. Once enabled, you manage the configuration yourself:
+
+| Action | API path | Notes |
+| --- | --- | --- |
+| Read config | `GET /merchant/v1/quickpay` | Shows eligibility, display config, caps, token list, and public links |
+| Update config | `PUT /merchant/v1/quickpay` | Owner-only |
+
+Config fields include `quickpay_enabled`, `display_name`, `description`, `logo_url`, `memo_required`, `max_amount_wei`, `max_open_sessions`, `daily_session_limit`, and `max_open_sessions_merchant_wide`.
+
+### 12.2 QuickPay Products
+
+Products are predefined fixed-price items for QuickPay. A product is token-agnostic: it stores one decimal `price`; the buyer or agent chooses a supported chain and token at checkout, and the server computes the on-chain amount as `price * 10^token_decimals`.
+
+You manage your own products with the merchant endpoints below. (Platform admins have equivalent endpoints for support; see the operator runbook.)
+
+| Action | Merchant API path |
+| --- | --- |
+| List products | `GET /merchant/v1/quickpay/products` |
+| Create product | `POST /merchant/v1/quickpay/products` |
+| Update product | `PUT /merchant/v1/quickpay/products/:product_key` |
+| Delete product | `DELETE /merchant/v1/quickpay/products/:product_key` |
+
+Product fields:
+
+| Field | Notes |
+| --- | --- |
+| `product_key` | Immutable identifier; must match `^[A-Za-z0-9._:~-]{1,64}$` |
+| `name` | Required display name |
+| `description` | Optional |
+| `image_url` | Optional HTTPS URL |
+| `price` | Required positive decimal, token-agnostic |
+| `enabled` | Optional; defaults to true |
+| `sort_order` | Optional; defaults to 0 |
+
+Product-bound sessions use `product_key` plus the buyer-selected `chain_id` and `token_contract`. The server pins the authoritative amount and memo (`product:<product_key>`).
+
+### 12.3 Public Agent Surfaces
+
+Public QuickPay surfaces never expose merchant API secrets.
+
+| Surface | API path |
+| --- | --- |
+| Public discovery | `GET /quickpay/v1/merchants/:merchant_id` |
+| Agent guide | `GET /quickpay/:merchant_id/agent.md` |
+| Manifest | `GET /quickpay/:merchant_id/manifest.json` |
+| Create x402 session | `POST /quickpay/v1/x402/sessions` |
+| Get session status | `GET /quickpay/v1/x402/sessions/:session_id` |
+
+For custom amounts, `POST /quickpay/v1/x402/sessions` accepts `merchant_id`, `payer_addr`, `chain_id`, `token_contract`, `amount_wei`, optional `memo`, and optional `idempotency_key`.
+
+For product sessions, send `product_key` with `merchant_id`, `payer_addr`, `chain_id`, `token_contract`, and optional `idempotency_key`.
+
+Agent/CLI entry points:
+
+```bash
+npx goatx402-quickpay inspect https://api.x402.goat.network/quickpay/<merchant_id>/agent.md
+npx goatx402-quickpay pay-x402 https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+  --amount <amount> --token-contract <token_contract> --chain <chain_id>
+```
+
+Agents should treat `agent.md` as the canonical skills-style instruction file for QuickPay payments and use `manifest.json` for machine-readable capabilities.
+
+---
+
+## 13. Balance, Fees, and Topup
 
 Go to the **Balance** page to view fee-related information.
 
 ![Balance & Fees](./images/12-balance-fees.png)
 
-### What is Fee Balance?
+### 13.1 Fee Balance
 
-Fee Balance is your **prepaid platform fee balance**. For each payment completed through x402, the system automatically deducts the corresponding fee from your Fee Balance. When the balance is insufficient, new payment requests cannot be processed.
+Fee Balance is your prepaid platform fee balance. Creating x402 orders or QuickPay sessions can fail if the fee balance is insufficient. Successful orders consume fees; expired or canceled orders refund reserved fees according to platform rules.
 
-### How to Top Up?
+### 13.2 Self-Service Topup
 
-After your merchant registration is approved, contact the GOAT x402 team to complete your initial top-up:
+Use the **Topup** page after approval to create and track fee-balance top-ups. The Topup service creates an x402 order for the requested top-up, tracks the payment, and credits your merchant fee balance through an internal verified callback after the top-up order is invoiced.
 
-1. **Contact the GOAT x402 team** with your Merchant ID
-2. **Agree on a top-up amount** — the team will recommend an amount based on your business estimate
-3. **After payment**, Admin will top up your account in the backend
-4. Once credited, the Balance page will show your updated balance, and Transaction History will show a TOPUP record
+| Action | API path |
+| --- | --- |
+| Create top-up | `POST /api/topup` |
+| List top-ups | `GET /api/topup/records` |
+| Get one top-up | `GET /api/topup/records/:id` |
 
-> 💡 **Testnet:** On testnet, Admin directly credits approved merchants with a test balance (e.g., $100) — no actual payment required.
->
-> 💡 **Mainnet:** On mainnet, top-ups are also handled by Admin. Please contact the GOAT x402 team.
-
-### Balance Cards
+### 13.3 Balance Cards
 
 | Card | Description |
-|------|-------------|
-| **Current Balance** | Current fee balance (green) — auto-deducted per order |
-| **Total Charged** | Cumulative fees charged (red) — total historical fees |
-| **Total Refunded** | Cumulative refunds (blue) — fees returned from order refunds |
+| --- | --- |
+| **Current Balance** | Current fee balance |
+| **Total Charged** | Cumulative fees charged |
+| **Total Refunded** | Cumulative refunded fees |
 
-### Fee Configuration
+### 13.4 Fee Configuration
 
-Per-order fee amounts for each chain:
+Fees are chain/admin configured. The default documentation baseline is:
 
-| Chain | DIRECT Fee | DELEGATE Fee |
-|-------|-----------|--------------|
-| BSC Testnet | $0.0500 | $0.2000 |
-| GOAT Testnet3 | $0.0500 | $0.1500 |
-| Sepolia Testnet | $0.0500 | $0.3000 |
+| Mode | Default baseline |
+| --- | ---: |
+| DIRECT | `$0.10` per order |
+| DELEGATE | `$0.20` per order where supported |
 
-> Fees are set by Admin. DELEGATE fees are higher than DIRECT because they include cross-chain routing, Gas sponsorship, and callback execution services.
+DELEGATE fees are higher because they include same-chain authorization processing, TSS submission, and callback execution overhead. Check the Balance or fee configuration view for the active chain-specific values before launch.
 
-### Transaction History
-
-Lists all fee-related transactions:
+### 13.5 Transaction History
 
 | Type | Description |
-|------|-------------|
-| **TOPUP** | Top-up records (Admin operation) |
-| **CHARGE** | Order fee deductions |
-| **REFUND** | Refund returns |
+| --- | --- |
+| `TOPUP` | Fee-balance top-up credit |
+| `CHARGE` | Order or session fee deduction |
+| `REFUND` | Returned fee reservation |
 
 ---
 
-## 13. Audit Logs
+## 14. Audit Logs
 
-Go to the **Audit Logs** page to view all operation records.
+Go to the **Audit Logs** page to view operation records.
 
-The system automatically records the following operations:
+The system records operations such as:
 
-- Profile changes (name, logo)
+- Profile changes
 - Receiving address additions and removals
+- Callback contract submissions and changes
 - Webhook creation, editing, and deletion
-- API Key rotations
+- API key rotations
+- QuickPay and product changes
 - Invite code creation and revocation
+- Account security changes
 - Login and logout
 
 Each record contains:
 
 | Field | Description |
-|-------|-------------|
+| --- | --- |
 | Action | Operation type |
 | Old Value | Value before change |
 | New Value | Value after change |
@@ -489,20 +590,23 @@ Each record contains:
 
 Complete the following steps to start accepting payments:
 
-- [ ] 1. Register a merchant account (choose DIRECT or DELEGATE mode)
-- [ ] 2. Wait for Admin approval
-- [ ] 3. Log in to the portal
-- [ ] 4. Add receiving addresses (at least one Chain + Token)
-- [ ] 5. Generate API Keys and save the API Secret
-- [ ] 6. Configure webhook callback URL
-- [ ] 7. Integrate x402 SDK in your DApp backend
+- [ ] 1. Register a merchant account and choose `DIRECT` or `DELEGATE`
+- [ ] 2. Wait for admin approval
+- [ ] 3. Log in and optionally enable 2FA
+- [ ] 4. Add receiving addresses for each accepted Chain + Token
+- [ ] 5. For DELEGATE, submit a same-chain callback contract for review
+- [ ] 6. Generate API keys and save the API Secret
+- [ ] 7. Configure webhook callbacks
+- [ ] 8. Top up the fee balance from the Topup page
+- [ ] 9. If using QuickPay, enable QuickPay and optionally create Products
+- [ ] 10. Integrate the x402 SDK or QuickPay public agent surfaces
 
 ```bash
-# Install SDK
+# Install SDKs
 npm install goatx402-sdk goatx402-sdk-server
 
 # Backend configuration
-GOATX402_API_URL=https://x402-api.goat.network
+GOATX402_API_URL=https://api.x402.goat.network
 GOATX402_API_KEY=your_API_Key
 GOATX402_API_SECRET=your_API_Secret
 ```

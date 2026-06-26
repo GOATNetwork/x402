@@ -19,19 +19,32 @@ This project demonstrates how to integrate x402 in practice, including:
 
 ## Chain Support
 
-x402 integration in this repository supports **GOAT Network and other configured chains**.  
-The exact set of supported chains depends on each merchant's GoatX402 Core configuration, including per-chain token, fee, wallet, and callback settings.
+GOAT x402 supports configured **EVM mainnet** chains. Each merchant still needs per-chain token, fee, receiving-address, and callback-contract configuration before taking payments on a chain.
 
-Based on current docs/examples, referenced networks include:
+| Chain | Chain ID | DIRECT | DELEGATE |
+| --- | ---: | --- | --- |
+| Ethereum | `1` | Yes | Yes |
+| Polygon | `137` | Yes | Yes |
+| BSC | `56` | Yes | Yes |
+| Arbitrum | `42161` | Yes | Yes |
+| Optimism | `10` | Yes | Yes |
+| Avalanche | `43114` | Yes | Yes |
+| Base | `8453` | Yes | Yes |
+| Berachain | `80094` | Yes | Yes |
+| X Layer | `196` | Yes | Yes |
+| GOAT | `2345` | Yes | Yes |
+| Metis | `1088` | Yes | No |
+| Tempo | `4217` | Yes | No |
 
-- GOAT Network (`2345`)
-- Ethereum (`1`)
-- Polygon (`137`)
-- Arbitrum (`42161`)
-- BSC (`56`)
-- Solana
+DIRECT means the payer transfers ERC-20 tokens directly to the merchant receiving address. DELEGATE means EIP-3009 or Permit2 settlement through the merchant callback contract and TSS submission; Metis and Tempo are DIRECT-only.
 
 ## Development Documentation
 
-- `DEVELOPER_FAST.md`
-- `API.md`
+Use `docs/README.md` as the canonical documentation hub.
+
+Quick references:
+- `DEVELOPER_FAST.md` - concise SDK/backend integration guide.
+- `API.md` - Core API and HMAC authentication reference.
+- `docs/README.md` - structured public docs index, including QuickPay, QuickPay Products, MPP, and agent integration paths.
+
+Production API base URL: `https://api.x402.goat.network`.

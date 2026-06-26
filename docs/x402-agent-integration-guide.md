@@ -128,7 +128,8 @@ GOATX402_MERCHANT_ID=your_merchant_id
 Notes:
 
 - **Production base URL**: `https://api.x402.goat.network`
-- Common local Core / demo URL: `http://localhost:8286`
+- Local Core URL: `http://localhost:8180`; Docker-mapped Core URL: `http://localhost:8286`
+- Local demo app URL: `http://localhost:3000`
 - If older docs mention `GOATX402_BASE_URL`, migrate to `GOATX402_API_URL`
 
 ---
@@ -179,7 +180,7 @@ The frontend should:
 - Guide wallet signing/payment steps
 - Handle success, failure, cancellation, and timeout
 - If `calldataSignRequest` exists, sign first and send the signature back to the backend
-- Execute the actual transfer to `payToAddress`
+- Execute the actual transfer to the `payTo` value from the x402 challenge
 - Resume the original business action after payment succeeds
 
 ### Step 6: Run local validation
@@ -212,7 +213,7 @@ To keep this guide consistent with the API reference, the integration must expli
 
 ### 8.2 Who the user actually pays
 
-- In all flow types, the user-side payment action is a transfer to **`payToAddress`**
+- In all flow types, the user-side payment action is a transfer to the x402 **`payTo`** address
 - `DIRECT`: usually the merchant address
 - `DELEGATE`: usually the TSS / delegated settlement address
 
@@ -227,6 +228,70 @@ To keep this guide consistent with the API reference, the integration must expli
 | Cancel order | `POST /api/v1/orders/{order_id}/cancel` |
 | Get merchant info | `GET /merchants/{merchant_id}` |
 
+### 8.4 x402 `Payment Required` response shape
+
+When the HMAC-protected order API creates a payable order, `HTTP 402 Payment Required` is the expected success path. The response body and the base64 `PAYMENT-REQUIRED` header carry an x402 object with this shape:
+
+```json
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://api.x402.goat.network/api/v1/orders/<order_id>",
+    "description": "Payment: <amount> <token>",
+    "mimeType": "application/json"
+  },
+  "accepts": [
+    {
+      "scheme": "exact",
+      "network": "eip155:<chain_id>",
+      "amount": "<atomic_amount>",
+      "asset": "0x<token_contract>",
+      "payTo": "0x<payment_target>",
+      "maxTimeoutSeconds": 600,
+      "extra": {
+        "flow": "ERC20_DIRECT",
+        "tokenSymbol": "USDC"
+      }
+    }
+  ],
+  "extensions": {
+    "goatx402": {
+      "destinationChain": "eip155:<chain_id>",
+      "expiresAt": 1730000000,
+      "paymentMethod": "transfer",
+      "receiveType": "DIRECT"
+    }
+  },
+  "order_id": "<order_id>",
+  "flow": "ERC20_DIRECT",
+  "token_symbol": "USDC"
+}
+```
+
+For `ERC20_3009`, `scheme` is `exact-eip3009` and `extensions.goatx402.signatureEndpoint` points to `POST /api/v1/orders/{order_id}/calldata-signature`. For Permit2-style DELEGATE orders, use the returned `calldata_sign_request` when present and submit the wallet signature through the same signature endpoint.
+
+### 8.5 QuickPay agent-native surface
+
+For agent integrations that should not hold merchant API credentials, prefer QuickPay. QuickPay is a public, credential-less surface for enabled `DIRECT` merchants.
+
+| Capability | Endpoint |
+| --- | --- |
+| Public discovery | `GET /quickpay/v1/merchants/{merchant_id}` |
+| Prompt-safe agent guide | `GET /quickpay/{merchant_id}/agent.md` |
+| Machine-readable manifest | `GET /quickpay/{merchant_id}/manifest.json` |
+| Create x402 session | `POST /quickpay/v1/x402/sessions` |
+| Poll session status | `GET /quickpay/v1/x402/sessions/{session_id}` |
+
+QuickPay session creation returns normal `200` JSON with an `x402` object when the session is payable. Custom-amount sessions use `merchant_id`, `payer_addr`, `chain_id`, `token_contract`, `amount_wei`, optional `memo`, and optional `idempotency_key`. Product sessions use `product_key` plus the buyer-selected `chain_id` and `token_contract`; the server computes the token amount from the product's token-agnostic `price`.
+
+CLI examples:
+
+```bash
+npx goatx402-quickpay inspect https://api.x402.goat.network/quickpay/<merchant_id>/agent.md
+npx goatx402-quickpay pay-x402 https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+  --amount <amount> --token-contract <token_contract> --chain <chain_id>
+```
+
 ---
 
 ## 9. Payment modes and state handling
@@ -235,10 +300,29 @@ To keep this guide consistent with the API reference, the integration must expli
 
 | Mode | Flow Types | User transfer target | Callback support |
 | --- | --- | --- | --- |
-| `DIRECT` | `ERC20_DIRECT`, `SOL_DIRECT` | Merchant address | No |
-| `DELEGATE` | `ERC20_3009`, `ERC20_APPROVE_XFER`, `SOL_APPROVE_XFER` | TSS / delegated settlement address | Yes |
+| `DIRECT` | `ERC20_DIRECT` | Merchant address | No |
+| `DELEGATE` | `ERC20_3009`, `ERC20_APPROVE_XFER` | TSS / delegated settlement address on the same chain | Yes, through an approved callback contract |
 
-### 9.2 Common order states
+DELEGATE is same-chain EVM settlement via EIP-3009 or Permit2 plus TSS submission and callback execution. It is not a bridge.
+
+### 9.2 Supported mainnet matrix
+
+| Chain | Chain ID | DIRECT | DELEGATE |
+| --- | ---: | --- | --- |
+| Ethereum | `1` | Yes | Yes |
+| Polygon | `137` | Yes | Yes |
+| BSC | `56` | Yes | Yes |
+| Arbitrum | `42161` | Yes | Yes |
+| Optimism | `10` | Yes | Yes |
+| Avalanche | `43114` | Yes | Yes |
+| Base | `8453` | Yes | Yes |
+| Berachain | `80094` | Yes | Yes |
+| X Layer | `196` | Yes | Yes |
+| GOAT | `2345` | Yes | Yes |
+| Metis | `1088` | Yes | No |
+| Tempo | `4217` | Yes | No |
+
+### 9.3 Common order states
 
 At minimum, the integration should handle these states:
 
