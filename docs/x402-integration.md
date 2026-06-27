@@ -23,33 +23,40 @@
 
 ### 1.1 What is GoatX402
 
-GOAT x402 is a cross-chain payment infrastructure for merchants, applications, and agent-oriented workflows, supporting EVM chains and Solana. It provides two payment receiving modes to meet different merchant needs.
+GOAT x402 is an EVM payment infrastructure for merchants, applications, and agent-oriented workflows. It provides two payment receiving modes to meet different merchant needs.
 
 ### 1.2 SDK Components
 
 | SDK | Purpose | Package |
 |-----|---------|---------|
 | **goatx402-sdk** | Frontend client SDK | `npm install goatx402-sdk` |
-| **goatx402-sdk-server-ts** | TypeScript backend SDK | `npm install goatx402-sdk-server` |
-| **goatx402-sdk-server-go** | Go backend SDK | `go get github.com/goatx402/sdk-server-go` |
+| **goatx402-sdk-server** | TypeScript backend SDK | `npm install goatx402-sdk-server` |
+| **goatx402-sdk-server-go** | Go backend SDK | `go get github.com/goatnetwork/goatx402-sdk-server` |
+| **goatx402-quickpay** | QuickPay public payer / agent library and CLI | `npm install goatx402-quickpay` |
 
 ### 1.3 Two Payment Modes
 
 | Mode | Identifier | Receiving Method | Fixed Fee | Use Case |
 |------|------------|------------------|-----------|----------|
 | **Direct Mode** | `DIRECT` | User transfers directly to merchant wallet | Lower (e.g., $0.10/tx) | Simple payments, no callbacks |
-| **Delegate Mode** | `DELEGATE` | User transfers to TSS wallet, system pays merchant | Higher (e.g., $0.20/tx) | Callbacks, complex business logic |
+| **Delegate Mode** | `DELEGATE` | User transfers to TSS wallet; system settles on the merchant chain | Higher (e.g., $0.20/tx) | Callbacks, complex business logic |
 
 ### 1.4 Supported Blockchain Networks
 
-| Network | Chain ID | Support Status |
-|---------|----------|----------------|
-| Ethereum | 1 | ✅ |
-| Polygon | 137 | ✅ |
-| Arbitrum | 42161 | ✅ |
-| BSC | 56 | ✅ |
-| Solana | - | ✅ |
-| GOAT Testnet | 2345 | ✅ Test |
+| Network | Chain ID | DIRECT | DELEGATE | Explorer |
+|---------|---------:|:------:|:--------:|----------|
+| Ethereum | 1 | Yes | Yes | etherscan.io |
+| Polygon | 137 | Yes | Yes | polygonscan.com |
+| BSC | 56 | Yes | Yes | bscscan.com |
+| Arbitrum | 42161 | Yes | Yes | arbiscan.io |
+| Optimism | 10 | Yes | Yes | optimistic.etherscan.io |
+| Avalanche | 43114 | Yes | Yes | snowtrace.io |
+| Base | 8453 | Yes | Yes | basescan.org |
+| Berachain | 80094 | Yes | Yes | berascan.com |
+| X Layer | 196 | Yes | Yes | web3.okx.com/explorer/x-layer/evm |
+| GOAT | 2345 | Yes | Yes | explorer.goat.network |
+| Metis | 1088 | Yes | No | andromeda-explorer.metis.io |
+| Tempo | 4217 | Yes | No | explore.tempo.xyz |
 
 ---
 
@@ -69,43 +76,53 @@ npm install goatx402-sdk-server
 
 # Frontend SDK
 npm install goatx402-sdk ethers
+
+# QuickPay public payer / agent CLI
+npm install goatx402-quickpay
 ```
 
 ### 2.3 Backend: Create Order
 
 ```typescript
 import { GoatX402Client } from 'goatx402-sdk-server'
+import type { Order as ServerOrder } from 'goatx402-sdk-server'
+import type { Order as ClientOrder } from 'goatx402-sdk'
 
 // Initialize client
 const client = new GoatX402Client({
-  baseUrl: 'https://api.goatx402.com',
+  baseUrl: 'https://api.x402.goat.network',
   apiKey: process.env.GOATX402_API_KEY,
   apiSecret: process.env.GOATX402_API_SECRET,
 })
 
-// Create payment order
-async function createOrder(userId: string, amount: string) {
+function toClientOrder(order: ServerOrder, fromAddress: string): ClientOrder {
+  // Server SDK uses fromChainId/payToChainId; browser SDK expects chainId.
+  return { ...order, fromAddress, chainId: order.fromChainId }
+}
+
+// Create payment order and return the browser-SDK shape to your frontend
+async function createOrder(userAddress: string, amount: string) {
   const order = await client.createOrder({
     dappOrderId: `order_${Date.now()}`,  // Merchant order ID
     chainId: 137,                         // Polygon
     tokenSymbol: 'USDC',
     tokenContract: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
-    fromAddress: '0xUserWalletAddress',   // User wallet address
+    fromAddress: userAddress,             // User wallet address
     amountWei: '10000000',                // 10 USDC (6 decimals)
     // callbackCalldata: '0x...',         // Optional: callback data (delegate mode only)
   })
 
-  return order
+  return toClientOrder(order, userAddress)
 }
 ```
 
 ### 2.4 Frontend: Execute Payment
 
 ```typescript
-import { PaymentHelper } from 'goatx402-sdk'
+import { PaymentHelper, type Order as ClientOrder } from 'goatx402-sdk'
 import { ethers } from 'ethers'
 
-async function executePayment(order: Order) {
+async function executePayment(order: ClientOrder) {
   // Connect wallet
   const provider = new ethers.BrowserProvider(window.ethereum)
   const signer = await provider.getSigner()
@@ -160,7 +177,7 @@ const status = await client.getOrderStatus(orderId)
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 │                                                                  │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │ EVM Watcher │  │ Sol Watcher │  │ Fee System  │              │
+│  │ EVM Watcher │  │ Orchestrator│  │ Fee System  │              │
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 └───────────────────────────────────────────────────────────────────┘
             │                            │
@@ -168,7 +185,7 @@ const status = await client.getOrderStatus(orderId)
 ┌───────────────────────────────────────────────────────────────────┐
 │                      Blockchain Networks                          │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│  │ Ethereum │  │ Polygon  │  │   BSC    │  │  Solana  │        │
+│  │ Ethereum │  │ Polygon  │  │   BSC    │  │  GOAT    │        │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
 └───────────────────────────────────────────────────────────────────┘
 ```
@@ -228,7 +245,7 @@ sequenceDiagram
     API->>API: 7. Update order status
 ```
 
-**Flow Types**: `ERC20_DIRECT`, `SOL_DIRECT`
+**Flow Types**: `ERC20_DIRECT`
 
 **Code Example**:
 
@@ -252,13 +269,14 @@ const order = await client.createOrder({
 
 ### 4.2 Delegate Mode (DELEGATE)
 
-**Overview**: User transfers tokens to GoatX402's TSS wallet, GoatX402 then transfers funds to merchant.
+**Overview**: User transfers tokens to GoatX402's TSS wallet on the merchant's configured chain. GoatX402 then performs same-chain payout and optional callback execution.
 
 **Features**:
 - Supports callback functionality (execute merchant contracts)
 - Higher fixed fee (includes TSS payout gas cost)
 - TSS multi-sig wallet ensures fund security
 - Supports complex business logic
+- Requires Permit2 / EIP-3009 support and an approved callback contract on the merchant chain
 
 **Payment Flow**:
 
@@ -292,7 +310,7 @@ sequenceDiagram
     Token-->>Merchant: 14. Tokens arrive
 ```
 
-**Flow Types**: `ERC20_3009`, `ERC20_APPROVE_XFER`, `SOL_APPROVE_XFER`
+**Flow Types**: `ERC20_3009`, `ERC20_APPROVE_XFER`
 
 **Code Example**:
 
@@ -356,7 +374,7 @@ Merchants need to **pre-fund a USD fee balance**, deducted when orders are creat
 │  1. Operator topup → merchant_fee_balance += $100   │
 │                                                     │
 │  2. Create order → Check balance                    │
-│     ├─ Insufficient → Return HTTP 402 error         │
+│     ├─ Insufficient → Return HTTP 400 error         │
 │     └─ Sufficient → Charge fee, create order        │
 │                                                     │
 │  3. Payment successful → Fee consumed (no refund)   │
@@ -392,7 +410,7 @@ const delegateOrder = {
 try {
   const order = await client.createOrder(orderParams)
 } catch (error) {
-  if (error.status === 402) {
+  if (error.status === 400 && error.message?.includes('insufficient fee balance')) {
     // Fee balance insufficient
     console.error('Insufficient fee balance, please contact operator to topup')
     // error.message: "Insufficient fee balance"
@@ -456,6 +474,52 @@ interface OrderResponse {
 }
 ```
 
+The raw create-order response is an x402 challenge. `HTTP 402` is the expected success path for order creation, and the `PAYMENT-REQUIRED` header contains the base64-encoded JSON challenge body.
+
+```http
+HTTP/1.1 402 Payment Required
+PAYMENT-REQUIRED: eyJ4NDAyVmVyc2lvbiI6Miwi...
+Content-Type: application/json
+```
+
+```json
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://api.x402.goat.network/api/v1/orders/{order_id}",
+    "description": "Payment: 10000000 USDC",
+    "mimeType": "application/json"
+  },
+  "accepts": [
+    {
+      "scheme": "exact",
+      "network": "eip155:137",
+      "amount": "10000000",
+      "asset": "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
+      "payTo": "0xMerchantOrTssAddress",
+      "maxTimeoutSeconds": 600,
+      "extra": {
+        "flow": "ERC20_DIRECT",
+        "tokenSymbol": "USDC"
+      }
+    }
+  ],
+  "extensions": {
+    "goatx402": {
+      "destinationChain": "eip155:137",
+      "expiresAt": 1760000600,
+      "paymentMethod": "transfer",
+      "receiveType": "DIRECT"
+    }
+  },
+  "order_id": "{order_id}",
+  "flow": "ERC20_DIRECT",
+  "token_symbol": "USDC"
+}
+```
+
+For `ERC20_3009`, `accepts[0].scheme` is `exact-eip3009` and `extensions.goatx402.signatureEndpoint` points to `POST /api/v1/orders/{order_id}/calldata-signature`.
+
 ### 6.4 Query Order Status
 
 ```typescript
@@ -467,22 +531,21 @@ const status = await client.getOrderStatus(orderId)
 // - 'INVOICED'           : Complete (invoiced)
 // - 'EXPIRED'            : Expired
 // - 'FAILED'             : Failed
+// - 'CANCELLED'          : Cancelled before payment
 ```
 
 ### 6.5 Submit Callback Signature
 
 ```typescript
 // After user signs on frontend, submit to backend
-await client.submitCalldataSignature(orderId, {
-  signature: '0x...',  // User's EIP-712 signature
-})
+await client.submitCalldataSignature(orderId, '0x...')
 ```
 
-### 6.6 Get Payment Proof
+### 6.6 Get Order Proof
 
 ```typescript
 // Get proof after payment completion
-const proof = await client.getPaymentProof(orderId)
+const proof = await client.getOrderProof(orderId)
 
 // proof contains on-chain tx hash and GoatX402 signature proof
 ```
@@ -494,7 +557,13 @@ const proof = await client.getPaymentProof(orderId)
 ### 7.1 Installation & Initialization
 
 ```typescript
-import { PaymentHelper, ERC20Token, parseUnits, formatUnits } from 'goatx402-sdk'
+import {
+  PaymentHelper,
+  ERC20Token,
+  parseUnits,
+  formatUnits,
+  type Order as ClientOrder,
+} from 'goatx402-sdk'
 import { ethers } from 'ethers'
 
 // Connect wallet
@@ -506,10 +575,20 @@ const signer = await provider.getSigner()
 const payment = new PaymentHelper(signer)
 ```
 
+The server SDK returns `fromChainId` and `payToChainId`. Before passing an order to the browser SDK, map `chainId` from `fromChainId` and include the payer address used at order creation.
+
+```typescript
+import type { Order as ServerOrder } from 'goatx402-sdk-server'
+
+function toClientOrder(serverOrder: ServerOrder, fromAddress: string): ClientOrder {
+  return { ...serverOrder, fromAddress, chainId: serverOrder.fromChainId }
+}
+```
+
 ### 7.2 Complete Payment Flow
 
 ```typescript
-async function processPayment(order: Order) {
+async function processPayment(order: ClientOrder) {
   const provider = new ethers.BrowserProvider(window.ethereum)
   const signer = await provider.getSigner()
   const payment = new PaymentHelper(signer)
@@ -561,14 +640,14 @@ async function processPayment(order: Order) {
 ```typescript
 // hooks/useGoatX402Payment.ts
 import { useState, useCallback } from 'react'
-import { PaymentHelper, Order, PaymentResult } from 'goatx402-sdk'
+import { PaymentHelper, type Order as ClientOrder, type PaymentResult } from 'goatx402-sdk'
 import { ethers } from 'ethers'
 
 export function useGoatX402Payment() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const pay = useCallback(async (order: Order): Promise<PaymentResult | null> => {
+  const pay = useCallback(async (order: ClientOrder): Promise<PaymentResult | null> => {
     setLoading(true)
     setError(null)
 
@@ -610,10 +689,10 @@ export function useGoatX402Payment() {
 ```tsx
 // components/PayButton.tsx
 import { useGoatX402Payment } from '../hooks/useGoatX402Payment'
-import { Order } from 'goatx402-sdk'
+import type { Order as ClientOrder } from 'goatx402-sdk'
 
 interface PayButtonProps {
-  order: Order
+  order: ClientOrder
   onSuccess: (txHash: string) => void
   onError: (error: string) => void
 }
@@ -647,9 +726,11 @@ export function PayButton({ order, onSuccess, onError }: PayButtonProps) {
 ```typescript
 // Server SDK handles signature automatically
 // Signature algorithm:
-// 1. Sort params by key
-// 2. Concatenate: key1=value1&key2=value2
-// 3. HMAC-SHA256(secret, payload)
+// 1. Add api_key, timestamp, and nonce to request body/query params
+// 2. Drop empty values and `sign`
+// 3. Sort params by ASCII key
+// 4. Concatenate: key1=value1&key2=value2
+// 5. HMAC-SHA256(secret, payload)
 
 // Request headers:
 // X-API-Key: {apiKey}
@@ -661,33 +742,40 @@ export function PayButton({ order, onSuccess, onError }: PayButtonProps) {
 ### 8.2 EIP-712 Signature (Callback Authorization)
 
 ```typescript
-// User signature authorizes callback execution
-const signRequest: CalldataSignRequest = {
-  domain: {
-    name: 'GoatX402',
-    version: '1',
-    chainId: 137,
-    verifyingContract: '0xCallbackContract...',
-  },
-  types: {
-    Permit: [
-      { name: 'payer', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-      { name: 'nonce', type: 'uint256' },
-      { name: 'deadline', type: 'uint256' },
-      { name: 'orderId', type: 'string' },
-      { name: 'calldataHash', type: 'bytes32' },
-    ],
-  },
-  primaryType: 'Permit',
-  message: {
-    payer: '0xUserAddress',
-    amount: '10000000',
-    nonce: '1',              // Anti-replay
-    deadline: '1704067200',  // Expiration time
-    orderId: 'order_123',
-    calldataHash: '0x...',   // Callback data hash
-  },
+// User signature authorizes callback execution.
+// Sign the calldataSignRequest returned by createOrder; do not rebuild it.
+if (!order.calldataSignRequest) {
+  throw new Error('Order does not require calldata signature')
+}
+
+const { EIP712Domain, ...types } = order.calldataSignRequest.types
+const signature = await signer.signTypedData(
+  order.calldataSignRequest.domain,
+  types,
+  order.calldataSignRequest.message
+)
+
+// order.calldataSignRequest.domain is returned by GoatX402 and must match
+// the deployed MerchantCallback EIP-712 domain. MerchantCallback.initialize()
+// defaults to name "GoatX402 Pay Callback" and version "1".
+```
+
+Returned callback message shapes:
+
+```typescript
+type Eip3009CallbackData = {
+  token: string
+  owner: string
+  payer: string
+  amount: string
+  orderId: string       // bytes32 keccak256(orderId)
+  calldataNonce: string // replay protection nonce
+  deadline: string
+  calldataHash: string  // keccak256(callback calldata)
+}
+
+type Permit2CallbackData = Eip3009CallbackData & {
+  permit2: string
 }
 ```
 
@@ -743,7 +831,47 @@ const amountWei = parseUnits('100.5', 6) // 100500000n
 const amount = formatUnits(100500000n, 6) // "100.5"
 ```
 
-### 9.4 Type Definitions
+### 9.4 QuickPay Public API and CLI
+
+QuickPay exposes public, credential-less endpoints for browser payers, CLIs, and agents.
+
+| Surface | Endpoint | Purpose |
+|---------|----------|---------|
+| Discovery | `GET /quickpay/v1/merchants/{merchant_id}` | Public merchant payment capability |
+| Agent instructions | `GET /quickpay/{merchant_id}/agent.md` | Prompt-injection-hardened agent guide |
+| Machine manifest | `GET /quickpay/{merchant_id}/manifest.json` | `goatx402.quickpay.v1` manifest |
+| Create x402 session | `POST /quickpay/v1/x402/sessions` | Create or reuse a payable QuickPay session |
+| Query x402 session | `GET /quickpay/v1/x402/sessions/{session_id}` | Poll public session status |
+
+Session creation request:
+
+```json
+{
+  "merchant_id": "merchant_123",
+  "payer_addr": "0xUserWalletAddress",
+  "chain_id": 137,
+  "token_contract": "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
+  "amount_wei": "10000000",
+  "memo": "invoice-123",
+  "idempotency_key": "invoice-123:user-456"
+}
+```
+
+When the session is payable, the response includes an embedded `x402` object with the same `x402Version: 2`, `accepts[0].network = eip155:<id>`, `scheme = exact`, `amount`, `asset`, and `payTo` fields described in Section 6.3.
+
+QuickPay package and CLI:
+
+```bash
+npx goatx402-quickpay inspect https://api.x402.goat.network/quickpay/merchant_123/agent.md
+npx goatx402-quickpay pay-x402 https://api.x402.goat.network/quickpay/merchant_123/agent.md \
+  --amount 10 --token-contract 0xToken --chain 137 --idempotency-key invoice-123
+npx goatx402-quickpay pay-mpp https://api.x402.goat.network/quickpay/merchant_123/agent.md \
+  --route <route_canonical>
+```
+
+The library exports `QuickPayClient`, `inspect`, `payX402`, `payMpp`, `loadManifest`, and `EthersPaymentBackend`.
+
+### 9.5 Type Definitions
 
 ```typescript
 // Payment flow types
@@ -751,8 +879,6 @@ type PaymentFlow =
   | 'ERC20_DIRECT'        // Direct mode
   | 'ERC20_3009'          // Delegate mode (EIP-3009)
   | 'ERC20_APPROVE_XFER'  // Delegate mode (Permit2)
-  | 'SOL_DIRECT'          // Solana direct
-  | 'SOL_APPROVE_XFER'    // Solana delegate
 
 // Order status
 type OrderStatus =
@@ -761,19 +887,30 @@ type OrderStatus =
   | 'INVOICED'            // Complete
   | 'EXPIRED'             // Expired
   | 'FAILED'              // Failed
+  | 'CANCELLED'           // Cancelled before payment
 
-// Order interface
-interface Order {
+// Server SDK order interface
+interface ServerOrder {
   orderId: string
   flow: PaymentFlow
   tokenSymbol: string
   tokenContract: string
-  fromAddress: string
   payToAddress: string
-  chainId: number
+  fromChainId: number
+  payToChainId: number
   amountWei: string
   expiresAt: number
   calldataSignRequest?: CalldataSignRequest
+}
+
+// Frontend SDK order interface
+interface Order extends Omit<ServerOrder, 'fromChainId' | 'payToChainId'> {
+  fromAddress: string
+  chainId: number
+}
+
+function toClientOrder(order: ServerOrder, fromAddress: string): Order {
+  return { ...order, fromAddress, chainId: order.fromChainId }
 }
 
 // Payment result
@@ -792,22 +929,21 @@ interface PaymentResult {
 
 | Error Code | Description | Solution |
 |------------|-------------|----------|
-| `402` | Fee balance insufficient | Contact operator to topup fee balance |
-| `400` | Request parameter error | Check parameter format and required fields |
+| `400` | Request parameter or business rule error, including insufficient fee balance or duplicate `dappOrderId` | Check parameter format, fee balance, and uniqueness |
 | `401` | Authentication failed | Check API Key/Secret and signature |
+| `402` | Payment Required x402 challenge from successful order creation | Treat as expected order creation response |
 | `404` | Order not found | Check order ID |
-| `409` | Order already exists | dappOrderId duplicate |
-| `503` | TSS balance insufficient | Contact operator to fund TSS wallet |
+| `503` | QuickPay session creation temporarily unavailable | Retry after the merchant restores fee/config availability |
 
 ### 10.2 Frontend Common Issues
 
-#### Issue 1: Fee Balance Insufficient (HTTP 402)
+#### Issue 1: Fee Balance Insufficient (HTTP 400)
 
 ```typescript
 try {
   const order = await client.createOrder(params)
 } catch (error) {
-  if (error.status === 402) {
+  if (error.status === 400 && error.message?.includes('insufficient fee balance')) {
     // Display prompt
     alert('Merchant fee balance insufficient, please contact admin to topup')
   }
@@ -908,10 +1044,13 @@ async function debugPayment(order: Order) {
 
 ### 11.1 SDK Versions
 
-| Package | Current Version | Status |
-|---------|-----------------|--------|
-| goatx402-sdk | 0.1.0 | Beta |
-| goatx402-sdk-server | 0.1.0 | Beta |
+Use the package manifests as the version source of truth:
+
+| Package | Source |
+|---------|--------|
+| `goatx402-sdk` | `goatx402-sdk/package.json` |
+| `goatx402-sdk-server` | `goatx402-sdk-server-ts/package.json` |
+| `goatx402-quickpay` | `goatx402-quickpay/package.json` |
 
 ### 11.2 Dependency Versions
 
@@ -987,7 +1126,7 @@ async function getPaymentHelper() {
 function getErrorMessage(error: any): string {
   if (error.code === 'ACTION_REJECTED') return 'You cancelled the transaction'
   if (error.message?.includes('insufficient')) return 'Insufficient balance'
-  if (error.status === 402) return 'Merchant fee balance insufficient'
+  if (error.status === 400 && error.message?.includes('insufficient fee balance')) return 'Merchant fee balance insufficient'
   return 'Payment failed, please try again'
 }
 
@@ -1068,10 +1207,18 @@ my-payment-app/
 
 ```typescript
 const CHAIN_RPCS: Record<number, string> = {
-  1: 'https://eth.llamarpc.com',
-  137: 'https://polygon.llamarpc.com',
-  42161: 'https://arb1.arbitrum.io/rpc',
-  56: 'https://bsc-dataseed.binance.org',
+  1: process.env.RPC_ETHEREUM!,
+  137: process.env.RPC_POLYGON!,
+  56: process.env.RPC_BSC!,
+  42161: process.env.RPC_ARBITRUM!,
+  10: process.env.RPC_OPTIMISM!,
+  43114: process.env.RPC_AVALANCHE!,
+  8453: process.env.RPC_BASE!,
+  80094: process.env.RPC_BERACHAIN!,
+  196: process.env.RPC_X_LAYER!,
+  2345: process.env.RPC_GOAT!,
+  1088: process.env.RPC_METIS!,
+  4217: process.env.RPC_TEMPO!,
 }
 ```
 
@@ -1086,16 +1233,16 @@ const CHAIN_RPCS: Record<number, string> = {
 | Complete Demo Project | High |
 | Webhook Integration Guide | High |
 | Go SDK Detailed Docs | Medium |
-| Testnet Configuration | Medium |
+| Production Chain Configuration | Medium |
 
 ### 14.2 SDK Features TODO
 
 | Feature | Status |
 |---------|--------|
-| Order Status Polling | ⏳ |
+| Order Status Polling | Available through `getOrderStatus()` and `waitForConfirmation()` |
 | WebSocket Real-time Notifications | ⏳ |
 | Batch Payments | ⏳ |
 
 ---
 
-*SDK Version: 0.1.0 | Documentation Last Updated: 2025-01*
+*Last verified against the repository implementation: 2026-06-26*

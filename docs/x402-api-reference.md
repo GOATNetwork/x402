@@ -50,7 +50,9 @@ GOATX402_MERCHANT_ID=your_merchant_id
 Notes:
 
 - **Production base URL**: `https://api.x402.goat.network`
-- Common local Core / demo URL: `http://localhost:8286`
+- Common local Core URL: `http://localhost:8180`
+- Docker-mapped Core URL: `http://localhost:8286`
+- Demo app URL: `http://localhost:3000`
 - Older docs may mention `GOATX402_BASE_URL`; prefer `GOATX402_API_URL`
 
 ---
@@ -63,18 +65,32 @@ Protected endpoints use **HMAC-SHA256** authentication with these required heade
 
 - `X-API-Key`
 - `X-Timestamp`
+- `X-Nonce`
 - `X-Sign`
 
 ### 4.2 Signature algorithm
 
 The signature process is:
 
-1. Take the request body fields and add `api_key` and `timestamp`
+1. Take the request body/query fields and add `api_key`, `timestamp`, and `nonce`
 2. Remove empty values and the `sign` field if present
 3. Sort keys in ASCII order
 4. Build a string like `k1=v1&k2=v2`
 5. Sign with HMAC-SHA256 using the `API Secret`
 6. Hex-encode the result and send it as `X-Sign`
+
+Example signed parameter set:
+
+```text
+amount_wei=10000000
+api_key=merchant_api_key
+chain_id=137
+dapp_order_id=order_123
+from_address=0x...
+nonce=8b9a7c6d-...
+timestamp=1760000000
+token_symbol=USDC
+```
 
 ### 4.3 Important security principles
 
@@ -82,8 +98,6 @@ The signature process is:
 - do not call sensitive merchant APIs directly from the frontend
 - do not commit API credentials to public repositories
 - wallet signing must happen in a user-controlled wallet context
-
-> Note: some older implementation discussions mention `X-Nonce`. The current official API docs and official x402 page use `X-API-Key`, `X-Timestamp`, and `X-Sign` as the canonical required headers.
 
 ---
 
@@ -112,30 +126,35 @@ The standard integration flow is:
 
 | Mode | Flow Types | User transfer target | Callback support | Typical use |
 | --- | --- | --- | --- | --- |
-| `DIRECT` | `ERC20_DIRECT`, `SOL_DIRECT` | Merchant address | No | Simple payment gating |
-| `DELEGATE` | `ERC20_3009`, `ERC20_APPROVE_XFER`, `SOL_APPROVE_XFER` | TSS / delegated settlement address | Yes | Advanced settlement and callback workflows |
+| `DIRECT` | `ERC20_DIRECT` | Merchant address | No | Simple payment gating |
+| `DELEGATE` | `ERC20_3009`, `ERC20_APPROVE_XFER` | TSS / delegated settlement address | Yes | Advanced settlement and callback workflows |
 
 Notes:
 
 - `DIRECT`: the user pays directly to the merchant address
-- `DELEGATE`: the user first pays the TSS address, then Core continues the settlement / callback path
+- `DELEGATE`: the user first pays the TSS address, then Core continues the same-chain settlement / callback path
 - If the order response contains `calldataSignRequest`, the frontend must sign first and the backend must submit that signature
 
 ---
 
 ## 7. Supported chains and tokens (docs layer)
 
-The official x402 page currently lists the following support matrix:
+The supported public network matrix is:
 
-| Chain | Chain ID | Tokens | Status |
-| --- | --- | --- | --- |
-| GOAT Network | 2345 | USDC, USDT | Live |
-| Ethereum | 1 | USDC, USDT | Live |
-| Polygon | 137 | USDC, USDT | Live |
-| Arbitrum | 42161 | USDC, USDT | Live |
-| BSC | 56 | USDC, USDT | Live |
-| Metis | 1088 | USDT | Live |
-| Solana | — | USDC, USDT | Live |
+| Chain | Chain ID | DIRECT | DELEGATE | Explorer |
+| --- | ---: | :---: | :---: | --- |
+| Ethereum | 1 | Yes | Yes | etherscan.io |
+| Polygon | 137 | Yes | Yes | polygonscan.com |
+| BSC | 56 | Yes | Yes | bscscan.com |
+| Arbitrum | 42161 | Yes | Yes | arbiscan.io |
+| Optimism | 10 | Yes | Yes | optimistic.etherscan.io |
+| Avalanche | 43114 | Yes | Yes | snowtrace.io |
+| Base | 8453 | Yes | Yes | basescan.org |
+| Berachain | 80094 | Yes | Yes | berascan.com |
+| X Layer | 196 | Yes | Yes | web3.okx.com/explorer/x-layer/evm |
+| GOAT | 2345 | Yes | Yes | explorer.goat.network |
+| Metis | 1088 | Yes | No | andromeda-explorer.metis.io |
+| Tempo | 4217 | Yes | No | explore.tempo.xyz |
 
 > Important: the actual supported chains and tokens always depend on each merchant's Core configuration. Do not hardcode support purely from the static table.
 
@@ -151,6 +170,22 @@ The official x402 page currently lists the following support matrix:
 | `submitCalldataSignature` | `POST /api/v1/orders/{order_id}/calldata-signature` | Yes |
 | `cancelOrder` | `POST /api/v1/orders/{order_id}/cancel` | Yes |
 | `getMerchant` | `GET /merchants/{merchant_id}` | No |
+
+QuickPay public endpoints:
+
+| Surface | Endpoint | Auth |
+| --- | --- | --- |
+| QuickPay discovery | `GET /quickpay/v1/merchants/{merchant_id}` | No |
+| Agent instructions | `GET /quickpay/{merchant_id}/agent.md` | No |
+| Machine manifest | `GET /quickpay/{merchant_id}/manifest.json` | No |
+| Create x402 session | `POST /quickpay/v1/x402/sessions` | No |
+| Query x402 session | `GET /quickpay/v1/x402/sessions/{session_id}` | No |
+
+QuickPay client package:
+
+- npm package / CLI: `goatx402-quickpay`
+- CLI commands: `inspect`, `pay-x402`, `pay-mpp`
+- library exports include `QuickPayClient`, `inspect`, `payX402`, `payMpp`, `loadManifest`, and `EthersPaymentBackend`
 
 ---
 
@@ -172,6 +207,7 @@ Creates a payment order and returns the x402 Payment Required response.
 
 - A successful order creation commonly returns **HTTP 402 Payment Required**
 - This is the expected success path in x402 and should not be treated as a normal failure
+- The `PAYMENT-REQUIRED` response header is the base64-encoded JSON form of the same x402 challenge returned in the body
 
 **Request fields**
 
@@ -205,6 +241,52 @@ Creates a payment order and returns the x402 Payment Required response.
 - `flow`
 - `token_symbol`
 - `calldata_sign_request`
+
+**Literal x402 challenge shape**
+
+```http
+HTTP/1.1 402 Payment Required
+PAYMENT-REQUIRED: eyJ4NDAyVmVyc2lvbiI6Miwi...
+Content-Type: application/json
+```
+
+```json
+{
+  "x402Version": 2,
+  "resource": {
+    "url": "https://api.x402.goat.network/api/v1/orders/{order_id}",
+    "description": "Payment: 10000000 USDC",
+    "mimeType": "application/json"
+  },
+  "accepts": [
+    {
+      "scheme": "exact",
+      "network": "eip155:137",
+      "amount": "10000000",
+      "asset": "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
+      "payTo": "0xMerchantOrTssAddress",
+      "maxTimeoutSeconds": 600,
+      "extra": {
+        "flow": "ERC20_DIRECT",
+        "tokenSymbol": "USDC"
+      }
+    }
+  ],
+  "extensions": {
+    "goatx402": {
+      "destinationChain": "eip155:137",
+      "expiresAt": 1760000600,
+      "paymentMethod": "transfer",
+      "receiveType": "DIRECT"
+    }
+  },
+  "order_id": "{order_id}",
+  "flow": "ERC20_DIRECT",
+  "token_symbol": "USDC"
+}
+```
+
+For `ERC20_3009`, `accepts[0].scheme` is `exact-eip3009` and `extensions.goatx402.signatureEndpoint` points to `POST /api/v1/orders/{order_id}/calldata-signature`.
 
 ---
 
@@ -325,13 +407,15 @@ GET /merchants/{merchant_id}
 
 Returns public merchant information and supported payment capability, useful for configuration pages and backend initialization.
 
-**Common response fields**
+**Common core response fields**
 
 - `merchant_id`
-- `name`
-- `logo`
+- `enabled`
 - `receive_type`
 - `wallets`
+- `api_key`
+
+Display fields such as `name` and `logo` are not returned by this core endpoint.
 
 `wallets` typically contains:
 
@@ -339,6 +423,56 @@ Returns public merchant information and supported payment capability, useful for
 - `chain_id`
 - `token_symbol`
 - `token_contract`
+
+---
+
+### 9.7 QuickPay Public API
+
+QuickPay is the public, manifest-driven payer and agent surface. These endpoints are unauthenticated and expose only public merchant payment capability.
+
+**Agent instructions**
+
+```text
+GET /quickpay/{merchant_id}/agent.md
+```
+
+Returns prompt-injection-hardened Markdown with same-host payment instructions and CLI examples.
+
+**Machine manifest**
+
+```text
+GET /quickpay/{merchant_id}/manifest.json
+```
+
+Returns a `goatx402.quickpay.v1` manifest with links, x402 tokens, optional MPP routes, and the x402 session endpoint.
+
+**Create x402 session**
+
+```text
+POST /quickpay/v1/x402/sessions
+```
+
+Request fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `merchant_id` | string | Yes | Merchant ID |
+| `payer_addr` | string | Yes | Payer wallet address |
+| `chain_id` | number | Yes | EVM chain ID |
+| `token_contract` | string | Yes | ERC-20 token contract |
+| `amount_wei` | string | Yes | Atomic token amount |
+| `memo` | string | Conditional | Required only when the merchant requires a memo |
+| `idempotency_key` | string | No | Reuse-safe session key |
+
+Response fields include `session_id`, `merchant_id`, `order_id`, `status`, `expires_at`, and, when payable, an embedded `x402` challenge with the same `x402Version: 2` / `accepts[]` shape described above.
+
+**Query x402 session**
+
+```text
+GET /quickpay/v1/x402/sessions/{session_id}
+```
+
+Returns public session status fields including `status`, `order_status`, `tx_hash`, `amount_wei`, `chain_id`, `token_contract`, `token_symbol`, `pay_to_address`, and `expires_at`.
 
 ---
 
@@ -375,7 +509,7 @@ Common order states are:
 - `callback failed`
 - `merchant <id> not found`
 - `token <symbol> not supported on chain <id>`
-- `cannot cancel order <id>: current status is <status>`
+- `cannot cancel order in status <status>, only CHECKOUT_VERIFIED orders can be cancelled`
 
 ---
 
@@ -385,7 +519,7 @@ When using DELEGATE mode and post-payment on-chain execution is required, also p
 
 - `callback_calldata`
 - `calldataSignRequest`
-- callback adapter contract setup
+- MerchantCallback contract setup
 - callback caller allowlist
 - EIP-712 domain config such as `eip712_name` and `eip712_version`
 

@@ -23,10 +23,10 @@ x402 brings the HTTP 402 **Payment Required** standard to Web3. Unlike payment w
 
 Payments are verified on-chain through event monitoring:
 
-1. The user transfers tokens to the designated `payToAddress`.
+1. The user transfers tokens to the designated `payTo` address in the x402 `accepts[]` entry.
 2. A multi-chain listener monitors `Transfer` events.
 3. The system matches the transfer to a pending order.
-4. The target-chain payment and callback are completed.
+4. For DELEGATE orders, same-chain callback / settlement execution is completed.
 5. A payment proof is generated and cryptographically bound to the order.
 6. Merchants can verify the proof through the API or directly on-chain.
 
@@ -59,9 +59,9 @@ Replay protection uses multiple layers:
 
 | Layer | Mechanism |
 | --- | --- |
-| API | Timestamp validation (±5 minutes) + idempotency key |
-| On-chain | EIP-712 nonce per user address |
-| Callback | `calldataNonces` mapping inside the MerchantCallback contract |
+| API | HMAC timestamp validation (±5 minutes) + required one-time `X-Nonce` |
+| Callback signature | EIP-712 `calldataNonce` per original payer |
+| Contract storage | `calldataNonceUsed` mapping inside the MerchantCallback contract, exposed through `isCalldataNonceUsed` |
 
 #### What prevents callback data from being tampered with?
 
@@ -69,21 +69,34 @@ EIP-712 typed-data signatures bind the callback to the full execution context.
 
 The signature covers:
 
-`token + owner + payer + amount + orderId + nonce + deadline + keccak256(calldata)`
+`token + owner + payer + amount + orderId(bytes32) + calldataNonce + deadline + keccak256(calldata)`
+
+For Permit2 callback flows, the signature also covers `permit2`.
 
 Any change to any field invalidates the signature.
 
 #### How are chain reorganizations handled?
 
-Payments require a minimum number of confirmations before being finalized:
+Payments require chain/token-specific confirmations before being finalized. The exact threshold is configured by the platform operator per chain and token; use the live chain configuration for production values.
 
-- GOAT Network: 2 blocks (~7 seconds)
-- Ethereum: 12 blocks (~3 minutes)
-- Polygon: 128 blocks (~4 minutes)
-- Arbitrum: 1 block (L2 finality derived from L1)
-- BSC: 15 blocks (~45 seconds)
+Supported mainnet scope and mode availability:
 
-Deep reorganizations beyond these thresholds are extremely rare and would require significant computational power.
+| Chain | Chain ID | DIRECT | DELEGATE | Explorer |
+| --- | --- | --- | --- | --- |
+| Ethereum | `1` | Yes | Yes | `etherscan.io` |
+| Polygon | `137` | Yes | Yes | `polygonscan.com` |
+| BSC | `56` | Yes | Yes | `bscscan.com` |
+| Arbitrum | `42161` | Yes | Yes | `arbiscan.io` |
+| Optimism | `10` | Yes | Yes | `optimistic.etherscan.io` |
+| Avalanche | `43114` | Yes | Yes | `snowtrace.io` |
+| Base | `8453` | Yes | Yes | `basescan.org` |
+| Berachain | `80094` | Yes | Yes | `berascan.com` |
+| X Layer | `196` | Yes | Yes | `web3.okx.com/explorer/x-layer/evm` |
+| GOAT | `2345` | Yes | Yes | `explorer.goat.network` |
+| Metis | `1088` | Yes | No | `andromeda-explorer.metis.io` |
+| Tempo | `4217` | Yes | No | `explore.tempo.xyz` |
+
+DELEGATE requires same-chain EVM callback-contract support. Metis and Tempo use DIRECT.
 
 #### What if a TSS node is compromised?
 
@@ -120,16 +133,22 @@ Tested wallets include MetaMask, Coinbase Wallet, and Rainbow.
 
 #### How long does one payment take?
 
-Timing depends on the chain and required confirmations. Reference timing after the transaction is broadcast:
+Timing depends on the selected EVM chain, RPC health, and the confirmation threshold configured for that token. After the wallet broadcasts the transaction, low-latency L2/L1-style chains usually complete in seconds to tens of seconds, while Ethereum mainnet may take longer.
 
-| Chain | User Action | Detection | Final Confirmation |
-| --- | --- | --- | --- |
-| GOAT Network | ~3s | 2–5s | ~10s |
-| Polygon | ~3s | 5–15s | ~20s |
-| Arbitrum | ~3s | 2–5s | ~10s |
-| BSC | ~3s | 15–30s | ~35s |
-| Ethereum | ~3s | 30–60s | ~1 min |
-| Solana | ~2s | 5–10s | ~15s |
+| Chain | Chain ID | Mode Availability |
+| --- | --- | --- |
+| Ethereum | `1` | DIRECT + DELEGATE |
+| Polygon | `137` | DIRECT + DELEGATE |
+| BSC | `56` | DIRECT + DELEGATE |
+| Arbitrum | `42161` | DIRECT + DELEGATE |
+| Optimism | `10` | DIRECT + DELEGATE |
+| Avalanche | `43114` | DIRECT + DELEGATE |
+| Base | `8453` | DIRECT + DELEGATE |
+| Berachain | `80094` | DIRECT + DELEGATE |
+| X Layer | `196` | DIRECT + DELEGATE |
+| GOAT | `2345` | DIRECT + DELEGATE |
+| Metis | `1088` | DIRECT |
+| Tempo | `4217` | DIRECT |
 
 #### Can users pay on mobile?
 
@@ -152,13 +171,14 @@ Usually one:
 
 If the token flow requires an approval-style step, that may introduce an additional setup action depending on the integration path.
 
-#### What if I do not hold tokens on the merchant’s preferred chain?
+#### What if I do not hold tokens on the merchant's configured chain?
 
-x402 supports cross-chain payment flows:
+x402 orders are same-chain payment flows. The user or agent must pay with a token and chain that the merchant has configured for that order.
 
-1. The merchant specifies accepted chains.
-2. The user chooses which chain to pay from.
-3. Settlement completes automatically to the merchant’s preferred chain.
+- **DIRECT**: the payer sends the ERC-20 transfer on the selected chain directly to the merchant address on that same chain.
+- **DELEGATE**: the merchant uses one configured EVM chain with an approved callback contract; EIP-3009 or Permit2 authorization and TSS-assisted submission happen on that same chain.
+
+x402 does not perform automatic bridging or cross-chain settlement. Move funds outside the x402 order flow before paying if you need assets on a different chain.
 
 #### Can a payment be canceled after sending?
 
@@ -201,8 +221,9 @@ Merchants maintain a USD-denominated fee balance:
 
 1. top up through the dashboard or API
 2. fees are deducted when orders are created
-3. if the balance is too low, the API returns HTTP 402
-4. unused fees from expired orders are refunded
+3. a successful order create returns the normal HTTP 402 x402 challenge
+4. if the balance is too low, `POST /api/v1/orders` returns HTTP 400 with `{"error":"insufficient fee balance: available=$X, required=$Y"}`; QuickPay session creation returns HTTP 503
+5. unused fees from expired orders are refunded
 
 #### Which tokens are supported?
 
@@ -225,15 +246,14 @@ The system is currently optimized for stablecoins such as USDC and USDT to suppo
 | DIRECT | Immediate (same transfer flow) |
 | DELEGATE | Within 1–2 blocks after payment confirmation |
 
-#### Can merchants receive funds on a preferred chain or token?
+#### Can merchants receive funds on a configured chain or token?
 
-Yes. Merchants can configure:
+Merchants configure the chains, tokens, and receiving addresses they accept. Settlement is same-chain for the order:
 
-- settlement chain (for example, GOAT Network)
-- settlement token (for example, USDC)
-- settlement address
+- **DIRECT**: user wallet -> merchant receiving address on the selected chain.
+- **DELEGATE**: user authorization -> TSS/callback flow -> merchant settlement on the merchant's single configured EVM chain.
 
-Cross-chain settlement is handled automatically.
+There is no automatic bridge from one chain to another inside x402.
 
 #### Is there a minimum payment amount?
 
@@ -243,9 +263,9 @@ There is no protocol-enforced minimum. In practice, the lower bound is around **
 
 Available options include:
 
-- webhook notifications for every status change
+- webhook notifications for `order.invoiced`
 - merchant order ID correlation
-- API polling for order status
+- API polling and reconciliation for other order states
 - CSV export from the dashboard
 
 ---
@@ -296,11 +316,9 @@ Impact depends on the component:
 
 #### Is the code open source?
 
-Partially:
+Yes. The public `GOATNetwork/x402` repository contains the core services, SDKs, MerchantCallback contracts, QuickPay tooling, middleware, and related documentation needed for review and integration.
 
-- MerchantCallback contracts: open source and auditable
-- SDKs: open source and inspectable
-- core infrastructure: not fully open source yet, but planned on the roadmap
+Production deployments are still operated environments, so confirm the deployed version, configuration, and TSS operator policy with the deployment operator.
 
 ---
 
@@ -331,7 +349,7 @@ A combined flow is also possible: users can pay for the service via x402 while g
 
 #### Can x402 enable gasless transactions?
 
-Yes, through two common paths:
+Yes, on DELEGATE-capable chains through two common paths:
 
 1. **EIP-3009 tokens (such as USDC)**: `receiveWithAuthorization` supports gasless user flow
 2. **Permit2**: users sign a permit and a relayer executes the transaction
@@ -377,20 +395,27 @@ Not directly. x402 uses standard transactions, but it remains compatible:
 
 #### How do I get API credentials?
 
-1. Register in the GOAT Network developer center.
-2. Complete verification.
-3. Create an app.
-4. Obtain your API key and secret.
+1. Submit a merchant application through the merchant portal or `POST /merchant/v1/auth/register` with `merchant_id`, `name`, `email`, `password`, and `receive_type`.
+2. The application is created as pending and disabled; no API tokens are issued at registration time.
+3. An admin/operator reviews the merchant in the admin dashboard or `/admin/merchants` and approves it by enabling the merchant, or rejects it through `/admin/merchants/:merchant_id/reject`.
+4. After approval, the owner logs into the merchant portal and uses Developer / API Keys, or `POST /merchant/v1/api-keys/rotate`, to generate the API key and secret. Admins can also rotate merchant API keys through `/admin/merchants/:merchant_id/rotate-keys`.
 
 #### Is there a testnet or sandbox?
 
-Yes. Testnet support includes:
+The public docs are mainnet-first. Use the supported mainnet matrix above for production integration.
 
-- GOAT testnet (Chain ID: 2345)
-- Polygon Mumbai
-- Arbitrum Sepolia
+For sandbox testing, use the environment and chain IDs provided by the operator. Do not assume old public testnets are available.
 
-Use testnet credentials for testing without real funds.
+#### What is the quickest path for an AI agent to pay?
+
+Use QuickPay when the merchant has enabled it. Agents can discover the merchant's public payment surface without merchant API credentials:
+
+- `GET /quickpay/:merchant_id/agent.md`
+- `GET /quickpay/:merchant_id/manifest.json`
+- `POST /quickpay/v1/x402/sessions`
+- `GET /quickpay/v1/x402/sessions/:session_id`
+
+The `goatx402-quickpay` CLI supports `inspect`, `pay-x402 --amount --token-contract --chain`, and `pay-mpp --route`.
 
 #### How do I integrate x402 into an existing payment flow?
 
@@ -405,19 +430,17 @@ x402 is designed to fit into an existing checkout path as an additional payment 
 
 #### Why do I get HTTP 402 when creating an order?
 
-In this context, the API returns HTTP 402 when the merchant fee balance is insufficient.
+HTTP 402 is the normal x402 `Payment Required` challenge for a successfully created order. The response contains the payment options in the body and in the `PAYMENT-REQUIRED` header.
 
-Example:
+Insufficient merchant fee balance is a different error. On `POST /api/v1/orders`, it returns HTTP 400:
 
 ```json
 {
-  "error": "Insufficient fee balance",
-  "required": "0.20",
-  "available": "0.05"
+  "error": "insufficient fee balance: available=$0.050000, required=$0.200000"
 }
 ```
 
-Top up the merchant fee balance and retry.
+On the QuickPay session path, the same condition is surfaced as HTTP 503 `merchant temporarily unavailable`. Top up the merchant fee balance only for those insufficient-balance errors, not for a normal 402 challenge.
 
 #### The payment was sent, but the order is still `CHECKOUT_VERIFIED`. Why?
 
@@ -439,7 +462,7 @@ Common causes include:
 3. target contract state changed after the order was created
 4. EIP-712 signature validation failed
 
-Check the on-chain `CalldataFailed` event for the revert reason.
+Check the on-chain `CalldataExecuted(bytes calldata_, bool success, bytes result)` event. A failed callback is emitted with `success=false`, and `result` contains the returned error data.
 
 ---
 

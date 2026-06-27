@@ -83,7 +83,6 @@ if (!result.success) {
 
 Notes:
 - `goatx402-sdk` depends on `ethers` and is an EVM SDK.
-- Solana requires separate wallet integration (not this frontend SDK).
 
 ---
 
@@ -187,15 +186,14 @@ When `callbackCalldata` is sent during order creation and merchant config is val
 
 ---
 
-## 9. Callback Contract Setup (`X402CallbackAdapter`)
+## 9. Callback Contract Setup (`MerchantCallback`)
 Recommended deployment via repository script (Upgradeable + Proxy):
 
 ```bash
 cd goatx402-contract
-forge script script/DeployX402CallbackAdapter.s.sol:DeployX402CallbackAdapter \
+PRIVATE_KEY=<OWNER_KEY> forge script script/DeployMerchantCallback.s.sol:DeployMerchantCallback \
   --rpc-url <DESTINATION_CHAIN_RPC> \
-  --broadcast \
-  --private-key <OWNER_KEY>
+  --broadcast
 ```
 
 Merchant setup by GoatX402:
@@ -208,6 +206,7 @@ Send the following fields to GoatX402 for merchant setup:
 - `eip712_version`
 
 Notes:
+- The deploy script reads the deployer key from the `PRIVATE_KEY` environment variable.
 - `eip712_name` and `eip712_version` are required in callback signature flow.
 - Add GoatX402 authorized caller (`x402d`) to callback contract allowlist.
 
@@ -219,7 +218,7 @@ For Core public APIs, HTTP status can be treated as error code:
 | HTTP | Meaning | Common Triggers |
 | --- | --- | --- |
 | 400 | Request validation / business rule failure | missing fields, invalid address, unsupported token, insufficient fee, invalid signature format, non-cancellable status |
-| 401 | Authentication failure | missing/invalid `X-API-Key` / `X-Timestamp` / `X-Sign` |
+| 401 | Authentication failure | missing/invalid `X-API-Key` / `X-Timestamp` / `X-Nonce` / `X-Sign`; `nonce` must be included in the signed params |
 | 403 | Authorization failure | merchant mismatch, order not owned by current merchant |
 | 404 | Resource not found | merchant/order/proof not found |
 | 500 | Internal server error | Core internal exception |
@@ -249,8 +248,6 @@ Recommended practices:
 | `ERC20_DIRECT` | merchant address | direct payment |
 | `ERC20_3009` | TSS address | user pays TSS first, Core settles via EIP-3009 |
 | `ERC20_APPROVE_XFER` | TSS address | user pays TSS first, Core settles via Permit2 |
-| `SOL_DIRECT` | merchant address | direct Solana payment |
-| `SOL_APPROVE_XFER` | TSS address | delegated Solana settlement |
 
 ---
 

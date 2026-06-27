@@ -57,7 +57,7 @@ That can mean:
 
 ### HTTP 402 Finally Becomes Useful
 
-HTTP 402 **Payment Required** was reserved in 1999. x402 gives it a practical implementation for programmable money.
+HTTP 402 **Payment Required** has existed in the HTTP specification family for decades. x402 gives it a practical implementation for programmable money.
 
 Instead of inventing a custom payment pattern for every product, x402 turns payment into a protocol-native flow.
 
@@ -147,11 +147,30 @@ This implementation is differentiated by practical builder-focused features rath
 
 | Feature | Description | Why It Matters |
 | --- | --- | --- |
-| Unified SDK | same integration path across ETH, Polygon, Arbitrum, BSC, Solana, and GOAT-oriented flows | integrate once and reuse |
+| Unified SDK | same integration path across 12 supported EVM mainnets | integrate once and reuse |
 | TSS security | threshold signing with no single point of failure | stronger operational security |
-| Native callbacks | on-chain callback execution bound with EIP-712 | trust-minimized business logic |
+| Native callbacks | callback-contract execution bound with EIP-712 on DELEGATE-capable chains | trust-minimized business logic |
 | Fee abstraction | predictable USD-denominated pricing | easier budgeting |
 | Fast settlement | sub-minute confirmation targets on supported chains | faster fulfillment |
+
+### Supported EVM Mainnets
+
+| Chain | Chain ID | DIRECT | DELEGATE | Explorer |
+| --- | --- | --- | --- | --- |
+| Ethereum | `1` | Yes | Yes | `etherscan.io` |
+| Polygon | `137` | Yes | Yes | `polygonscan.com` |
+| BSC | `56` | Yes | Yes | `bscscan.com` |
+| Arbitrum | `42161` | Yes | Yes | `arbiscan.io` |
+| Optimism | `10` | Yes | Yes | `optimistic.etherscan.io` |
+| Avalanche | `43114` | Yes | Yes | `snowtrace.io` |
+| Base | `8453` | Yes | Yes | `basescan.org` |
+| Berachain | `80094` | Yes | Yes | `berascan.com` |
+| X Layer | `196` | Yes | Yes | `web3.okx.com/explorer/x-layer/evm` |
+| GOAT | `2345` | Yes | Yes | `explorer.goat.network` |
+| Metis | `1088` | Yes | No | `andromeda-explorer.metis.io` |
+| Tempo | `4217` | Yes | No | `explore.tempo.xyz` |
+
+DELEGATE requires same-chain EVM support for EIP-3009 or Permit2 plus an approved merchant callback contract. Metis and Tempo are DIRECT-only.
 
 ### Protocol Guarantees
 
@@ -167,9 +186,9 @@ This implementation is differentiated by practical builder-focused features rath
 
 - payment confirmation time depends on the target chain
 - callback execution can be atomic with payment handling
-- order creation is idempotent
+- duplicate `dapp_order_id` values are rejected for normal order creation; QuickPay sessions support `idempotency_key`
 - expired flows can be refunded automatically
-- webhook notifications can be emitted for all state changes
+- merchant webhooks currently emit `order.invoiced`; other state changes should be tracked through polling or reconciliation
 
 ---
 

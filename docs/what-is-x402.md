@@ -117,7 +117,7 @@ Within GOAT Network, x402 is more than a payment button. It acts as a broader:
 
 In the GOAT implementation, x402 helps merchants and developers:
 
-- support multi-chain payments
+- support EVM mainnet payments across Ethereum, Polygon, BSC, Arbitrum, Optimism, Avalanche, Base, Berachain, X Layer, GOAT, Metis, and Tempo
 - integrate through a unified SDK
 - obtain proof after payment completes
 - support callback / execution in more advanced scenarios
@@ -138,6 +138,8 @@ The current GOAT x402 implementation mainly supports two modes:
 ### 1. DIRECT
 The user pays directly to the merchant address.
 
+DIRECT is the payment-only mode. The payer sends an ERC-20 transfer on the selected EVM chain to the merchant's receiving address, and the watcher matches that transfer to the order. DIRECT is available across the supported EVM mainnets, including Metis and Tempo.
+
 Suitable for:
 - simple payments
 - paid content
@@ -146,6 +148,8 @@ Suitable for:
 
 ### 2. DELEGATE
 Payment is not just about receiving funds. It also supports more advanced settlement and post-payment execution logic.
+
+DELEGATE is the callback-enabled mode. It uses EIP-3009 or Permit2-style authorization, an approved merchant callback contract, and TSS-assisted submission on a single EVM chain. It is not available on Metis or Tempo, where DIRECT is the supported mode.
 
 Suitable for:
 - callback-enabled flows
@@ -213,7 +217,7 @@ A typical onboarding path looks like this:
 1. Register a Merchant Account
 2. Configure Receiving Address
 3. Generate API Credentials
-4. Choose an integration path (GitHub SDK or Agent Integration)
+4. Choose an integration path (SDK, direct API integration, or QuickPay for agent-facing payments)
 5. Test and go live
 
 Recommended companion documents:
@@ -222,6 +226,7 @@ Recommended companion documents:
 - **Merchant Guide**
 - **Developer Quick Start**
 - **DIRECT vs DELEGATE**
+- **QuickPay agent surface:** `GET /quickpay/:merchant_id/agent.md`, `GET /quickpay/:merchant_id/manifest.json`, and the `goatx402-quickpay` CLI
 - **x402 FAQ**
 
 ---

@@ -34,7 +34,7 @@ Collect or infer these inputs before making changes:
 - `PROJECT_NAME`: name of the new working copy
 - `ENV_FILE_PATH`: merchant environment file path
 - `PRIVATE_KEY_STORE_PATH`: local storage path for the generated test wallet
-- `X402_REPO`: x402 repository URL
+- `X402_REPO`: canonical `goat-x402` monorepo URL or local path
 - `MIN_PAY_AMOUNT`: minimum accepted stablecoin amount
 - `MIN_PAY_TOKENS`: allowed payment tokens, usually `USDT,USDC`
 - `BASE_PRICE_BTC`: BTC anchor price unit, such as `0.00001`
@@ -80,12 +80,12 @@ Then:
 
 ### 3. Build and Install x402 SDKs
 
-Clone `X402_REPO` into a temporary directory and build:
+Clone `X402_REPO` from the canonical `goat-x402` monorepo into a temporary directory and build:
 
 - `goatx402-sdk`
-- `goatx402-sdk-server-ts`
+- `goatx402-sdk-server-ts` (repository directory; npm package name is `goatx402-sdk-server`)
 
-Install both packages into the working project from local paths. Verify that each package has a valid `dist` build before continuing.
+Install both packages into the working project from local paths using the package names `goatx402-sdk` and `goatx402-sdk-server`. Verify that each package has a valid `dist` build before continuing.
 
 ### 4. Add Backend x402 Capabilities
 
@@ -117,6 +117,8 @@ Backend rules:
 ### 5. Apply Generic Pricing Logic
 
 Execute pricing on the backend with this model:
+
+If the merchant can use native QuickPay instead of a custom quote engine, prefer QuickPay Products: configure fixed-price products with `product_key` and token-agnostic `price`, then let the QuickPay session API compute the token amount from the buyer-selected chain and token.
 
 - fetch `BTCUSDC` from `BINANCE_PRICE_URL`
 - compute `converted = BASE_PRICE_BTC * btcUsdcPrice`

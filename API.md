@@ -1,21 +1,24 @@
 **Overview**
-This document summarizes the GoatX402 Core APIs invoked by `goatx402-sdk-server-ts`, in a Swagger-like format. It focuses on request/response shapes, auth requirements, and how each SDK method maps to Core endpoints.
+This document summarizes the GoatX402 Core APIs invoked by `goatx402-sdk-server`, in a Swagger-like format. It focuses on request/response shapes, auth requirements, and how each SDK method maps to Core endpoints.
 
 **Base Url**
-`{baseUrl}` (configured in `GoatX402Client`), paths below are appended to it.
+Production: `https://api.x402.goat.network`.
+
+SDKs accept `{baseUrl}` in `GoatX402Client`; paths below are appended to it.
 
 **Auth (HMAC-SHA256)**
 Protected endpoints require these headers:
-`X-API-Key`, `X-Timestamp`, `X-Sign`
+`X-API-Key`, `X-Timestamp`, `X-Nonce`, `X-Sign`
 
 Signature algorithm (from goatx402-core):
-1. Take all request body fields, add `api_key` and `timestamp` (Unix seconds).
+1. Take all query/body fields, add `api_key`, `timestamp` (Unix seconds), and `nonce`.
 2. Remove `sign` if present, drop empty values.
 3. Sort keys by ASCII and build `k1=v1&k2=v2`.
 4. HMAC-SHA256 with `apiSecret`, hex-encode.
 
 Notes:
 - Timestamp is validated within a short window (default 5 minutes in core).
+- `X-Nonce` is required, must be unique per request, and is included in the signed params as `nonce`.
 - Use server-side SDK only. Do not expose `apiSecret` in the frontend.
 
 **Fee Mechanism**
@@ -45,7 +48,6 @@ Common HTTP statuses:
 - `amount_wei is required`
 - `amount_wei must be greater than 0`
 - `invalid Ethereum address format`
-- `invalid Solana address format`
 
 *Configuration and Resource Errors:*
 - `merchant <id> not found`
@@ -63,14 +65,14 @@ Common HTTP statuses:
 
 *Flow-Specific Errors:*
 - `callback_calldata is only supported for ERC20_3009 or ERC20_APPROVE_XFER flows`
-- `TSS wallet <address> has not approved Permit2 contract on chain <id>`
-- `no enabled TSS wallet found for merchant <id> on chain <id>`
+- `TSS wallet <address> has not approved Permit2 contract for token <token> on chain <id>`
+- `no enabled TSS wallet found for chain <id> and token <token>`
 
 *Cancellation Errors:*
-- `cannot cancel order <id>: current status is <status>` (only `CHECKOUT_VERIFIED` orders can be cancelled)
+- `cannot cancel order in status <status>, only CHECKOUT_VERIFIED orders can be cancelled`
 
 **Endpoint Summary (SDK Mapping)**
-| SDK Method (goatx402-sdk-server-ts) | Core Endpoint | Auth |
+| SDK Method (`goatx402-sdk-server`) | Core Endpoint | Auth |
 | --- | --- | --- |
 | `GoatX402Client.createOrder` | `POST /api/v1/orders` | Yes |
 | `GoatX402Client.createOrderRaw` | `POST /api/v1/orders` | Yes |
@@ -107,9 +109,9 @@ Success Response (x402 PaymentRequired, HTTP 402):
 | `x402Version` | number | x402 protocol version |
 | `resource` | object | x402 resource info |
 | `accepts` | array | Payment options (scheme, network, amount, asset, payTo, extra) |
-| `extensions.goatx402` | object | `destinationChain`, `expiresAt`, `signatureEndpoint`, `paymentMethod`, `receiveType` |
+| `extensions.goatx402` | object | `destinationChain`, `expiresAt`, `paymentMethod`, `receiveType`; `signatureEndpoint` is included only for `ERC20_3009` |
 | `order_id` | string | Core order id |
-| `flow` | string | Payment flow (`ERC20_DIRECT`, `ERC20_3009`, `ERC20_APPROVE_XFER`, `SOL_*`) |
+| `flow` | string | Payment flow (`ERC20_DIRECT`, `ERC20_3009`, `ERC20_APPROVE_XFER`) |
 | `token_symbol` | string | Token symbol |
 | `calldata_sign_request` | object | EIP-712 signing data when callback is enabled |
 
@@ -208,7 +210,9 @@ Response Body:
 | Field | Type | Description |
 | --- | --- | --- |
 | `merchant_id` | string | Merchant id |
-| `name` | string | Merchant name (optional) |
-| `logo` | string | Logo URL (optional) |
+| `enabled` | boolean | Whether the merchant is enabled |
 | `receive_type` | string | `DIRECT` or `DELEGATE` |
 | `wallets` | array | `{ address, chain_id, token_symbol, token_contract }` |
+| `api_key` | string | Empty on the public Core response; populated only in authenticated/internal merchant lookups |
+
+Note: SDKs may normalize missing display fields, for example using `merchant_id` as `name`. Core's public response does not include `name` or `logo`.

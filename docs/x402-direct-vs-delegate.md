@@ -24,7 +24,7 @@ DIRECT mode means:
 
 > **The user pays directly to the merchant address.**
 
-This mode is simpler and better suited for lightweight payment scenarios.
+This mode is simpler and better suited for lightweight payment scenarios. The payer sends an ERC-20 transfer on the selected EVM chain to the merchant's configured receiving address; the x402 watcher matches that transfer to the order. There is no TSS payout step and no callback contract in the fund path.
 
 ### Good Fit For
 
@@ -39,11 +39,12 @@ This mode is simpler and better suited for lightweight payment scenarios.
 - simpler integration path
 - funds go directly to the merchant address
 - usually does not require complex callback execution
-- lower default fixed fee
+- available on all supported EVM mainnets
+- lower per-chain configured fee
 
 ### DIRECT Default Fee
 
-- **The default fixed fee is typically $0.10 per order**
+- **The default configuration is typically $0.10 per order, but fees are chain/admin-configured**
 
 ---
 
@@ -53,7 +54,7 @@ DELEGATE mode means:
 
 > **Payment does not just complete fund transfer — it also supports post-payment on-chain execution logic.**
 
-This mode is better suited for more advanced business flows.
+This mode is better suited for more advanced business flows. DELEGATE is an EVM-only, single-chain flow: the merchant configures one receiving chain and an approved callback contract on that same chain. Orders use EIP-3009 `receiveWithAuthorization` or Permit2 `SignatureTransfer`, TSS co-signing, and SubmitMonitor submission to execute the payment/callback path. It does not bridge funds between chains.
 
 ### Good Fit For
 
@@ -66,13 +67,37 @@ This mode is better suited for more advanced business flows.
 ### DELEGATE Characteristics
 
 - more powerful payment flow
-- supports callback / execution configuration
+- supports callback / execution configuration through an approved merchant callback contract
+- uses EIP-3009 or Permit2 authorization plus TSS-assisted submission
+- requires one EVM chain per DELEGATE merchant configuration
+- unavailable on Metis and Tempo
 - better for payment + execution scenarios
-- higher default fixed fee
+- higher per-chain configured fee
 
 ### DELEGATE Default Fee
 
-- **The default fixed fee is typically $0.20 per order**
+- **The default configuration is typically $0.20 per order, but fees are chain/admin-configured**
+
+---
+
+## Chain Availability
+
+| Chain | Chain ID | DIRECT | DELEGATE | Explorer |
+| --- | --- | --- | --- | --- |
+| Ethereum | `1` | Yes | Yes | `etherscan.io` |
+| Polygon | `137` | Yes | Yes | `polygonscan.com` |
+| BSC | `56` | Yes | Yes | `bscscan.com` |
+| Arbitrum | `42161` | Yes | Yes | `arbiscan.io` |
+| Optimism | `10` | Yes | Yes | `optimistic.etherscan.io` |
+| Avalanche | `43114` | Yes | Yes | `snowtrace.io` |
+| Base | `8453` | Yes | Yes | `basescan.org` |
+| Berachain | `80094` | Yes | Yes | `berascan.com` |
+| X Layer | `196` | Yes | Yes | `web3.okx.com/explorer/x-layer/evm` |
+| GOAT | `2345` | Yes | Yes | `explorer.goat.network` |
+| Metis | `1088` | Yes | No | `andromeda-explorer.metis.io` |
+| Tempo | `4217` | Yes | No | `explore.tempo.xyz` |
+
+DELEGATE requires Permit2 or EIP-3009 support plus a reviewed callback contract on the same chain. Metis and Tempo should be configured as DIRECT.
 
 ---
 
@@ -82,10 +107,11 @@ This mode is better suited for more advanced business flows.
 | --- | --- | --- |
 | Core goal | collect payment | collect payment + execute logic |
 | Complexity | low | medium / high |
-| User fund path | more direct | includes more complex system-assisted settlement |
-| Callback / execution | usually not needed | supported |
+| User fund path | user wallet -> merchant address | same-chain authorization + TSS-assisted callback/settlement |
+| Callback / execution | usually not needed | supported through approved callback contract |
+| Chain scope | all supported EVM mainnets | single-chain EVM; not Metis or Tempo |
 | Best fit | simple payments | advanced on-chain business flows |
-| Default fee | $0.10 / order | $0.20 / order |
+| Default fee | per-chain/admin-configured; often $0.10 / order | per-chain/admin-configured; often $0.20 / order |
 
 ---
 
@@ -102,8 +128,9 @@ It does **not** use:
 
 ### Pricing Rules
 
-- DIRECT: default fixed fee is typically **$0.10 per order**
-- DELEGATE: default fixed fee is typically **$0.20 per order**
+- DIRECT: the default configured fee is often **$0.10 per order**
+- DELEGATE: the default configured fee is often **$0.20 per order**
+- actual fees are configured per chain by the platform/admin operator
 - fees are paid from the merchant’s **fee balance**
 - fee balance is checked when an order is created
 - if an order completes successfully, the fee is consumed
@@ -125,6 +152,7 @@ It does **not** use:
 - callback / contract execution
 - more advanced merchant workflows
 - a combined payment + business action experience
+- a single-chain EVM configuration with the required callback contract support
 
 ---
 

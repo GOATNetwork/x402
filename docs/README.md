@@ -43,10 +43,16 @@ This section is for developers, technical PMs, integration engineers, and anyone
 3. `x402-agent-integration-guide.md`  
    Covers agent workflows, AI-assisted implementation patterns, and agent-oriented integration design.
 
-4. `x402-direct-vs-delegate.md`  
+4. `../goatx402-quickpay/README.md`  
+   Covers the QuickPay public payer/agent library and CLI, including `inspect`, `pay-x402`, and `pay-mpp`.
+
+5. `x402-dapp-integration-prompts/`  
+   Prompt pack and OpenAI app metadata for AI-assisted dapp integration.
+
+6. `x402-direct-vs-delegate.md`  
    Important for understanding the operational difference between payment modes and how they affect product behavior.
 
-5. `x402-integration.md`  
+7. `x402-integration.md`  
    A deeper integration and architecture reference for developers who need more detail after the quickstart.
 
 ### Developer goal
@@ -55,6 +61,7 @@ By reading the documents above, a developer should be able to understand:
 - how the frontend and backend coordinate payment flow
 - what DIRECT and DELEGATE mean in practice
 - how proof, callbacks, and settlement fit into integration design
+- how QuickPay, QuickPay Products, and MPP fit into agent and checkout flows
 
 ---
 
@@ -98,10 +105,13 @@ This section is for operations teammates, onboarding managers, merchant support 
 2. `merchant-guide.md`  
    A practical merchant operations guide with screenshots, configuration examples, and merchant-side setup steps.
 
-3. `x402-faq.md`  
+3. `merchant-guide.md` account recovery and security sections  
+   Merchant account recovery, password changes, self-service 2FA, admin-assisted password reset, admin-assisted 2FA reset, self-service Topup, and QuickPay Products.
+
+4. `x402-faq.md`  
    A useful reference for answering common merchant questions and clarifying expected system behavior.
 
-4. `x402-direct-vs-delegate.md`  
+5. `x402-direct-vs-delegate.md`  
    Useful when a merchant needs help deciding which payment mode is more appropriate.
 
 ### Operations goal
@@ -126,13 +136,22 @@ By reading the documents above, operations and support teammates should be able 
 - `x402-onboarding-guide.md`
 - `merchant-guide.md`
 
+### Merchant account recovery and operations
+- `merchant-guide.md` account recovery and security sections
+
 ### Technical integration
 - `x402-developer-quickstart.md`
 - `x402-api-reference.md`
 - `x402-integration.md`
 
+### QuickPay, QuickPay Products, and MPP
+- `../goatx402-quickpay/README.md`
+- `merchant-guide.md` QuickPay Products sections
+- `x402-api-reference.md`
+
 ### Agent and AI-driven integration
 - `x402-agent-integration-guide.md`
+- `x402-dapp-integration-prompts/`
 
 ### Quick answers and common questions
 - `x402-faq.md`
@@ -152,6 +171,10 @@ By reading the documents above, operations and support teammates should be able 
 | `x402-api-reference.md` | Developers | API semantics, lifecycle, and integration details |
 | `x402-integration.md` | Developers, technical PMs | Deeper architecture and SDK integration reference |
 | `x402-agent-integration-guide.md` | Developers, AI agent builders | Guidance for agent and AI-assisted integration workflows |
+| `x402-dapp-integration-prompts/` | Developers, AI agent builders | Prompt pack and OpenAI app metadata for dapp integration |
+| `../goatx402-quickpay/README.md` | Developers, AI agent builders | QuickPay payer/agent library and CLI reference |
+| `merchant-guide.md` account recovery sections | Merchants, operations, support | Change password, forced password change, admin-assisted password reset, and 2FA reset |
+| `merchant-guide.md` QuickPay Products sections | Merchants, operations, support | Product-key based QuickPay checkout setup and operations |
 | `x402-faq.md` | Everyone | Common questions and short-form answers |
 
 ---
