@@ -5,32 +5,12 @@ import { payX402, payProduct, payMpp } from './pay.js'
 import { EthersPaymentBackend, type RpcResolver } from './backend-ethers.js'
 import { SdkMppBackend } from './backend-mpp-sdk.js'
 import { mppRecovery } from './mpp-error.js'
-
-type Flags = Record<string, string | boolean>
-
-function parseArgs(argv: string[]): { command?: string; positional: string[]; flags: Flags } {
-  const flags: Flags = {}
-  const positional: string[] = []
-  let command: string | undefined
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i]
-    if (a.startsWith('--')) {
-      const key = a.slice(2)
-      const next = argv[i + 1]
-      if (next === undefined || next.startsWith('--')) {
-        flags[key] = true
-      } else {
-        flags[key] = next
-        i++
-      }
-    } else if (command === undefined) {
-      command = a
-    } else {
-      positional.push(a)
-    }
-  }
-  return { command, positional, flags }
-}
+import {
+  HELP_TEXT,
+  parseArgs,
+  shouldShowHelp,
+  type Flags,
+} from './cli-args.js'
 
 function fail(msg: string): never {
   process.stderr.write(JSON.stringify({ ok: false, error: msg }) + '\n')
@@ -94,6 +74,12 @@ function privateKey(flags: Flags): string {
 
 async function main(): Promise<void> {
   const { command, positional, flags } = parseArgs(process.argv.slice(2))
+
+  if (shouldShowHelp(command, flags)) {
+    process.stdout.write(HELP_TEXT)
+    return
+  }
+
   const url = positional[0]
 
   if (command === 'inspect') {
