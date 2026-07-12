@@ -11,9 +11,13 @@ optimizer_runs = 200
 [rpc_endpoints]
 bsc_testnet = "https://data-seed-prebsc-1-s1.binance.org:8545"
 goat_testnet3 = "https://rpc.testnet3.goat.network"
+goat_mainnet = "https://rpc.goat.network"
 sepolia = "https://ethereum-sepolia-rpc.publicnode.com"
+metis_sepolia = "https://sepolia.metisdevops.link"
 
 [etherscan]
 bsc_testnet = { key = "${ETHERSCAN_API_KEY}", url = "https://api-testnet.bscscan.com/api" }
 goat_testnet3 = { key = "${GOAT_SCAN_API_KEY}", url = "https://explorer.testnet3.goat.network/api" }
+goat_mainnet = { key = "${GOAT_SCAN_API_KEY}", url = "https://explorer.goat.network/api" }
 sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api-sepolia.etherscan.io/api" }
+metis_sepolia = { key = "any", url = "https://sepolia-explorer-api.metisdevops.link/api" }

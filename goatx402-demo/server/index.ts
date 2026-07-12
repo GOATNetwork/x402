@@ -132,6 +132,7 @@ app.get('/api/config', async (_req, res) => {
     res.json({
       merchantId: merchant.merchantId,
       merchantName: merchant.name,
+      receiveType: merchant.receiveType,
       chains: Object.values(chains),
     })
   } catch (error) {
@@ -243,13 +244,164 @@ app.get('/api/merchants/:merchantId', async (req, res) => {
 })
 
 // ============================================================================
+// DELEGATE hosted-checkout demo wiring — CROSS-CHAIN PRICE MODE (web3-free merchant).
+//
+// The browser sends ONLY a product_key. The SERVER pins a token-agnostic USD `price`.
+// The PLATFORM derives the callback chain (from the merchant's callback contract) and the
+// payable (source chain, token) candidates; the buyer picks any listed source chain+token
+// on the hosted page; the amount is computed server-side as price*10^decimals; settlement
+// /callback stays on the merchant's single callback chain. NO web3 on the merchant side: a
+// product may OPTIONALLY declare a callback template (signature + static args) which the
+// hosted page ABI-encodes into calldata at bind — signed/executed on the callback chain,
+// independent of the source chain. No template → no calldata (buyer just transfers).
+// See docs/DELEGATE_CHECKOUT_CROSSCHAIN_PLAN.md.
+//
+// Gated behind DELEGATE_ENABLED=1 (the demo's GOATX402_* key must be a DELEGATE merchant
+// with a callback contract; the callback CHAIN is derived server-side, not configured here):
+//   - off → GET /api/delegate-config { enabled:false }; POST create → 501.
+//   - on  → the backend mints a unified DELEGATE price session via the server SDK; the
+//           merchant is derived from the API key (HMAC), never the request body.
+// ============================================================================
+
+const delegateConfigured = (process.env.DELEGATE_ENABLED ?? '').trim() === '1'
+const DELEGATE_SUCCESS_URL = process.env.DELEGATE_SUCCESS_URL ?? ''
+const DELEGATE_CANCEL_URL = process.env.DELEGATE_CANCEL_URL ?? ''
+const DELEGATE_NOT_CONFIGURED_MSG = 'DELEGATE checkout not configured (set DELEGATE_ENABLED=1 for a DELEGATE merchant)'
+
+// Server-side product catalog: the browser picks a product_key; the SERVER owns the USD
+// price. The token + source chain are chosen by the buyer on the hosted page from the
+// candidates the platform derives; the amount is price*10^decimals(chosen token).
+interface DelegateProduct {
+  name: string
+  description: string
+  image: string
+  priceUsd: string
+  // OPTIONAL merchant callback. When set, the hosted checkout page ABI-encodes it into
+  // callback_calldata at bind (the merchant site stays web3-free — it only declares the
+  // function signature + static args). The cross-chain order carries it; the calldata is
+  // signed + executed on the merchant's CALLBACK chain, independent of the source chain the
+  // buyer pays on. `payer` is a zero-address placeholder (the contract uses originalPayer).
+  callbackTemplate?: { signature: string; args: unknown[] }
+}
+const DELEGATE_CATALOG: Record<string, DelegateProduct> = {
+  mug: {
+    name: 'Coffee Mug',
+    description: 'A sturdy ceramic mug. Pay with any listed token on any listed chain.',
+    image: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=480&q=60',
+    priceUsd: '1.00',
+  },
+  tee: {
+    name: 'Cotton T-Shirt',
+    description: 'Soft combed-cotton tee. Cross-chain checkout WITH a callback.',
+    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=480&q=60',
+    priceUsd: '3.50',
+    // Demonstrates a calldata callback: MerchantCallback.testCallback fires on settlement (on
+    // the merchant's callback chain) and merely `emit`s TestCallbackExecuted(payer,value,message)
+    // — none of the args are enforced. payer is a zero-address placeholder (the contract resolves
+    // the real buyer via originalPayer). `value` = the on-chain payment amount in the token's
+    // smallest unit: 3500000 = $3.50 at 6 decimals, which matches bound_amount_wei for EVERY one
+    // of this merchant's candidate tokens (all 6-decimal USDC/USDT stablecoins).
+    // CAVEAT: a STATIC template can encode only one decimals assumption. If a non-6-decimal token
+    // (e.g. 18-dec DAI) ever became a candidate, this value would diverge from the real transfer;
+    // the general fix is for the hosted page to substitute the bind-computed bound_amount_wei.
+    callbackTemplate: {
+      signature: 'testCallback(address payer, uint256 value, string message)',
+      args: ['0x0000000000000000000000000000000000000000', '3500000', 'Cotton T-Shirt ($3.50) — cross-chain DELEGATE checkout'],
+    },
+  },
+}
+
+// Brand shown on the hosted checkout (DELEGATE merchants have no QuickPay discovery, so we
+// pass branding via public_metadata).
+const DELEGATE_MERCHANT_BRAND = {
+  name: 'Acme Store (demo)',
+  logo: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=160&q=60',
+}
+
+// Frontend asks whether the DELEGATE section should be shown.
+app.get('/api/delegate-config', (_req, res) => {
+  res.json({ enabled: delegateConfigured })
+})
+
+// Catalog for the frontend to render (server owns price + display data).
+app.get('/api/delegate-catalog', (_req, res) => {
+  if (!delegateConfigured) {
+    return res.status(501).json({ error: DELEGATE_NOT_CONFIGURED_MSG })
+  }
+  res.json({
+    merchant: DELEGATE_MERCHANT_BRAND,
+    products: Object.entries(DELEGATE_CATALOG).map(([product_key, p]) => ({
+      product_key,
+      name: p.name,
+      description: p.description,
+      image: p.image,
+      price_usd: p.priceUsd,
+    })),
+  })
+})
+
+// Mint a server-authoritative cross-chain DELEGATE PRICE session. The browser sends ONLY
+// product_key; the server pins the USD price + line item + brand. The platform derives the
+// callback chain + payable (source chain, token) candidates. NO web3, NO calldata here.
+app.post('/api/create-delegate-checkout', async (req, res) => {
+  if (!delegateConfigured) {
+    return res.status(501).json({ error: DELEGATE_NOT_CONFIGURED_MSG })
+  }
+  const productKey = typeof req.body?.product_key === 'string' ? req.body.product_key : 'mug'
+  const product = DELEGATE_CATALOG[productKey]
+  if (!product) {
+    return res.status(400).json({ error: `unknown product_key: ${productKey}` })
+  }
+  try {
+    // Correlation reference (echoed back on the webhook / redirect).
+    const clientReferenceId = `demo-delegate-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const session = await goatx402Client.createCheckoutSession({
+      checkoutType: 'DELEGATE',
+      price: product.priceUsd, // cross-chain price mode: no chain/token/amount; calldata (if any) is a template the hosted page encodes
+      successUrl: DELEGATE_SUCCESS_URL || undefined,
+      cancelUrl: DELEGATE_CANCEL_URL || undefined,
+      clientReferenceId,
+      lineItems: [
+        {
+          name: product.name,
+          description: product.description,
+          image: product.image,
+          amount: `$${product.priceUsd}`,
+          quantity: 1,
+        },
+      ],
+      publicMetadata: {
+        merchant_name: DELEGATE_MERCHANT_BRAND.name,
+        merchant_logo: DELEGATE_MERCHANT_BRAND.logo,
+        product_key: productKey,
+        // OPTIONAL: the hosted page encodes this into callback_calldata at bind (web3-free
+        // merchant). Omitted when the product has no callback → plain no-calldata settlement.
+        ...(product.callbackTemplate ? { callback_template: product.callbackTemplate } : {}),
+      },
+    })
+    res.json({ checkout_id: session.checkoutId, url: session.url })
+  } catch (error: unknown) {
+    console.error('Create delegate checkout error:', error)
+    const errObj = error as { status?: number; responseBody?: unknown }
+    const status = errObj.status || 500
+    if (errObj.responseBody) {
+      console.error('Response body:', errObj.responseBody)
+    }
+    res.status(status).json({
+      error: error instanceof Error ? error.message : 'Failed to create delegate checkout',
+      details: errObj.responseBody,
+    })
+  }
+})
+
+// ============================================================================
 // MPP (Machine Payments Protocol) demo wiring.
 //
 // The MPP mode is OPTIONAL — if MPP_CORE_URL / MPP_MERCHANT_ID /
 // MPP_RECEIPT_KEY_HEX are not configured, the /api/mpp/protected route
 // is not mounted and /api/mpp/config returns 503. This lets the classic
 // demo flow keep working in any deployment that hasn't completed MPP
-// env/key/route bootstrap.
+// bootstrap (see MPP_DEMO_PLAN.md §B-7 + MPP_TEMPO_TESTNET_TESTING.md).
 //
 // The buyer-side flow runs entirely in the browser via MPPClient from
 // goatx402-sdk; this backend's only MPP responsibilities are:
@@ -261,7 +413,6 @@ app.get('/api/merchants/:merchantId', async (req, res) => {
 
 const MPP_CORE_URL = process.env.MPP_CORE_URL ?? ''
 const MPP_MERCHANT_ID = process.env.MPP_MERCHANT_ID ?? ''
-const MPP_ROUTE_CANONICAL = process.env.MPP_ROUTE_CANONICAL ?? 'GET:api:mpp:protected'
 const MPP_ROUTE_OPTIONS_RAW = process.env.MPP_ROUTE_OPTIONS ?? ''
 const MPP_RECEIPT_KEY_HEX = process.env.MPP_RECEIPT_KEY_HEX ?? ''
 const MPP_RECEIPT_ALG_RAW = (process.env.MPP_RECEIPT_ALG ?? 'ed25519').trim()
@@ -291,15 +442,6 @@ interface CoreMPPRoute {
 
 const mppRouteCanonicalRegex = /^[A-Za-z0-9._:~-]{1,200}$/
 const mppRouteOptionIDRegex = /^[A-Za-z0-9_-]{1,300}$/
-
-function defaultMPPRouteOption(): MPPRouteOption {
-  return {
-    id: 'default',
-    label: 'Protected resource',
-    routeCanonical: MPP_ROUTE_CANONICAL,
-    description: 'Default MPP protected endpoint',
-  }
-}
 
 function routeOptionIDForRouteCanonical(routeCanonical: string): string {
   return `route-${Buffer.from(routeCanonical, 'utf8').toString('base64url')}`
@@ -507,7 +649,12 @@ async function loadMPPRouteOptions(): Promise<MPPRouteOption[]> {
   if (coreOptions.length > 0) {
     return rememberMPPRouteOptions(coreOptions)
   }
-  return rememberMPPRouteOptions([defaultMPPRouteOption()])
+  // No manual override and discovery returned nothing: fail loud instead of
+  // advertising a phantom default route that would 404 at the challenge step.
+  // Routes are merchant-configured in Core (admin -> Merchants -> MPP).
+  throw new Error(
+    `no MPP routes configured for merchant "${MPP_MERCHANT_ID}" — create one in the admin MPP page (or set MPP_ROUTE_OPTIONS to override)`,
+  )
 }
 
 async function loadMPPRouteOptionByID(id: string): Promise<MPPRouteOption | null> {
@@ -515,12 +662,16 @@ async function loadMPPRouteOptionByID(id: string): Promise<MPPRouteOption | null
   const liveOption = live.find((option) => option.id === id)
   if (liveOption) return liveOption
 
+  const decodedRouteCanonical = routeCanonicalFromOptionID(id)
+  if (decodedRouteCanonical) {
+    const liveRouteOption = live.find((option) => option.routeCanonical === decodedRouteCanonical)
+    if (liveRouteOption) return liveRouteOption
+  }
+
   const remembered = rememberedMPPRouteOptions.get(id)
   if (remembered) return remembered
 
-  const decodedRouteCanonical = routeCanonicalFromOptionID(id)
-  if (!decodedRouteCanonical) return null
-  return live.find((option) => option.routeCanonical === decodedRouteCanonical) ?? null
+  return null
 }
 
 function hexToBytes(hex: string): Uint8Array {
@@ -701,7 +852,13 @@ async function mountMPPProtectedRoute(): Promise<void> {
   const protectedHandler: express.RequestHandler = (req, res) => {
     const reqWithReceipt = req as RequestWithReceipt
     const receipt = reqWithReceipt.mppReceipt
-    const option = reqWithReceipt.mppRouteOption ?? defaultMPPRouteOption()
+    const option = reqWithReceipt.mppRouteOption
+    if (!option) {
+      // verifyProtectedReceipt always attaches the option before next();
+      // reaching here means the middleware chain was bypassed.
+      res.status(500).json({ error: 'internal_error' })
+      return
+    }
     res.json({
       message: 'Protected resource accessed',
       route_option_id: option.id,
@@ -722,7 +879,7 @@ async function mountMPPProtectedRoute(): Promise<void> {
     '/api/mpp/protected',
     verifyProtectedReceipt(async () => {
       const options = await loadMPPRouteOptions()
-      return options[0] ?? defaultMPPRouteOption()
+      return options[0]
     }),
     protectedHandler,
   )

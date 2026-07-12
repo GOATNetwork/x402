@@ -36,6 +36,108 @@ type CreateOrderParams struct {
 	CallbackCalldata string `json:"callback_calldata,omitempty"`
 }
 
+// CreateCheckoutSessionParams contains parameters for creating a
+// server-authoritative unified hosted-checkout session (DIRECT or DELEGATE). One
+// subsystem covers both merchant types — the buyer picks ONLY a token on the
+// hosted page; the amount is always pinned server-side. The merchant is taken
+// from the authenticated API key (HMAC) — never from the body.
+//
+// SIGNING NOTE: the HMAC scheme flattens the JSON body field-by-field with Go
+// fmt %v and CANNOT sign nested objects. AcceptableTokens / LineItems /
+// PublicMetadata / PrivateMetadata are therefore JSON-stringified by the client
+// (into acceptable_tokens / line_items_json / public_metadata_json /
+// private_metadata_json) so they ride as signable scalar fields; the server
+// JSON-parses them after verifying the signature.
+type CreateCheckoutSessionParams struct {
+	// CheckoutType is "DIRECT" or "DELEGATE".
+	CheckoutType string
+	// Price is a token-agnostic decimal price (e.g. "9.99") for DIRECT or cross-chain DELEGATE checkout.
+	Price string
+	// ChainID is the pinned source EVM chain for legacy fixed-wei DELEGATE checkout; omit it for cross-chain price mode.
+	ChainID int64
+	// FixedAmountWei is the DELEGATE-only pinned amount in wei (string for big numbers).
+	FixedAmountWei string
+	// CallbackCalldata is the DELEGATE-only hex calldata (with or without 0x) for the merchant callback contract.
+	CallbackCalldata string
+	// AcceptableTokens are the legacy fixed-wei DELEGATE token contracts (JSON-stringified for signing); price mode derives candidates server-side.
+	AcceptableTokens []string
+	// SuccessURL is an optional redirect URL after a successful payment.
+	SuccessURL string
+	// CancelURL is an optional redirect URL after cancellation.
+	CancelURL string
+	// LineItems is an optional list of line items shown on the hosted checkout (JSON-stringified for signing).
+	LineItems []any
+	// PublicMetadata is optional metadata surfaced in the public session view (JSON-stringified for signing).
+	PublicMetadata map[string]any
+	// PrivateMetadata is optional merchant-only metadata, never exposed publicly (JSON-stringified for signing).
+	PrivateMetadata map[string]any
+	// ClientReferenceID is an optional idempotency/correlation reference (max 200 chars).
+	ClientReferenceID string
+	// ExpiresIn is an optional session lifetime in seconds.
+	ExpiresIn int64
+}
+
+// CheckoutSession is the result of creating a unified hosted-checkout session.
+type CheckoutSession struct {
+	// CheckoutID is the opaque checkout id (the raw handle).
+	CheckoutID string `json:"checkout_id"`
+	// CheckoutType is the checkout subsystem ("DIRECT" | "DELEGATE").
+	CheckoutType string `json:"checkout_type"`
+	// URL is the hosted checkout URL to redirect the buyer to.
+	URL string `json:"url"`
+	// ExpiresAt is the session expiration timestamp (unix seconds).
+	ExpiresAt int64 `json:"expires_at"`
+}
+
+// CreateDelegateCheckoutSessionParams contains parameters for the deprecated
+// DELEGATE hosted-checkout wrapper.
+//
+// Deprecated: Use CreateCheckoutSessionParams with CheckoutType "DELEGATE". This
+// type is kept for one version; CreateDelegateCheckoutSession forwards to the
+// unified endpoint, wrapping the single TokenContract into
+// AcceptableTokens=[TokenContract] and mapping AmountWei to FixedAmountWei.
+type CreateDelegateCheckoutSessionParams struct {
+	// ChainID is the source EVM chain ID (DELEGATE is EVM-only).
+	ChainID int64
+	// TokenContract is a single ERC-20 token contract address (wrapped into AcceptableTokens).
+	TokenContract string
+	// AcceptableTokens are the accepted token contract addresses (overrides TokenContract when set).
+	AcceptableTokens []string
+	// AmountWei is the payment amount in wei (string for big numbers); maps to FixedAmountWei.
+	AmountWei string
+	// FixedAmountWei is the pinned amount in wei (takes precedence over AmountWei).
+	FixedAmountWei string
+	// CallbackCalldata is non-empty hex (with or without 0x) for the merchant callback contract.
+	CallbackCalldata string
+	// SuccessURL is an optional redirect URL after a successful payment.
+	SuccessURL string
+	// CancelURL is an optional redirect URL after cancellation.
+	CancelURL string
+	// ClientReferenceID is an optional idempotency/correlation reference (max 200 chars).
+	ClientReferenceID string
+	// ExpiresIn is an optional session lifetime in seconds.
+	ExpiresIn int64
+	// LineItems is an optional list of line items.
+	LineItems []any
+	// PublicMetadata is optional metadata surfaced in the public session view.
+	PublicMetadata map[string]any
+	// PrivateMetadata is optional merchant-only metadata.
+	PrivateMetadata map[string]any
+}
+
+// DelegateCheckoutSession is the result of the deprecated DELEGATE hosted-checkout
+// wrapper.
+//
+// Deprecated: Use CheckoutSession.
+type DelegateCheckoutSession struct {
+	// Handle is the opaque session handle (the checkout id).
+	Handle string `json:"handle"`
+	// URL is the hosted checkout URL to redirect the buyer to.
+	URL string `json:"url"`
+	// ExpiresAt is the session expiration timestamp (unix seconds).
+	ExpiresAt int64 `json:"expires_at"`
+}
+
 // x402 Protocol Types
 // See: https://github.com/coinbase/x402
 

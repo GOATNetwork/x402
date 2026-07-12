@@ -54,6 +54,53 @@ export interface PaymentParams {
   callbackCalldata?: string // Optional hex calldata for DELEGATE merchants (e.g., "0x1234...")
 }
 
+const demoCallbackInterface = new ethers.Interface([
+  'function testCallback(address payer, uint256 value, string message)',
+])
+
+const delegateFlows: readonly Order['flow'][] = ['ERC20_3009', 'ERC20_APPROVE_XFER']
+
+export function encodeDemoCallbackCalldata(payerAddress: string): string {
+  return demoCallbackInterface.encodeFunctionData('testCallback', [
+    payerAddress,
+    12345n,
+    'Demo callback',
+  ])
+}
+
+function isDelegateFlow(flow: Order['flow']): boolean {
+  return delegateFlows.includes(flow)
+}
+
+function isSuccessfulOrderStatus(status: string): boolean {
+  return status === 'PAYMENT_CONFIRMED' || status === 'INVOICED'
+}
+
+function isFailedTerminalOrderStatus(status: string): boolean {
+  return status === 'FAILED' || status === 'PAYMENT_FAILED' || status === 'EXPIRED' || status === 'CANCELLED'
+}
+
+function orderStatusFailureMessage(status: string): string {
+  return status === 'EXPIRED' || status === 'CANCELLED'
+    ? `Order ${status.toLowerCase()}`
+    : 'Transaction failed'
+}
+
+// Definitively pre-broadcast PaymentHelper.pay() failures: no tx was ever sent,
+// so the backend order stays CHECKOUT_VERIFIED and reconciliation can only stall
+// the spinner without ever flipping the result. ethers v6 user rejection surfaces
+// as ACTION_REJECTED / "user rejected action"; EIP-1193 wallets use code 4001 /
+// "User denied ..."; transfer() throws "Insufficient balance: ..." before sending.
+// (PaymentHelper.pay() collapses the error to its message, so match on that.)
+function isPreBroadcastFailure(error?: string): boolean {
+  if (!error) return false
+  return /reject|denied|ACTION_REJECTED|4001|Insufficient balance/i.test(error)
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 // Helper to switch chain via MetaMask
 async function switchChain(chainId: number): Promise<void> {
   if (!window.ethereum) {
@@ -82,6 +129,7 @@ export function useGoatX402(signer: ethers.Signer | null) {
   const [order, setOrder] = useState<Order | null>(null)
   const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null)
   const [orderStatus, setOrderStatus] = useState<OrderProof | null>(null)
+  const [tokenDecimals, setTokenDecimals] = useState<number>(18)
 
   // Create payment helper
   const paymentHelper = useMemo(() => {
@@ -127,6 +175,33 @@ export function useGoatX402(signer: ethers.Signer | null) {
     return response.json()
   }, [])
 
+  const getOrderStatusWithRetry = useCallback(
+    async (
+      orderId: string,
+      options: { attempts?: number; initialDelayMs?: number; maxDelayMs?: number } = {}
+    ): Promise<OrderProof> => {
+      const attempts = options.attempts ?? 4
+      const initialDelayMs = options.initialDelayMs ?? 750
+      const maxDelayMs = options.maxDelayMs ?? 5000
+      let lastError: unknown
+
+      for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        try {
+          return await getOrderStatus(orderId)
+        } catch (err) {
+          lastError = err
+          if (attempt < attempts) {
+            const delayMs = Math.min(maxDelayMs, initialDelayMs * 2 ** (attempt - 1))
+            await sleep(delayMs)
+          }
+        }
+      }
+
+      throw lastError instanceof Error ? lastError : new Error('Failed to fetch order status')
+    },
+    [getOrderStatus]
+  )
+
   // Submit calldata signature via backend
   const submitSignature = useCallback(async (orderId: string, signature: string): Promise<void> => {
     const response = await fetch(`${config.apiUrl}/orders/${orderId}/signature`, {
@@ -146,29 +221,104 @@ export function useGoatX402(signer: ethers.Signer | null) {
     async (orderId: string) => {
       const startTime = Date.now()
       const timeout = 2 * 60 * 1000 // 2 minutes
+      let lastError: unknown
 
       while (Date.now() - startTime < timeout) {
         try {
-          const status = await getOrderStatus(orderId)
+          const status = await getOrderStatusWithRetry(orderId, {
+            attempts: 3,
+            initialDelayMs: 750,
+            maxDelayMs: 4000,
+          })
           setOrderStatus(status)
 
-          if (
-            status.status === 'PAYMENT_CONFIRMED' ||
-            status.status === 'PAYMENT_FAILED' ||
-            status.status === 'EXPIRED'
-          ) {
+          // Terminal states (success or failure). isSuccessfulOrderStatus covers
+          // INVOICED — the durable success state DIRECT orders advance to (the watcher
+          // takes PAYMENT_CONFIRMED → INVOICED in one tx, so a poll can land on INVOICED
+          // directly); without it a confirmed payment would time out as a false failure.
+          if (isSuccessfulOrderStatus(status.status) || isFailedTerminalOrderStatus(status.status)) {
             return status
           }
-        } catch {
-          // Retry on error
+        } catch (err) {
+          lastError = err
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 3000))
+        await sleep(3000)
       }
 
+      if (lastError instanceof Error) {
+        throw new Error(`Timeout waiting for confirmation; last status check failed: ${lastError.message}`)
+      }
       throw new Error('Timeout waiting for confirmation')
     },
-    [getOrderStatus]
+    [getOrderStatusWithRetry]
+  )
+
+  const pollForFailureReconciliation = useCallback(
+    async (orderId: string): Promise<OrderProof | null> => {
+      const delays = [750, 1250, 2000, 3000, 5000]
+      let latestStatus: OrderProof | null = null
+
+      for (let attempt = 0; attempt < delays.length; attempt += 1) {
+        try {
+          latestStatus = await getOrderStatusWithRetry(orderId, {
+            attempts: 2,
+            initialDelayMs: 600,
+            maxDelayMs: 2500,
+          })
+          setOrderStatus(latestStatus)
+
+          if (
+            isSuccessfulOrderStatus(latestStatus.status) ||
+            isFailedTerminalOrderStatus(latestStatus.status) ||
+            latestStatus.status !== 'CHECKOUT_VERIFIED'
+          ) {
+            return latestStatus
+          }
+        } catch {
+          // Keep retrying transient status API failures before declaring the payment failed.
+        }
+
+        if (attempt < delays.length - 1) {
+          await sleep(delays[attempt])
+        }
+      }
+
+      return latestStatus
+    },
+    [getOrderStatusWithRetry]
+  )
+
+  const reconcilePaymentResult = useCallback(
+    async (orderId: string, result: PaymentResult): Promise<PaymentResult> => {
+      const status = await pollForFailureReconciliation(orderId)
+      if (!status) return result
+
+      if (isSuccessfulOrderStatus(status.status)) {
+        return {
+          success: true,
+          txHash: result.txHash ?? status.txHash,
+        }
+      }
+
+      if (isFailedTerminalOrderStatus(status.status)) {
+        return {
+          success: false,
+          txHash: result.txHash ?? status.txHash,
+          error: orderStatusFailureMessage(status.status),
+        }
+      }
+
+      if (result.txHash || status.txHash || status.status !== 'CHECKOUT_VERIFIED') {
+        return {
+          success: true,
+          txHash: result.txHash ?? status.txHash,
+        }
+      }
+
+      return result
+    },
+    [pollForFailureReconciliation]
   )
 
   // Create order and execute payment
@@ -198,7 +348,10 @@ export function useGoatX402(signer: ethers.Signer | null) {
           signer
         )
         const decimals = await tokenContract.decimals()
-        const amountWei = ethers.parseUnits(params.amount, decimals).toString()
+        const tokenDecimals = Number(decimals)
+        setTokenDecimals(tokenDecimals)
+        const amountWei = ethers.parseUnits(params.amount, tokenDecimals).toString()
+        const callbackCalldata = params.callbackCalldata?.trim() || undefined
 
         // Create order via backend
         const orderResponse = await createOrder({
@@ -207,7 +360,7 @@ export function useGoatX402(signer: ethers.Signer | null) {
           tokenContract: params.tokenContract,
           fromAddress,
           amountWei,
-          callbackCalldata: params.callbackCalldata,
+          callbackCalldata,
         })
 
         // Convert to Order format for PaymentHelper
@@ -231,7 +384,7 @@ export function useGoatX402(signer: ethers.Signer | null) {
         const sourceChainId = newOrder.chainId
 
         // If order requires calldata signature, sign and submit it
-        if (newOrder.calldataSignRequest) {
+        if (isDelegateFlow(newOrder.flow) && newOrder.calldataSignRequest) {
           const calldataDomainChainId = newOrder.calldataSignRequest.domain.chainId
 
           // For cross-chain orders, we need to switch to the target chain to sign calldata
@@ -287,13 +440,68 @@ export function useGoatX402(signer: ethers.Signer | null) {
 
         // Execute payment
         const result = await activePaymentHelper.pay(newOrder)
-        setPaymentResult(result)
 
         if (result.success) {
-          await pollForConfirmation(newOrder.orderId)
+          setPaymentResult(result)
+          try {
+            const status = await pollForConfirmation(newOrder.orderId)
+            if (isSuccessfulOrderStatus(status.status)) {
+              const successResult = {
+                success: true,
+                txHash: result.txHash ?? status.txHash,
+              }
+              setPaymentResult(successResult)
+              setError(null)
+              return successResult
+            }
+            if (isFailedTerminalOrderStatus(status.status)) {
+              const failedResult = {
+                success: false,
+                txHash: result.txHash ?? status.txHash,
+                error: orderStatusFailureMessage(status.status),
+              }
+              setPaymentResult(failedResult)
+              setError(failedResult.error)
+              return failedResult
+            }
+          } catch {
+            const reconciledResult = await reconcilePaymentResult(newOrder.orderId, result)
+            setPaymentResult(reconciledResult)
+
+            if (!reconciledResult.success) {
+              const message = reconciledResult.error || 'Payment failed'
+              setError(message)
+              return { ...reconciledResult, error: message }
+            }
+
+            setError(null)
+            return reconciledResult
+          }
+
+          setError(null)
+          return result
         }
 
-        return result
+        // Pre-broadcast failures (wallet rejection / insufficient balance) can never
+        // be a false negative, so surface them immediately instead of polling for ~7s.
+        // Reconcile only failures that could be post-broadcast (e.g. tx.wait() RPC errors).
+        if (isPreBroadcastFailure(result.error)) {
+          setPaymentResult(result)
+          setError(result.error ?? 'Payment failed')
+          return result
+        }
+
+        const reconciledResult = await reconcilePaymentResult(newOrder.orderId, result)
+        setPaymentResult(reconciledResult)
+
+        if (reconciledResult.success) {
+          setError(null)
+          return reconciledResult
+        }
+
+        const message = reconciledResult.error || result.error || 'Payment failed'
+        setError(message)
+        return { ...reconciledResult, error: message }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Payment failed'
         setError(message)
@@ -302,7 +510,7 @@ export function useGoatX402(signer: ethers.Signer | null) {
         setLoading(false)
       }
     },
-    [paymentHelper, signer, createOrder, submitSignature, pollForConfirmation]
+    [paymentHelper, signer, createOrder, submitSignature, pollForConfirmation, reconcilePaymentResult]
   )
 
   // Get token balance by contract address
@@ -338,6 +546,7 @@ export function useGoatX402(signer: ethers.Signer | null) {
     setPaymentResult(null)
     setOrderStatus(null)
     setError(null)
+    setTokenDecimals(18)
   }, [])
 
   return {
@@ -346,6 +555,7 @@ export function useGoatX402(signer: ethers.Signer | null) {
     order,
     paymentResult,
     orderStatus,
+    tokenDecimals,
     pay,
     getBalance,
     reset,

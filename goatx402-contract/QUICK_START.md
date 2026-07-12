@@ -1,5 +1,9 @@
 # MerchantCallback Quick Start Guide
 
+> `topup-service` is the exception: deploy `TopupCallback` with
+> `script/DeployTopupCallback.s.sol`. It uses a dedicated EIP-712 domain and does
+> not support `withCalldata`. Regular DELEGATE merchants use `MerchantCallback`.
+
 ## 1. Environment Setup
 
 ```bash

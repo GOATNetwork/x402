@@ -99,7 +99,9 @@ Set and verify the final receiving address.
 Choose the payment mode based on your business scenario:
 
 - **DIRECT**: the user pays directly to the merchant address
-- **DELEGATE**: same-chain EVM settlement using EIP-3009 or Permit2, TSS submission, and an approved callback contract
+- **DELEGATE**: TSS-assisted EVM settlement using EIP-3009 or Permit2 and an
+  approved callback contract on one merchant settlement chain; eligible payment
+  source chains may differ
 
 ### 5. Configure Callback / Execution Logic (if applicable)
 If your flow requires payment-triggered on-chain execution, complete the related callback or execution configuration here.

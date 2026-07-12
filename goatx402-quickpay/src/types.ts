@@ -21,12 +21,25 @@ export interface QuickPayManifestRoute {
   amount_wei: string
 }
 
+// QuickPayManifestProduct is one merchant fixed-price item on the x402 rail. It is
+// TOKEN-AGNOSTIC: it carries a decimal `price` (e.g. "9.99") plus display metadata
+// under a merchant-chosen `product_key`. The buyer picks the chain + token from
+// rails.x402.tokens at checkout; the on-chain amount = price * 10^token_decimals is
+// computed (server-authoritative, and re-derived client-side for verification).
+export interface QuickPayManifestProduct {
+  product_key: string
+  name: string
+  description?: string
+  image_url?: string
+  price: string
+}
+
 export interface QuickPayManifest {
   schema: string
   merchant: { merchant_id: string; display_name?: string; logo_url?: string }
   links?: Record<string, string>
   rails: {
-    x402: { enabled: boolean; custom_amount?: boolean; memo_required?: boolean; session_endpoint?: string; tokens: QuickPayManifestToken[] }
+    x402: { enabled: boolean; custom_amount?: boolean; memo_required?: boolean; session_endpoint?: string; tokens: QuickPayManifestToken[]; products?: QuickPayManifestProduct[] }
     mpp: { enabled: boolean; challenge_endpoint?: string; verify_endpoint?: string; routes: QuickPayManifestRoute[] }
   }
 }

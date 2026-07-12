@@ -2,6 +2,22 @@ import { ethers } from 'ethers'
 import type { MppBackend } from './pay.js'
 import type { RpcResolver } from './backend-ethers.js'
 
+type ModuleImporter = (specifier: string) => Promise<any>
+
+export async function loadMppSdk(
+  importer: ModuleImporter = (specifier) => import(specifier)
+): Promise<any> {
+  const specifier = 'goatx402-sdk'
+  try {
+    return await importer(specifier)
+  } catch (cause) {
+    throw new Error(
+      'pay-mpp could not load the optional dependency "goatx402-sdk"; ensure it is installed and importable alongside goatx402-quickpay',
+      { cause },
+    )
+  }
+}
+
 /**
  * SdkMppBackend runs the MPP challenge→pay→verify flow by delegating to
  * goatx402-sdk's MPPClient (the canonical, already-tested MPP buyer client).
@@ -29,15 +45,9 @@ export class SdkMppBackend implements MppBackend {
     receiptHeader?: string
     receipt?: unknown
   }> {
-    // Variable specifier so the optional dependency is not a hard build/import
-    // requirement; if absent at runtime, surface a clear message.
-    const specifier = 'goatx402-sdk'
-    let sdk: any
-    try {
-      sdk = await import(specifier)
-    } catch {
-      throw new Error('pay-mpp requires the optional dependency "goatx402-sdk" to be installed alongside goatx402-quickpay')
-    }
+    // The variable-specifier loader keeps the optional dependency out of the
+    // hard import graph while preserving the original import failure as cause.
+    const sdk = await loadMppSdk()
     const rpc = this.rpcForChain(p.chainId)
     if (!rpc) throw new Error(`no RPC URL configured for chain ${p.chainId}`)
     const provider = new ethers.JsonRpcProvider(rpc)

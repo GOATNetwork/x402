@@ -195,8 +195,8 @@ func Middleware(cfg Config) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			now := clock()
-			headers := r.Header.Values(HeaderName)
-			if len(headers) > 1 {
+			values := r.Header.Values(HeaderName)
+			if len(values) > 1 {
 				if cfg.OnReject != nil {
 					cfg.OnReject(r, ReasonInvalidPaymentReceipt)
 				}
@@ -204,8 +204,8 @@ func Middleware(cfg Config) func(next http.Handler) http.Handler {
 				return
 			}
 			header := ""
-			if len(headers) == 1 {
-				header = headers[0]
+			if len(values) == 1 {
+				header = values[0]
 			}
 			res := verify(cfg, header, now)
 			if res.Status != 0 {

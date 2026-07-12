@@ -7,6 +7,11 @@
 1. **x402SpentEip3009** - Callback for EIP-3009 (transferWithAuthorization) payments
 2. **x402SpentPermit2** - Callback for Permit2 payments
 
+The platform `topup-service` uses the separate `TopupCallback`: it has the
+`GoatX402 Topup Callback` / `1` EIP-712 domain and deliberately exposes no
+`withCalldata` entrypoints. Merchant integrations should continue to use
+`MerchantCallback`.
+
 ## Features
 
 - ✅ Tracks all callback invocations with full parameter history

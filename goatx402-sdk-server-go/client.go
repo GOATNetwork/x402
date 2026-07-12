@@ -128,6 +128,130 @@ func (c *Client) parseX402ToOrder(x402 *X402PaymentRequired, params CreateOrderP
 	return order
 }
 
+// CreateCheckoutSession creates a server-authoritative unified hosted-checkout
+// session (DIRECT or DELEGATE) over HMAC and returns
+// {CheckoutID, CheckoutType, URL, ExpiresAt}. The buyer picks ONLY a token on the
+// hosted page; the amount is always pinned server-side. DIRECT uses Price;
+// DELEGATE uses either Price for cross-chain decimal-price checkout or
+// FixedAmountWei for the legacy single-chain form.
+//
+// The merchant is derived from the authenticated API key; the URL is built by the
+// platform from the QuickPay public origin — redirect the buyer there to pay.
+//
+// SIGNING NOTE: nested values cannot be HMAC-signed, so they are JSON-stringified
+// (acceptable_tokens / line_items_json / public_metadata_json /
+// private_metadata_json) and the server parses them after verifying the signature.
+func (c *Client) CreateCheckoutSession(ctx context.Context, params CreateCheckoutSessionParams) (*CheckoutSession, error) {
+	body := map[string]any{
+		"checkout_type": params.CheckoutType,
+	}
+
+	// Scalars pass straight through (signable as-is).
+	if params.Price != "" {
+		body["price"] = params.Price
+	}
+	if params.ChainID != 0 {
+		body["chain_id"] = params.ChainID
+	}
+	if params.FixedAmountWei != "" {
+		body["fixed_amount_wei"] = params.FixedAmountWei
+	}
+	if params.CallbackCalldata != "" {
+		body["callback_calldata"] = params.CallbackCalldata
+	}
+	if params.SuccessURL != "" {
+		body["success_url"] = params.SuccessURL
+	}
+	if params.CancelURL != "" {
+		body["cancel_url"] = params.CancelURL
+	}
+	if params.ClientReferenceID != "" {
+		body["client_reference_id"] = params.ClientReferenceID
+	}
+	if params.ExpiresIn != 0 {
+		body["expires_in"] = params.ExpiresIn
+	}
+
+	// Nested values are JSON-stringified so they ride as scalar (signable) fields;
+	// the server JSON-parses them after verifying the HMAC signature.
+	if params.AcceptableTokens != nil {
+		b, err := json.Marshal(params.AcceptableTokens)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal acceptable_tokens: %w", err)
+		}
+		body["acceptable_tokens"] = string(b)
+	}
+	if params.LineItems != nil {
+		b, err := json.Marshal(params.LineItems)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal line_items: %w", err)
+		}
+		body["line_items_json"] = string(b)
+	}
+	if params.PublicMetadata != nil {
+		b, err := json.Marshal(params.PublicMetadata)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal public_metadata: %w", err)
+		}
+		body["public_metadata_json"] = string(b)
+	}
+	if params.PrivateMetadata != nil {
+		b, err := json.Marshal(params.PrivateMetadata)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal private_metadata: %w", err)
+		}
+		body["private_metadata_json"] = string(b)
+	}
+
+	var result CheckoutSession
+	if err := c.request(ctx, "POST", "/api/v1/checkout/sessions", body, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+// CreateDelegateCheckoutSession creates a DELEGATE hosted-checkout session.
+//
+// Deprecated: Use CreateCheckoutSession with CheckoutType "DELEGATE". This thin
+// wrapper is kept for one version; it forwards to the unified endpoint, wrapping
+// the single TokenContract into AcceptableTokens=[TokenContract] (unless
+// AcceptableTokens is set directly) and mapping AmountWei to FixedAmountWei.
+func (c *Client) CreateDelegateCheckoutSession(ctx context.Context, params CreateDelegateCheckoutSessionParams) (*DelegateCheckoutSession, error) {
+	acceptable := params.AcceptableTokens
+	if acceptable == nil && params.TokenContract != "" {
+		acceptable = []string{params.TokenContract}
+	}
+	fixed := params.FixedAmountWei
+	if fixed == "" {
+		fixed = params.AmountWei
+	}
+
+	session, err := c.CreateCheckoutSession(ctx, CreateCheckoutSessionParams{
+		CheckoutType:      "DELEGATE",
+		ChainID:           params.ChainID,
+		FixedAmountWei:    fixed,
+		CallbackCalldata:  params.CallbackCalldata,
+		AcceptableTokens:  acceptable,
+		SuccessURL:        params.SuccessURL,
+		CancelURL:         params.CancelURL,
+		ClientReferenceID: params.ClientReferenceID,
+		ExpiresIn:         params.ExpiresIn,
+		LineItems:         params.LineItems,
+		PublicMetadata:    params.PublicMetadata,
+		PrivateMetadata:   params.PrivateMetadata,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &DelegateCheckoutSession{
+		Handle:    session.CheckoutID,
+		URL:       session.URL,
+		ExpiresAt: session.ExpiresAt,
+	}, nil
+}
+
 // GetOrderStatus retrieves order status and details (for polling)
 func (c *Client) GetOrderStatus(ctx context.Context, orderID string) (*OrderStatus, error) {
 	var status OrderStatus

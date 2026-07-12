@@ -1,15 +1,21 @@
 export * from './types.js'
 export { QuickPayClient } from './client.js'
-export type { QuickPayClientOptions, QuickPayPayMppOptions, QuickPayPayX402Options } from './client.js'
+export type {
+  QuickPayClientOptions,
+  QuickPayPayMppOptions,
+  QuickPayPayProductOptions,
+  QuickPayPayX402Options,
+} from './client.js'
 export { deriveTarget, endpoints, validateManifest, loadManifest } from './manifest.js'
 export { toWei } from './amount.js'
 export { inspect } from './inspect.js'
 export type { InspectResult } from './inspect.js'
-export { payX402, payMpp } from './pay.js'
+export { payX402, payProduct, payMpp } from './pay.js'
 export type {
   PaymentBackend,
   MppBackend,
   PayX402Options,
+  PayProductOptions,
   PayX402Result,
   PayMppOptions,
   PayMppResult,

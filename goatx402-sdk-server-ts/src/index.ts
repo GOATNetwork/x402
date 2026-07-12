@@ -38,6 +38,10 @@ export { toCAIP2, fromCAIP2, parseX402Header } from './types.js'
 export type {
   GoatX402Config,
   CreateOrderParams,
+  CreateCheckoutSessionParams,
+  CheckoutSession,
+  CreateDelegateCheckoutSessionParams,
+  DelegateCheckoutSession,
   Order,
   OrderProof,
   OrderProofResponse,

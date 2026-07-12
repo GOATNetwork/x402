@@ -34,6 +34,47 @@ Note: `GOATX402_BASE_URL` in old docs has the same meaning as `GOATX402_API_URL`
 
 ---
 
+## 3.1 Recommended Browser Path: Hosted Checkout
+
+Use `goatx402-checkout` when the platform-hosted page should own wallet connection
+and payment UX:
+
+```bash
+pnpm install goatx402-checkout
+```
+
+A fixed DIRECT QuickPay product can open without a merchant backend:
+
+```ts
+import { GoatCheckout } from 'goatx402-checkout'
+
+const goat = GoatCheckout({ origin: 'https://pay.goat.network' })
+goat.open({ merchant: 'merchant_123', productKey: 'mug' })
+```
+
+Dynamic DIRECT and all DELEGATE checkout must be created on the backend:
+
+```ts
+const session = await client.createCheckoutSession({
+  checkoutType: 'DIRECT',
+  price: '19.95',
+  clientReferenceId: 'cart_123',
+})
+
+// Browser:
+goat.open({ checkoutId: session.checkoutId })
+```
+
+For cross-chain DELEGATE use `checkoutType: 'DELEGATE'` with `price`; Core
+derives eligible source-chain/token candidates and the fixed callback chain. The
+legacy single-chain form uses `chainId`, `fixedAmountWei`, and
+`acceptableTokens`.
+
+Browser callbacks are UX-only. Fulfill from `quickpay.checkout.completed` or a
+trusted backend status check. Full guide: `docs/x402-checkout.md`.
+
+---
+
 ## 4. Core Flow
 1. Frontend requests your backend to create an order.
 2. Backend calls `POST /api/v1/orders` (Server SDK).
@@ -257,3 +298,5 @@ Recommended practices:
 3. Auto-cancel stale `CHECKOUT_VERIFIED` orders.
 4. Verify order-status polling and proof retrieval flow.
 5. Validate DELEGATE + callback `calldataSignRequest` signature submission flow.
+6. For Hosted Checkout, subscribe to `quickpay.checkout.completed` and never
+   fulfill from the browser callback alone.

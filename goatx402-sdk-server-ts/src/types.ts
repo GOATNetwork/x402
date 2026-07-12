@@ -75,6 +75,132 @@ export type OrderStatus =
   | 'CANCELLED'
 
 // ============================================================================
+// Unified Hosted Checkout Types
+// ============================================================================
+
+/**
+ * Parameters for creating a server-authoritative unified hosted-checkout session
+ * via {@link GoatX402Client.createCheckoutSession}. One subsystem covers both
+ * DIRECT and DELEGATE merchants — the buyer picks ONLY a token on the hosted page;
+ * the amount is always pinned server-side (never from the browser).
+ *
+ * The merchant is taken from the authenticated API key — never the body. Field
+ * names map onto the snake_case body the core handler parses
+ * (`POST /api/v1/checkout/sessions`).
+ *
+ * SIGNING NOTE: the HMAC scheme flattens the JSON body field-by-field with Go
+ * `fmt %v` and CANNOT sign nested objects. Every nested value is therefore sent
+ * as a JSON STRING (`acceptable_tokens`, `line_items_json`, `public_metadata_json`,
+ * `private_metadata_json`); the server JSON-parses them AFTER verifying the
+ * signature. The SDK does this stringification for you, so all fields below are
+ * signable.
+ */
+export interface CreateCheckoutSessionParams {
+  /** Checkout subsystem: `DIRECT` (buyer pays the merchant) or `DELEGATE` (TSS/Permit2/EIP-3009). */
+  checkoutType: 'DIRECT' | 'DELEGATE'
+  /**
+   * Token-agnostic decimal price (e.g. `"9.99"`) — body field `price`. Used by DIRECT, and by
+   * cross-chain DELEGATE (PRICE_DECIMAL) where the buyer picks any payable (source chain,
+   * token) and the amount is `price * 10^decimals`. (Legacy single-chain DELEGATE uses
+   * `fixedAmountWei` instead.)
+   */
+  price?: string
+  /** Legacy fixed-wei DELEGATE only — pinned source EVM chain ID. Omit for cross-chain price mode. */
+  chainId?: number
+  /** DELEGATE only — pinned payment amount in wei (string for big numbers) — body field `fixed_amount_wei`. */
+  fixedAmountWei?: string
+  /** DELEGATE only — non-empty hex calldata (with or without 0x) for the merchant callback contract — body field `callback_calldata`. */
+  callbackCalldata?: string
+  /**
+   * Legacy fixed-wei DELEGATE only — token contracts accepted for the fixed
+   * amount. Cross-chain price mode derives candidates server-side. Sent
+   * JSON-stringified as body field `acceptable_tokens`.
+   */
+  acceptableTokens?: string[]
+  /** Optional redirect URL after a successful payment — body field `success_url`. */
+  successUrl?: string
+  /** Optional redirect URL after cancellation — body field `cancel_url`. */
+  cancelUrl?: string
+  /** Optional line items shown on the hosted checkout. Sent JSON-stringified as body field `line_items_json`. */
+  lineItems?: unknown[]
+  /** Optional public metadata (surfaced in the public session view). Sent JSON-stringified as body field `public_metadata_json`. */
+  publicMetadata?: Record<string, unknown>
+  /** Optional private metadata (merchant-only; never exposed publicly). Sent JSON-stringified as body field `private_metadata_json`. */
+  privateMetadata?: Record<string, unknown>
+  /** Optional client-supplied idempotency/correlation reference (max 200 chars) — body field `client_reference_id`. */
+  clientReferenceId?: string
+  /** Optional session lifetime in seconds — body field `expires_in`. */
+  expiresIn?: number
+}
+
+/** Result of creating a unified hosted-checkout session. */
+export interface CheckoutSession {
+  /** Opaque checkout id (the raw handle) — pass to the checkout SDK's `open({ checkoutId })`. */
+  checkoutId: string
+  /** Checkout subsystem (`DIRECT` | `DELEGATE`). */
+  checkoutType: string
+  /** Hosted checkout URL to redirect the buyer to. */
+  url: string
+  /** Session expiration timestamp (unix seconds). */
+  expiresAt: number
+}
+
+// ============================================================================
+// DELEGATE Hosted Checkout Types (DEPRECATED)
+// ============================================================================
+
+/**
+ * @deprecated Use {@link CreateCheckoutSessionParams} with `checkoutType: 'DELEGATE'`.
+ *
+ * Parameters for the deprecated {@link GoatX402Client.createDelegateCheckoutSession}
+ * wrapper, kept for one version. It now forwards to the unified
+ * `POST /api/v1/checkout/sessions` endpoint. The single `tokenContract` is wrapped
+ * into `acceptableTokens: [tokenContract]` (unless `acceptableTokens` is given
+ * directly), and `amountWei` maps to `fixedAmountWei`.
+ */
+export interface CreateDelegateCheckoutSessionParams {
+  /** Source EVM chain ID (DELEGATE is EVM-only). */
+  chainId: number
+  /** Single ERC-20 token contract address (wrapped into `acceptableTokens`). */
+  tokenContract?: string
+  /** Token contract addresses the merchant accepts (overrides `tokenContract` when set). */
+  acceptableTokens?: string[]
+  /** Payment amount in wei (string for big numbers); maps to `fixedAmountWei`. */
+  amountWei?: string
+  /** Pinned payment amount in wei (takes precedence over `amountWei`). */
+  fixedAmountWei?: string
+  /** Non-empty hex calldata (with or without 0x) for the merchant callback contract. */
+  callbackCalldata: string
+  /** Optional redirect URL after a successful payment. */
+  successUrl?: string
+  /** Optional redirect URL after cancellation. */
+  cancelUrl?: string
+  /** Optional client-supplied idempotency/correlation reference (max 200 chars). */
+  clientReferenceId?: string
+  /** Optional session lifetime in seconds. */
+  expiresIn?: number
+  /** Optional line items shown on the hosted checkout. */
+  lineItems?: unknown[]
+  /** Optional public metadata (surfaced in the public session view). */
+  publicMetadata?: Record<string, unknown>
+  /** Optional private metadata (merchant-only). */
+  privateMetadata?: Record<string, unknown>
+}
+
+/**
+ * @deprecated Use {@link CheckoutSession}.
+ * Result of the deprecated DELEGATE hosted-checkout wrapper.
+ */
+export interface DelegateCheckoutSession {
+  /** Opaque session handle (the checkout id). */
+  handle: string
+  /** Hosted checkout URL to redirect the buyer to. */
+  url: string
+  /** Session expiration timestamp (unix seconds). */
+  expiresAt: number
+}
+
+// ============================================================================
 // EIP-712 Types
 // ============================================================================
 

@@ -2,7 +2,7 @@
  * Payment Status Component
  */
 
-import type { Order, PaymentResult } from 'goatx402-sdk'
+import { formatUnits, type Order, type PaymentResult } from 'goatx402-sdk'
 import { config } from '../config'
 
 // Order proof from backend API
@@ -24,6 +24,7 @@ interface PaymentStatusProps {
   order: Order | null
   result: PaymentResult | null
   status: OrderProof | null
+  tokenDecimals?: number
   error: string | null
   onReset: () => void
 }
@@ -32,20 +33,29 @@ export function PaymentStatus({
   order,
   result,
   status,
+  tokenDecimals = 18,
   error,
   onReset,
 }: PaymentStatusProps) {
-  if (!order && !result && !error) {
+  if (!order && !result && !error && !status) {
     return null
   }
+
+  const hasSuccessfulStatus =
+    status?.status === 'PAYMENT_CONFIRMED' || status?.status === 'INVOICED'
+  const visibleError = hasSuccessfulStatus ? null : error
 
   const getStatusColor = (s: string) => {
     switch (s) {
       case 'PAYMENT_CONFIRMED':
+      case 'INVOICED':
         return 'bg-green-100 text-green-800'
       case 'PAYMENT_FAILED':
+      case 'FAILED':
       case 'EXPIRED':
+      case 'CANCELLED':
         return 'bg-red-100 text-red-800'
+      case 'CHECKOUT_VERIFIED':
       case 'PAYMENT_DETECTING':
       case 'PAYMENT_CONFIRMING':
         return 'bg-yellow-100 text-yellow-800'
@@ -75,9 +85,9 @@ export function PaymentStatus({
       </div>
 
       {/* Error */}
-      {error && (
+      {visibleError && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-          <p className="text-red-700">{error}</p>
+          <p className="text-red-700">{visibleError}</p>
         </div>
       )}
 
@@ -96,7 +106,7 @@ export function PaymentStatus({
             <div>
               <span className="text-gray-500">Amount</span>
               <p className="font-medium">
-                {(Number(order.amountWei) / 1e6).toFixed(2)} {order.tokenSymbol}
+                {Number(formatUnits(BigInt(order.amountWei), tokenDecimals)).toFixed(2)} {order.tokenSymbol}
               </p>
             </div>
             <div>
@@ -110,7 +120,7 @@ export function PaymentStatus({
           {/* Transaction Result */}
           {result && (
             <div className="border-t pt-3 mt-3">
-              {result.success ? (
+              {result.success || hasSuccessfulStatus ? (
                 <div className="flex items-center gap-2 text-green-700">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

@@ -170,7 +170,10 @@ This implementation is differentiated by practical builder-focused features rath
 | Metis | `1088` | Yes | No | `andromeda-explorer.metis.io` |
 | Tempo | `4217` | Yes | No | `explore.tempo.xyz` |
 
-DELEGATE requires same-chain EVM support for EIP-3009 or Permit2 plus an approved merchant callback contract. Metis and Tempo are DIRECT-only.
+DELEGATE requires EIP-3009 or Permit2 plus an approved merchant callback contract
+on the merchant's single settlement chain. Metis and Tempo are DIRECT-only as
+merchant settlement modes in this matrix; eligible cross-chain payment sources are
+derived from live configuration.
 
 ### Protocol Guarantees
 

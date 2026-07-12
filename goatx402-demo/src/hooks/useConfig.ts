@@ -19,6 +19,7 @@ export interface ChainInfo {
 export interface MerchantConfig {
   merchantId: string
   merchantName: string
+  receiveType: string
   chains: ChainInfo[]
 }
 

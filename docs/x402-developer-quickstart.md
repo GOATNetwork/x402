@@ -25,6 +25,10 @@ Before getting started, make sure you already have:
 - a working test or development environment
 - a chosen payment mode: DIRECT or DELEGATE
 
+For a fixed DIRECT QuickPay product opened through Hosted Checkout, API credentials
+are not required in the browser. Dynamic DIRECT and every DELEGATE Checkout Session
+still require credentials on the merchant backend.
+
 If these prerequisites are not ready yet, read:
 
 - **x402 Onboarding Guide**
@@ -86,7 +90,40 @@ npm install goatx402-sdk ethers
 
 # Agent / CLI QuickPay payer
 npm install goatx402-quickpay
+
+# Hosted browser checkout
+npm install goatx402-checkout
 ```
+
+---
+
+## Fastest Browser Path: Hosted Checkout
+
+For a fixed, server-priced DIRECT product:
+
+```ts
+import { GoatCheckout } from 'goatx402-checkout'
+
+const goat = GoatCheckout({ origin: 'https://pay.goat.network' })
+
+payButton.addEventListener('click', () => {
+  goat.open({
+    merchant: 'merchant_123',
+    productKey: 'mug',
+    onSuccess: () => {
+      // UX only; fulfill from the webhook or trusted backend status.
+    },
+  })
+})
+```
+
+For a dynamic DIRECT amount or any DELEGATE checkout, use the server SDK's
+`createCheckoutSession(...)` on your backend and pass the returned opaque
+`checkoutId` to `goat.open({ checkoutId })`. See
+[Hosted Checkout](x402-checkout.md).
+
+Use the remaining steps when you need the lower-level, build-your-own order and
+wallet flow.
 
 ---
 
@@ -260,6 +297,7 @@ Check:
 
 Recommended companion docs:
 
+- **Hosted Checkout Guide**
 - **x402 Onboarding Guide**
 - **Merchant Guide**
 - **x402 FAQ**
@@ -272,7 +310,8 @@ Recommended companion docs:
 
 If you are a developer, the fastest path to integrate x402 is:
 
-**get API credentials → create an order → initiate payment → query status → retrieve proof → complete testing**
+**choose Hosted Checkout or a custom order flow → keep credentials on the backend
+when required → confirm payment from webhook/status before fulfillment**
 
 ---
 

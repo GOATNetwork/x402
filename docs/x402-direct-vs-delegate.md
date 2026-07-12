@@ -54,7 +54,12 @@ DELEGATE mode means:
 
 > **Payment does not just complete fund transfer — it also supports post-payment on-chain execution logic.**
 
-This mode is better suited for more advanced business flows. DELEGATE is an EVM-only, single-chain flow: the merchant configures one receiving chain and an approved callback contract on that same chain. Orders use EIP-3009 `receiveWithAuthorization` or Permit2 `SignatureTransfer`, TSS co-signing, and SubmitMonitor submission to execute the payment/callback path. It does not bridge funds between chains.
+This mode is better suited for more advanced business flows. The merchant still
+configures one EVM callback/settlement chain, and its receiving tokens plus approved
+callback contract must agree on that chain. A DELEGATE order may, however, accept
+payment on an eligible source chain and settle/call back on that fixed merchant
+chain. Orders use EIP-3009 `receiveWithAuthorization` or Permit2
+`SignatureTransfer`, TSS co-signing, and SubmitMonitor submission.
 
 ### Good Fit For
 
@@ -69,8 +74,9 @@ This mode is better suited for more advanced business flows. DELEGATE is an EVM-
 - more powerful payment flow
 - supports callback / execution configuration through an approved merchant callback contract
 - uses EIP-3009 or Permit2 authorization plus TSS-assisted submission
-- requires one EVM chain per DELEGATE merchant configuration
-- unavailable on Metis and Tempo
+- requires one EVM callback/settlement chain per DELEGATE merchant configuration
+- can expose eligible source-chain/token choices in cross-chain Hosted Checkout
+- cannot use Metis or Tempo as the merchant callback/settlement chain in the current matrix
 - better for payment + execution scenarios
 - higher per-chain configured fee
 
@@ -97,7 +103,11 @@ This mode is better suited for more advanced business flows. DELEGATE is an EVM-
 | Metis | `1088` | Yes | No | `andromeda-explorer.metis.io` |
 | Tempo | `4217` | Yes | No | `explore.tempo.xyz` |
 
-DELEGATE requires Permit2 or EIP-3009 support plus a reviewed callback contract on the same chain. Metis and Tempo should be configured as DIRECT.
+This matrix describes merchant receiving/callback-chain availability. DELEGATE
+requires Permit2 or EIP-3009 support plus a reviewed callback contract on the
+merchant settlement chain. Metis and Tempo should be configured as DIRECT
+settlement chains. Cross-chain Hosted Checkout source candidates are derived from
+live TSS/token configuration and are not implied by this static matrix.
 
 ---
 
@@ -107,9 +117,9 @@ DELEGATE requires Permit2 or EIP-3009 support plus a reviewed callback contract 
 | --- | --- | --- |
 | Core goal | collect payment | collect payment + execute logic |
 | Complexity | low | medium / high |
-| User fund path | user wallet -> merchant address | same-chain authorization + TSS-assisted callback/settlement |
+| User fund path | user wallet -> merchant address | user -> source-chain TSS path -> merchant callback/settlement chain |
 | Callback / execution | usually not needed | supported through approved callback contract |
-| Chain scope | all supported EVM mainnets | single-chain EVM; not Metis or Tempo |
+| Chain scope | selected payment chain | one merchant callback chain; eligible source chain may differ |
 | Best fit | simple payments | advanced on-chain business flows |
 | Default fee | per-chain/admin-configured; often $0.10 / order | per-chain/admin-configured; often $0.20 / order |
 
@@ -152,7 +162,7 @@ It does **not** use:
 - callback / contract execution
 - more advanced merchant workflows
 - a combined payment + business action experience
-- a single-chain EVM configuration with the required callback contract support
+- one configured EVM callback chain, optionally accepting eligible cross-chain source payments
 
 ---
 

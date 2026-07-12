@@ -41,6 +41,7 @@ export { MPPClient } from './mpp.js'
 
 // Contract helpers
 export { ERC20Token, parseUnits, formatUnits } from './contracts/index.js'
+export type { ApprovalOptions, ApprovalUpdate } from './contracts/index.js'
 
 // EIP-712 utilities
 export { signTypedData, hashCalldata, verifySignature } from './eip712/index.js'

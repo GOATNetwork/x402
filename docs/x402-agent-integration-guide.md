@@ -290,6 +290,8 @@ CLI examples:
 npx goatx402-quickpay inspect https://api.x402.goat.network/quickpay/<merchant_id>/agent.md
 npx goatx402-quickpay pay-x402 https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
   --amount <amount> --token-contract <token_contract> --chain <chain_id>
+npx goatx402-quickpay pay-product https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+  --product <product_key> --token-contract <token_contract> --chain <chain_id>
 ```
 
 ---
@@ -301,9 +303,12 @@ npx goatx402-quickpay pay-x402 https://api.x402.goat.network/quickpay/<merchant_
 | Mode | Flow Types | User transfer target | Callback support |
 | --- | --- | --- | --- |
 | `DIRECT` | `ERC20_DIRECT` | Merchant address | No |
-| `DELEGATE` | `ERC20_3009`, `ERC20_APPROVE_XFER` | TSS / delegated settlement address on the same chain | Yes, through an approved callback contract |
+| `DELEGATE` | `ERC20_3009`, `ERC20_APPROVE_XFER` | TSS address on the selected source chain | Yes, on the merchant's approved callback chain |
 
-DELEGATE is same-chain EVM settlement via EIP-3009 or Permit2 plus TSS submission and callback execution. It is not a bridge.
+DELEGATE uses EIP-3009 or Permit2 plus TSS submission and callback execution.
+The merchant has one configured callback/settlement chain; eligible hosted-checkout
+source payments may come from another chain. Treat this as a constrained payment
+rail, not a general-purpose bridge.
 
 ### 9.2 Supported mainnet matrix
 
