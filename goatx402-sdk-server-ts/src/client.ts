@@ -9,6 +9,10 @@ import { signRequest } from './signature.js'
 import type {
   GoatX402Config,
   CreateOrderParams,
+  CreateCheckoutSessionParams,
+  CheckoutSession,
+  CreateDelegateCheckoutSessionParams,
+  DelegateCheckoutSession,
   Order,
   OrderProof,
   OrderProofResponse,
@@ -107,6 +111,93 @@ export class GoatX402Client {
       expiresAt: x402.extensions?.goatx402?.expiresAt || 0,
       calldataSignRequest: x402.calldata_sign_request,
       x402,
+    }
+  }
+
+  /**
+   * Create a server-authoritative unified hosted-checkout session (DIRECT or
+   * DELEGATE). The buyer picks ONLY a token on the hosted page; the amount is
+   * always pinned server-side. DIRECT uses `price`; DELEGATE uses either `price`
+   * for cross-chain decimal-price checkout or `fixedAmountWei` for the legacy
+   * single-chain form.
+   *
+   * The merchant is derived from the authenticated API key (HMAC). Returns
+   * `{ checkoutId, checkoutType, url, expiresAt }`; the `url` is built by the
+   * platform from the QuickPay public origin — redirect the buyer there to pay.
+   *
+   * SIGNING NOTE: nested values cannot be HMAC-signed, so they are sent as JSON
+   * STRINGS (`acceptable_tokens`, `line_items_json`, `public_metadata_json`,
+   * `private_metadata_json`) and the server parses them after verifying the
+   * signature. This is handled below — every field is signable.
+   */
+  async createCheckoutSession(params: CreateCheckoutSessionParams): Promise<CheckoutSession> {
+    const body: Record<string, unknown> = {
+      checkout_type: params.checkoutType,
+    }
+
+    // Scalars pass straight through (signable as-is).
+    if (params.price !== undefined) body.price = params.price
+    if (params.chainId !== undefined) body.chain_id = params.chainId
+    if (params.fixedAmountWei !== undefined) body.fixed_amount_wei = params.fixedAmountWei
+    if (params.callbackCalldata !== undefined) body.callback_calldata = params.callbackCalldata
+    if (params.successUrl !== undefined) body.success_url = params.successUrl
+    if (params.cancelUrl !== undefined) body.cancel_url = params.cancelUrl
+    if (params.clientReferenceId !== undefined) body.client_reference_id = params.clientReferenceId
+    if (params.expiresIn !== undefined) body.expires_in = params.expiresIn
+
+    // Nested values are JSON-stringified so they ride as scalar (signable) fields;
+    // the server JSON-parses them after verifying the HMAC signature.
+    if (params.acceptableTokens !== undefined) body.acceptable_tokens = JSON.stringify(params.acceptableTokens)
+    if (params.lineItems !== undefined) body.line_items_json = JSON.stringify(params.lineItems)
+    if (params.publicMetadata !== undefined) body.public_metadata_json = JSON.stringify(params.publicMetadata)
+    if (params.privateMetadata !== undefined) body.private_metadata_json = JSON.stringify(params.privateMetadata)
+
+    const data = await this.request<{
+      checkout_id: string
+      checkout_type: string
+      url: string
+      expires_at: number
+    }>('POST', '/api/v1/checkout/sessions', body)
+
+    return {
+      checkoutId: data.checkout_id,
+      checkoutType: data.checkout_type,
+      url: data.url,
+      expiresAt: data.expires_at,
+    }
+  }
+
+  /**
+   * @deprecated Use {@link GoatX402Client.createCheckoutSession} with
+   * `checkoutType: 'DELEGATE'`. Thin wrapper kept for one version; it forwards to
+   * the unified endpoint, wrapping the single `tokenContract` into
+   * `acceptableTokens: [tokenContract]` and mapping `amountWei → fixedAmountWei`.
+   */
+  async createDelegateCheckoutSession(
+    params: CreateDelegateCheckoutSessionParams
+  ): Promise<DelegateCheckoutSession> {
+    const acceptableTokens =
+      params.acceptableTokens ?? (params.tokenContract ? [params.tokenContract] : undefined)
+
+    const session = await this.createCheckoutSession({
+      checkoutType: 'DELEGATE',
+      chainId: params.chainId,
+      fixedAmountWei: params.fixedAmountWei ?? params.amountWei,
+      callbackCalldata: params.callbackCalldata,
+      acceptableTokens,
+      successUrl: params.successUrl,
+      cancelUrl: params.cancelUrl,
+      clientReferenceId: params.clientReferenceId,
+      expiresIn: params.expiresIn,
+      lineItems: params.lineItems,
+      publicMetadata: params.publicMetadata,
+      privateMetadata: params.privateMetadata,
+    })
+
+    return {
+      handle: session.checkoutId,
+      url: session.url,
+      expiresAt: session.expiresAt,
     }
   }
 

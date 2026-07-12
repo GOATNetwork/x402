@@ -132,7 +132,8 @@ The standard integration flow is:
 Notes:
 
 - `DIRECT`: the user pays directly to the merchant address
-- `DELEGATE`: the user first pays the TSS address, then Core continues the same-chain settlement / callback path
+- `DELEGATE`: the user first pays the source-chain TSS address, then Core settles
+  to the merchant's configured callback chain (which may be the same chain)
 - If the order response contains `calldataSignRequest`, the frontend must sign first and the backend must submit that signature
 
 ---
@@ -165,6 +166,7 @@ The supported public network matrix is:
 | Server SDK method | Endpoint | Auth |
 | --- | --- | --- |
 | `createOrder` | `POST /api/v1/orders` | Yes |
+| `createCheckoutSession` | `POST /api/v1/checkout/sessions` | Yes |
 | `getOrderStatus` | `GET /api/v1/orders/{order_id}` | Yes |
 | `getOrderProof` | `GET /api/v1/orders/{order_id}/proof` | Yes |
 | `submitCalldataSignature` | `POST /api/v1/orders/{order_id}/calldata-signature` | Yes |
@@ -180,12 +182,17 @@ QuickPay public endpoints:
 | Machine manifest | `GET /quickpay/{merchant_id}/manifest.json` | No |
 | Create x402 session | `POST /quickpay/v1/x402/sessions` | No |
 | Query x402 session | `GET /quickpay/v1/x402/sessions/{session_id}` | No |
+| Read Hosted Checkout | `GET /checkout/v1/sessions/{checkout_id}` | No, opaque handle |
+| Poll Hosted Checkout | `GET /checkout/v1/sessions/{checkout_id}/status` | No, opaque handle |
+| Bind Hosted Checkout | `POST /checkout/v1/sessions/{checkout_id}/bind` | No, rate-limited |
+| Submit Hosted Checkout signature | `POST /checkout/v1/sessions/{checkout_id}/signature` | No, rate-limited |
 
 QuickPay client package:
 
 - npm package / CLI: `goatx402-quickpay`
-- CLI commands: `inspect`, `pay-x402`, `pay-mpp`
-- library exports include `QuickPayClient`, `inspect`, `payX402`, `payMpp`, `loadManifest`, and `EthersPaymentBackend`
+- CLI commands: `inspect`, `pay-x402`, `pay-product`, `pay-mpp`
+- library exports include `QuickPayClient`, `inspect`, `payX402`, `payProduct`,
+  `payMpp`, `loadManifest`, and `EthersPaymentBackend`
 
 ---
 
@@ -460,11 +467,20 @@ Request fields:
 | `payer_addr` | string | Yes | Payer wallet address |
 | `chain_id` | number | Yes | EVM chain ID |
 | `token_contract` | string | Yes | ERC-20 token contract |
-| `amount_wei` | string | Yes | Atomic token amount |
+| `amount_wei` | string | Conditional | Atomic token amount for a custom-amount session |
+| `product_key` | string | Conditional | Fixed-price product; server derives amount from product price and token decimals |
 | `memo` | string | Conditional | Required only when the merchant requires a memo |
 | `idempotency_key` | string | No | Reuse-safe session key |
+| `client_reference_id` | string | No | Merchant correlation reference |
+| `public_metadata` | object | No | Small non-secret metadata object |
 
-Response fields include `session_id`, `merchant_id`, `order_id`, `status`, `expires_at`, and, when payable, an embedded `x402` challenge with the same `x402Version: 2` / `accepts[]` shape described above.
+Supply either `amount_wei` for a custom payment or `product_key` for a
+server-priced product. Product mode pins the authoritative decimal price and
+ignores any browser-supplied amount.
+
+Response fields include `session_id`, `merchant_id`, `order_id`, `status`,
+`expires_at`, and, when payable, an embedded `x402` challenge with the same
+`x402Version: 2` / `accepts[]` shape described above.
 
 **Query x402 session**
 
@@ -473,6 +489,81 @@ GET /quickpay/v1/x402/sessions/{session_id}
 ```
 
 Returns public session status fields including `status`, `order_status`, `tx_hash`, `amount_wei`, `chain_id`, `token_contract`, `token_symbol`, `pay_to_address`, and `expires_at`.
+
+---
+
+### 9.8 Unified Hosted Checkout
+
+Hosted Checkout lets the platform page own wallet connection and payment UX while
+the merchant backend pins authoritative terms.
+
+**Create**
+
+```text
+POST /api/v1/checkout/sessions
+```
+
+This endpoint uses the same merchant HMAC authentication as order creation.
+The API key determines the merchant.
+
+| Field | Required | Purpose |
+| --- | --- | --- |
+| `checkout_type` | Yes | `DIRECT` or `DELEGATE` |
+| `price` | Conditional | DIRECT decimal price or cross-chain DELEGATE decimal price |
+| `chain_id` | Conditional | Legacy fixed-wei DELEGATE source chain |
+| `fixed_amount_wei` | Conditional | Legacy fixed-wei DELEGATE atomic amount |
+| `acceptable_tokens` | Conditional | JSON-stringified token-contract array for legacy DELEGATE |
+| `callback_calldata` | No | Optional legacy DELEGATE calldata |
+| `client_reference_id` | No | Merchant correlation key, maximum 200 characters |
+| `success_url` / `cancel_url` | No | Redirects checked against the merchant allowlist |
+| `line_items_json` | No | JSON-stringified display rows |
+| `public_metadata_json` | No | JSON-stringified public metadata |
+| `private_metadata_json` | No | JSON-stringified metadata excluded from public reads |
+| `expires_in` | No | Lifetime in seconds |
+
+DELEGATE accepts one of two amount forms:
+
+- `price`: cross-chain decimal-price mode. Core derives the merchant callback
+  chain and eligible source-chain/token candidates.
+- `fixed_amount_wei` + `chain_id` + `acceptable_tokens`: compatibility
+  single-chain mode.
+
+Use `createCheckoutSession` from the TypeScript or Go server SDK so nested values
+are encoded consistently with HMAC signing.
+
+Response:
+
+```json
+{
+  "checkout_id": "cs_...",
+  "checkout_type": "DIRECT",
+  "url": "https://pay.goat.network/checkout?cs=cs_...",
+  "expires_at": 1780000000
+}
+```
+
+Pass only `checkout_id` to
+`GoatCheckout({ origin }).open({ checkoutId })`, or redirect to the returned
+platform URL.
+
+**Hosted-page endpoints**
+
+```text
+GET  /checkout/v1/sessions/{checkout_id}
+GET  /checkout/v1/sessions/{checkout_id}/status
+POST /checkout/v1/sessions/{checkout_id}/bind
+POST /checkout/v1/sessions/{checkout_id}/signature
+```
+
+Merchant applications normally do not orchestrate these public calls; the hosted
+checkout page does. The public read excludes private metadata. Bind creates the
+real order, while the signature endpoint verifies/stores a DELEGATE EIP-712
+callback signature when required.
+
+Fulfill only from `quickpay.checkout.completed` or trusted backend status. Browser
+`onSuccess` is not proof of payment.
+
+See [Hosted Checkout](x402-checkout.md).
 
 ---
 

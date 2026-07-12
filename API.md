@@ -76,6 +76,7 @@ Common HTTP statuses:
 | --- | --- | --- |
 | `GoatX402Client.createOrder` | `POST /api/v1/orders` | Yes |
 | `GoatX402Client.createOrderRaw` | `POST /api/v1/orders` | Yes |
+| `GoatX402Client.createCheckoutSession` | `POST /api/v1/checkout/sessions` | Yes |
 | `GoatX402Client.getOrderStatus` | `GET /api/v1/orders/{order_id}` | Yes |
 | `GoatX402Client.getOrderProof` | `GET /api/v1/orders/{order_id}/proof` | Yes |
 | `GoatX402Client.submitCalldataSignature` | `POST /api/v1/orders/{order_id}/calldata-signature` | Yes |
@@ -216,3 +217,66 @@ Response Body:
 | `api_key` | string | Empty on the public Core response; populated only in authenticated/internal merchant lookups |
 
 Note: SDKs may normalize missing display fields, for example using `merchant_id` as `name`. Core's public response does not include `name` or `logo`.
+
+**POST /api/v1/checkout/sessions**
+
+| Item | Value |
+| --- | --- |
+| Summary | Create a server-authoritative Hosted Checkout Session |
+| Auth | Required (merchant HMAC) |
+| SDK | `createCheckoutSession` |
+| Success Status | `200 OK` |
+
+The authenticated API key determines the merchant. Do not include `merchant_id`
+in the body.
+
+Common request fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `checkout_type` | string | Yes | `DIRECT` or `DELEGATE`; must match the merchant |
+| `price` | decimal string | Conditional | DIRECT price, or cross-chain DELEGATE price |
+| `chain_id` | number | Conditional | Legacy fixed-wei DELEGATE source chain |
+| `fixed_amount_wei` | string | Conditional | Legacy fixed-wei DELEGATE amount |
+| `acceptable_tokens` | JSON string | Conditional | Legacy DELEGATE token-contract array |
+| `callback_calldata` | hex string | No | Legacy fixed-wei DELEGATE callback calldata |
+| `client_reference_id` | string | No | Merchant correlation key, maximum 200 characters |
+| `success_url` / `cancel_url` | string | No | Allowlist-gated hosted-page redirects |
+| `line_items_json` | JSON string | No | Display line items |
+| `public_metadata_json` | JSON string | No | Metadata visible in the public session view |
+| `private_metadata_json` | JSON string | No | Stored metadata excluded from the public view |
+| `expires_in` | number | No | Session lifetime in seconds |
+
+Use exactly one amount form for DELEGATE:
+
+- `price` selects cross-chain decimal-price mode; Core derives callback chain and
+  eligible source-chain/token candidates.
+- `fixed_amount_wei` + `chain_id` + `acceptable_tokens` selects the compatibility
+  single-chain mode.
+
+The server SDK accepts arrays/objects for nested values and performs the required
+JSON stringification before HMAC signing.
+
+Response:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `checkout_id` | string | Opaque `cs_…` handle passed to the browser SDK |
+| `checkout_type` | string | `DIRECT` or `DELEGATE` |
+| `url` | string | Platform-built hosted checkout URL |
+| `expires_at` | number | Unix expiration time |
+
+**Public Hosted Checkout endpoints**
+
+The platform-hosted page, not the merchant application, normally owns these calls:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /checkout/v1/sessions/{checkout_id}` | Read safe public terms and current state |
+| `GET /checkout/v1/sessions/{checkout_id}/status` | Poll compact status |
+| `POST /checkout/v1/sessions/{checkout_id}/bind` | Bind payer/token and create the real order |
+| `POST /checkout/v1/sessions/{checkout_id}/signature` | Verify and store a DELEGATE callback signature |
+
+The raw handle is a bearer capability. Keep it out of logs. Completion should be
+confirmed from `quickpay.checkout.completed` or trusted backend order status;
+the browser `onSuccess` callback is UX-only.

@@ -32,6 +32,7 @@ GoatX402 is a comprehensive EVM cryptocurrency payment processing platform. It p
 | **goatx402-sdk** | Frontend client SDK | `npm install goatx402-sdk` |
 | **goatx402-sdk-server** | TypeScript backend SDK | `npm install goatx402-sdk-server` |
 | **goatx402-sdk-server-go** | Go backend SDK | `go get github.com/goatnetwork/goatx402-sdk-server` |
+| **goatx402-checkout** | Drop-in hosted browser checkout | `npm install goatx402-checkout` |
 | **goatx402-quickpay** | QuickPay public payer / agent library and CLI | `npm install goatx402-quickpay` |
 
 ### 1.3 Two Payment Modes
@@ -81,6 +82,9 @@ npm install goatx402-sdk ethers
 
 # QuickPay public payer / agent CLI
 npm install goatx402-quickpay
+
+# Drop-in hosted browser checkout
+npm install goatx402-checkout
 ```
 
 ### 2.3 Backend: Create Order
@@ -271,7 +275,9 @@ const order = await client.createOrder({
 
 ### 4.2 Delegate Mode (DELEGATE)
 
-**Overview**: User transfers tokens to GoatX402's TSS wallet on the merchant's configured chain. GoatX402 then performs same-chain payout and optional callback execution.
+**Overview**: The user transfers tokens to a TSS wallet on the selected source
+chain. GoatX402 then pays out and optionally executes the callback on the
+merchant's configured callback/settlement chain, which may be the same chain.
 
 **Features**:
 - Supports callback functionality (execute merchant contracts)
@@ -279,6 +285,7 @@ const order = await client.createOrder({
 - TSS multi-sig wallet ensures fund security
 - Supports complex business logic
 - Requires Permit2 / EIP-3009 support and an approved callback contract on the merchant chain
+- Supports eligible cross-chain source payments while the merchant callback chain remains fixed
 
 **Payment Flow**:
 
@@ -333,7 +340,9 @@ const order = await client.createOrder({
 // order.calldataSignRequest = EIP-712 sign request (if callback exists)
 ```
 
-<!-- REVISION NOTE: Order flow list is verified against store/model behavior: public orders use ERC20_DIRECT, ERC20_3009, or ERC20_APPROVE_XFER. User-facing scope is EVM-only; DELEGATE is same-chain and depends on Permit2/EIP-3009 plus merchant callback setup. -->
+<!-- REVISION NOTE: Public orders use ERC20_DIRECT, ERC20_3009, or
+ERC20_APPROVE_XFER. User-facing scope is EVM-only; DELEGATE has one merchant
+callback chain but may accept eligible cross-chain source payments. -->
 
 ---
 
@@ -347,6 +356,7 @@ const order = await client.createOrder({
 | **Callback Support** | ❌ Not supported | ✅ Supported |
 | **Use Case** | Simple payments | Complex business logic |
 | **Gas Cost** | User only | User + TSS both need Gas |
+| **Chain relation** | Payment and receiving chain are the same | Source chain may differ from the single merchant callback chain |
 
 ---
 
@@ -813,7 +823,7 @@ type Permit2CallbackData = Eip3009CallbackData & {
 | `signCalldata(order)` | `Order` | `Promise<string>` | Sign callback data |
 | `getTokenBalance(token)` | `string` | `Promise<bigint>` | Query token balance |
 | `getTokenAllowance(token, spender)` | `string, string` | `Promise<bigint>` | Query allowance |
-| `approveToken(token, spender, amount?)` | `string, string, bigint?` | `Promise<TransactionResponse>` | Approve token |
+| `approveToken(token, spender, amount, options?)` | `string, string, bigint, ApprovalOptions?` | `Promise<TransactionResponse \| undefined>` | Exact approval by default; `unlimited: true` opts into unlimited approval; resolves after confirmation, or with `undefined` when the allowance already equals the requested value (including revoking an already-zero allowance); changing a non-zero allowance first simulates the direct write via eth_call — standard ERC20s get a single approval with no reset window, only USDT-style tokens fall back to a confirmed approve(0) reset first |
 
 ### 9.2 ERC20Token Class
 
@@ -826,7 +836,8 @@ type Permit2CallbackData = Eip3009CallbackData & {
 | `symbol()` | - | `Promise<string>` | Get symbol |
 | `approve(spender, amount)` | `string, bigint` | `Promise<TransactionResponse>` | Approve |
 | `transfer(to, amount)` | `string, bigint` | `Promise<TransactionResponse>` | Transfer |
-| `ensureApproval(owner, spender, amount)` | `string, string, bigint` | `Promise<{needed, tx?}>` | Ensure approval |
+| `ensureApproval(owner, spender, amount, options?)` | `string, string, bigint, ApprovalOptions?` | `Promise<{needed, tx?, resetTx?}>` | Judge sufficiency against the requested amount; otherwise simulate the direct write first and only use a confirmed approve(0) reset for USDT-style tokens; `unlimited` only changes the value written |
+| `setApproval(owner, spender, amount, options?)` | `string, string, bigint, ApprovalOptions?` | `Promise<ApprovalUpdate>` | Set an allowance explicitly; no transaction when it already equals the target; simulate non-zero direct writes first, fall back to approve(0) only when needed, and safely follow wallet fee-bumps |
 
 ### 9.3 Utility Functions
 
@@ -869,21 +880,57 @@ Session creation request:
 
 When the session is payable, the response includes an embedded `x402` object with the same `x402Version: 2`, `accepts[0].network = eip155:<id>`, `scheme = exact`, `amount`, `asset`, and `payTo` fields described in Section 6.3.
 
+For a fixed-price product, send `product_key` instead of `amount_wei`. The
+server computes the atomic amount from the product's token-agnostic decimal price
+and the selected token decimals.
+
 QuickPay package and CLI:
 
 ```bash
 npx goatx402-quickpay inspect https://api.x402.goat.network/quickpay/merchant_123/agent.md
 npx goatx402-quickpay pay-x402 https://api.x402.goat.network/quickpay/merchant_123/agent.md \
   --amount 10 --token-contract 0xToken --chain 137 --idempotency-key invoice-123
+npx goatx402-quickpay pay-product https://api.x402.goat.network/quickpay/merchant_123/agent.md \
+  --product mug --token-contract 0xToken --chain 137
 npx goatx402-quickpay pay-mpp https://api.x402.goat.network/quickpay/merchant_123/agent.md \
   --route <route_canonical>
 ```
 
-The library exports `QuickPayClient`, `inspect`, `payX402`, `payMpp`, `loadManifest`, and `EthersPaymentBackend`.
+The library exports `QuickPayClient`, `inspect`, `payX402`, `payProduct`,
+`payMpp`, `loadManifest`, and `EthersPaymentBackend`.
 
 <!-- REVISION NOTE: Endpoint paths are verified against goatx402-core/internal/api/server.go; manifest shape is verified against quickpay_manifest.go; CLI commands and exports are verified against goatx402-quickpay/src/cli.ts and src/index.ts. -->
 
-### 9.5 Type Definitions
+### 9.5 Hosted Checkout
+
+For a platform-hosted payment page, use `goatx402-checkout`:
+
+```typescript
+import { GoatCheckout } from 'goatx402-checkout'
+
+const goat = GoatCheckout({ origin: 'https://pay.goat.network' })
+goat.open({ merchant: 'merchant_123', productKey: 'mug' })
+```
+
+Dynamic DIRECT and every DELEGATE checkout start on the backend:
+
+```typescript
+const session = await client.createCheckoutSession({
+  checkoutType: 'DIRECT',
+  price: '19.95',
+  clientReferenceId: 'cart_123',
+})
+
+// Browser:
+goat.open({ checkoutId: session.checkoutId })
+```
+
+DELEGATE supports cross-chain decimal `price` mode and the compatibility
+single-chain `fixedAmountWei` mode. Fulfill from
+`quickpay.checkout.completed`, never from the browser callback alone. See
+[Hosted Checkout](../../docs/x402-checkout.md).
+
+### 9.6 Type Definitions
 
 ```typescript
 // Payment flow types
@@ -1056,10 +1103,14 @@ async function debugPayment(order: Order) {
 
 ### 11.1 SDK Versions
 
-| Package | Current Version | Status |
-|---------|-----------------|--------|
-| goatx402-sdk | 0.1.0 | Beta |
-| goatx402-sdk-server | 0.1.0 | Beta |
+Use package manifests as the version source of truth:
+
+| Package | Source |
+|---------|--------|
+| `goatx402-sdk` | `goatx402-sdk/package.json` |
+| `goatx402-sdk-server` | `goatx402-sdk-server-ts/package.json` |
+| `goatx402-checkout` | `goatx402-checkout/package.json` |
+| `goatx402-quickpay` | `goatx402-quickpay/package.json` |
 
 ### 11.2 Dependency Versions
 

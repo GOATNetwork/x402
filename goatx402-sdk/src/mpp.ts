@@ -17,6 +17,10 @@
 import { ethers } from 'ethers'
 import { ERC20Token } from './contracts/erc20.js'
 import {
+  MAX_REPLACEMENT_FOLLOWS,
+  replacedTransactionFrom,
+} from './internal/replacement.js'
+import {
   type MPPChallenge,
   type MPPPayParams,
   type MPPPhase,
@@ -597,6 +601,7 @@ export class MPPClient {
     // slot of the challenge's distinct-tx cap.
     const wantTo = (tx.to ?? '').toLowerCase()
     const wantData = tx.data ?? '0x'
+    const seenHashes = new Set<string>()
     void (async () => {
       let current = tx
       while (!stopped) {
@@ -606,8 +611,16 @@ export class MPPClient {
           return // mined (or null receipt) — nothing to follow
         } catch (err) {
           if (stopped) return
-          const rep = replacementFrom(err, wantTo, wantData)
-          if (!rep) return // not a (followable) same-payment replacement — stop quietly
+          const rep = replacedTransactionFrom(err, wantTo, wantData)
+          // Do not follow user 'cancelled' replacements; the shared (to, data)
+          // check already guarantees anything else is still the same payment.
+          if (!rep || rep.reason === 'cancelled') return // stop quietly
+          // A broken provider feeding an endless or cyclic replacement chain
+          // must not keep this best-effort watcher alive forever.
+          if (seenHashes.has(rep.hash) || seenHashes.size >= MAX_REPLACEMENT_FOLLOWS) {
+            return // stop quietly
+          }
+          seenHashes.add(rep.hash)
           onReplaced(rep.hash, rep.reason)
           current = rep.tx // follow further replacements of the same payment
         }
@@ -733,39 +746,4 @@ function isUserRejection(err: unknown): boolean {
   if (typeof e.code === 'string' && e.code === 'ACTION_REJECTED') return true
   if (typeof e.code === 'number' && e.code === 4001) return true
   return false
-}
-
-/**
- * Extract a FOLLOWABLE replacement from an ethers v6 tx.wait() rejection.
- * ethers sets err.code = 'TRANSACTION_REPLACED', err.reason ∈
- * {'repriced','cancelled','replaced'} and err.replacement = the new
- * TransactionResponse.
- *
- * Returns null (do not follow) unless the replacement is STILL the same
- * payment — i.e. its (to, data) match the original transfer's (wantTo,
- * wantData). This rejects:
- *   - non-TRANSACTION_REPLACED errors,
- *   - user 'cancelled' replacements (0-value to self),
- *   - same-nonce 'replaced' txs that are a DIFFERENT operation (different to
- *     or calldata) — following those would point verify at a non-payment hash
- *     and waste a challenge distinct-tx slot,
- *   - malformed replacements.
- * The (to, data) check is authoritative rather than trusting err.reason: a
- * genuine fee-bump changes only gas, leaving to/data identical.
- */
-function replacementFrom(
-  err: unknown,
-  wantTo: string,
-  wantData: string
-): { tx: ethers.TransactionResponse; hash: string; reason: string } | null {
-  if (typeof err !== 'object' || err === null) return null
-  const e = err as { code?: unknown; reason?: unknown; replacement?: unknown }
-  if (e.code !== 'TRANSACTION_REPLACED') return null
-  if (e.reason === 'cancelled') return null
-  const rep = e.replacement as ethers.TransactionResponse | undefined
-  if (!rep || typeof rep.hash !== 'string' || rep.hash === '') return null
-  const repTo = (rep.to ?? '').toLowerCase()
-  const repData = rep.data ?? '0x'
-  if (repTo !== wantTo || repData !== wantData) return null
-  return { tx: rep, hash: rep.hash, reason: typeof e.reason === 'string' ? e.reason : 'replaced' }
 }

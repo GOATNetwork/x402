@@ -149,7 +149,12 @@ Suitable for:
 ### 2. DELEGATE
 Payment is not just about receiving funds. It also supports more advanced settlement and post-payment execution logic.
 
-DELEGATE is the callback-enabled mode. It uses EIP-3009 or Permit2-style authorization, an approved merchant callback contract, and TSS-assisted submission on a single EVM chain. It is not available on Metis or Tempo, where DIRECT is the supported mode.
+DELEGATE is the callback-enabled mode. It uses EIP-3009 or Permit2-style
+authorization, an approved merchant callback contract, and TSS-assisted
+submission. The merchant callback/settlement configuration is locked to one EVM
+chain, while eligible Hosted Checkout source payments may come from another
+chain. Metis and Tempo are DIRECT-only as merchant settlement modes in the
+current matrix.
 
 Suitable for:
 - callback-enabled flows

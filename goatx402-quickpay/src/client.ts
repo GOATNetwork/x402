@@ -2,9 +2,11 @@ import { inspect, type InspectResult } from './inspect.js'
 import { loadManifest } from './manifest.js'
 import {
   payMpp,
+  payProduct,
   payX402,
   type PayMppOptions,
   type PayMppResult,
+  type PayProductOptions,
   type PayX402Options,
   type PayX402Result,
 } from './pay.js'
@@ -18,6 +20,10 @@ export interface QuickPayClientOptions {
 }
 
 export type QuickPayPayX402Options = Omit<PayX402Options, 'input' | 'fetchImpl'> & {
+  fetchImpl?: typeof fetch
+}
+
+export type QuickPayPayProductOptions = Omit<PayProductOptions, 'input' | 'fetchImpl'> & {
   fetchImpl?: typeof fetch
 }
 
@@ -61,6 +67,14 @@ export class QuickPayClient {
 
   payX402(opts: QuickPayPayX402Options): Promise<PayX402Result> {
     return payX402({
+      ...opts,
+      input: this.input,
+      fetchImpl: opts.fetchImpl ?? this.fetchImpl,
+    })
+  }
+
+  payProduct(opts: QuickPayPayProductOptions): Promise<PayX402Result> {
+    return payProduct({
       ...opts,
       input: this.input,
       fetchImpl: opts.fetchImpl ?? this.fetchImpl,

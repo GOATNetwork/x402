@@ -119,7 +119,8 @@ Response (save these immediately!):
 
 **Receive types:**
 - `DIRECT` — user pays directly to merchant address
-- `DELEGATE` — same-chain EVM settlement via EIP-3009 or Permit2, TSS submission, and callback contract
+- `DELEGATE` — TSS-assisted EVM settlement via EIP-3009 or Permit2, with one
+  configured merchant callback chain and potentially a different eligible source chain
 
 ### 2b. Add Merchant Token Addresses
 

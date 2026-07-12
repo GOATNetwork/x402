@@ -11,7 +11,7 @@
  */
 
 import { ethers } from 'ethers'
-import { ERC20Token } from './contracts/erc20.js'
+import { ERC20Token, type ApprovalOptions } from './contracts/erc20.js'
 import { signTypedData } from './eip712/index.js'
 import type { Order, PaymentResult } from './types.js'
 
@@ -119,15 +119,30 @@ export class PaymentHelper {
   }
 
   /**
-   * Approve tokens for a spender (rarely needed for standard flows)
+   * Approve an exact token amount for a spender (rarely needed for standard
+   * flows). Pass `{ unlimited: true }` only when an unlimited allowance is
+   * explicitly intended. Changing an existing non-zero allowance first
+   * simulates the direct write via eth_call: standard ERC20s get a single
+   * approval with no reset. Only when the simulation does not positively
+   * succeed (USDT-style tokens) is a confirmed approve(0) reset submitted
+   * first — if the final approval then fails or is rejected in the wallet,
+   * the allowance remains zero. Resolves after the final approval confirms,
+   * or with `undefined` when no transaction was needed because the allowance
+   * already equals the requested value (including revoking an already-zero
+   * allowance). Only the final approval transaction is returned; use
+   * `ERC20Token.setApproval` directly when the USDT-style reset transaction
+   * hash (`resetTx`) is also needed.
    */
   async approveToken(
     tokenContract: string,
     spender: string,
-    amount: bigint = ethers.MaxUint256
-  ): Promise<ethers.TransactionResponse> {
+    amount: bigint,
+    options: ApprovalOptions = {}
+  ): Promise<ethers.TransactionResponse | undefined> {
     const token = new ERC20Token(tokenContract, this.signer)
-    return token.approve(spender, amount)
+    const owner = await this.getAddress()
+    const { tx } = await token.setApproval(owner, spender, amount, options)
+    return tx
   }
 
   /**

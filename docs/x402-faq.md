@@ -26,7 +26,8 @@ Payments are verified on-chain through event monitoring:
 1. The user transfers tokens to the designated `payTo` address in the x402 `accepts[]` entry.
 2. A multi-chain listener monitors `Transfer` events.
 3. The system matches the transfer to a pending order.
-4. For DELEGATE orders, same-chain callback / settlement execution is completed.
+4. For DELEGATE orders, TSS-assisted callback / settlement execution is completed
+   on the merchant's configured callback chain.
 5. A payment proof is generated and cryptographically bound to the order.
 6. Merchants can verify the proof through the API or directly on-chain.
 
@@ -96,7 +97,10 @@ Supported mainnet scope and mode availability:
 | Metis | `1088` | Yes | No | `andromeda-explorer.metis.io` |
 | Tempo | `4217` | Yes | No | `explore.tempo.xyz` |
 
-DELEGATE requires same-chain EVM callback-contract support. Metis and Tempo use DIRECT.
+The matrix describes merchant settlement/callback chains. DELEGATE requires an
+approved EVM callback contract on that configured merchant chain; Metis and Tempo
+use DIRECT as settlement modes. Eligible cross-chain source payments are derived
+from live TSS/token configuration.
 
 #### What if a TSS node is compromised?
 
@@ -171,14 +175,18 @@ Usually one:
 
 If the token flow requires an approval-style step, that may introduce an additional setup action depending on the integration path.
 
-#### What if I do not hold tokens on the merchant's configured chain?
+#### What if I do not hold tokens on the merchant's settlement chain?
 
-x402 orders are same-chain payment flows. The user or agent must pay with a token and chain that the merchant has configured for that order.
+- **DIRECT**: the payer must hold the selected token on the merchant's receiving
+  chain and transfers directly to that chain's merchant address.
+- **DELEGATE**: a Hosted Checkout decimal-price session may offer eligible
+  source-chain/token choices even though the merchant callback/settlement chain is
+  fixed. The hosted page shows only candidates derived from current merchant,
+  token, and TSS configuration.
 
-- **DIRECT**: the payer sends the ERC-20 transfer on the selected chain directly to the merchant address on that same chain.
-- **DELEGATE**: the merchant uses one configured EVM chain with an approved callback contract; EIP-3009 or Permit2 authorization and TSS-assisted submission happen on that same chain.
-
-x402 does not perform automatic bridging or cross-chain settlement. Move funds outside the x402 order flow before paying if you need assets on a different chain.
+This is a controlled payment/settlement path, not a general-purpose bridge. If the
+checkout does not list a chain/token you hold, move or acquire funds outside x402
+before paying.
 
 #### Can a payment be canceled after sending?
 
@@ -248,12 +256,13 @@ The system is currently optimized for stablecoins such as USDC and USDT to suppo
 
 #### Can merchants receive funds on a configured chain or token?
 
-Merchants configure the chains, tokens, and receiving addresses they accept. Settlement is same-chain for the order:
+Merchants configure the chains, tokens, receiving assets, and callback chain they accept:
 
 - **DIRECT**: user wallet -> merchant receiving address on the selected chain.
-- **DELEGATE**: user authorization -> TSS/callback flow -> merchant settlement on the merchant's single configured EVM chain.
+- **DELEGATE**: user payment on an eligible source chain -> TSS-assisted payout /
+  callback -> merchant's single configured EVM settlement chain.
 
-There is no automatic bridge from one chain to another inside x402.
+Cross-chain eligibility is runtime configuration, not an arbitrary bridge promise.
 
 #### Is there a minimum payment amount?
 
@@ -316,7 +325,11 @@ Impact depends on the component:
 
 #### Is the code open source?
 
-Yes. The public `GOATNetwork/x402` repository contains the core services, SDKs, MerchantCallback contracts, QuickPay tooling, middleware, and related documentation needed for review and integration.
+The public `GOATNetwork/x402` repository is the external integration and
+documentation surface. It contains the browser/server SDKs, Checkout and QuickPay
+tooling, middleware, demo, callback contracts, and public documentation. Platform
+core and operator applications are not presented as public modules in this
+repository.
 
 Production deployments are still operated environments, so confirm the deployed version, configuration, and TSS operator policy with the deployment operator.
 
@@ -415,7 +428,22 @@ Use QuickPay when the merchant has enabled it. Agents can discover the merchant'
 - `POST /quickpay/v1/x402/sessions`
 - `GET /quickpay/v1/x402/sessions/:session_id`
 
-The `goatx402-quickpay` CLI supports `inspect`, `pay-x402 --amount --token-contract --chain`, and `pay-mpp --route`.
+The `goatx402-quickpay` CLI supports `inspect`,
+`pay-x402 --amount --token-contract --chain`,
+`pay-product --product --token-contract --chain`, and `pay-mpp --route`.
+
+#### What is the fastest browser checkout integration?
+
+Use `goatx402-checkout`. A QuickPay-enabled DIRECT merchant can open a fixed,
+server-priced product with `open({ merchant, productKey })` and no merchant
+backend. Dynamic DIRECT checkout and all DELEGATE checkout use the server SDK's
+`createCheckoutSession(...)`, then pass the opaque `checkoutId` to
+`open({ checkoutId })`.
+
+The hosted page owns wallet connection, token selection, payment, and status UX.
+The browser success callback is not payment proof; fulfill from
+`quickpay.checkout.completed` or trusted backend status. See
+[Hosted Checkout](x402-checkout.md).
 
 #### How do I integrate x402 into an existing payment flow?
 

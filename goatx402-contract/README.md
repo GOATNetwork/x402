@@ -4,6 +4,7 @@ This project contains the smart contracts for goatx402, including:
 - `USDC`: ERC20 token with EIP-3009 support and configurable decimals.
 - `USDT`: Standard ERC20 token with configurable decimals.
 - `MerchantCallback`: Callback contract for merchant payment notifications.
+- `TopupCallback`: Dedicated topup-service callback without arbitrary calldata execution.
 
 ## Prerequisites
 
@@ -34,6 +35,7 @@ The USDC and USDT contracts support configurable decimals during deployment. Thi
 | Ethereum / Sepolia | 6 | 6 |
 | BSC / BSC Testnet | 18 | 18 |
 | Goat Testnet3 | 6 (default) | 6 (default) |
+| Metis Sepolia | 6 | 6 |
 
 Set the `TOKEN_DECIMALS` environment variable before deployment:
 
@@ -160,11 +162,27 @@ forge script script/DeployMerchantCallback.s.sol:DeployMerchantCallback \
   --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
+For a guided deployment that keeps the key in a gitignored local file, copy
+`.env.deploy.example` to `.env.deploy` and run `bash deploy-merchant-callback.sh`.
+
+## TopupCallback Deployment
+
+`TopupCallback` is only for the platform topup-service merchant. It uses the
+EIP-712 domain `GoatX402 Topup Callback` / `1` and intentionally omits
+`withCalldata` callback methods. Regular merchants should use `MerchantCallback`.
+
+```bash
+PRIVATE_KEY=<OWNER_KEY> AUTHORIZED_CALLER=<X402_CALLER> \
+  forge script script/DeployTopupCallback.s.sol:DeployTopupCallback \
+  --rpc-url goat_testnet3 --broadcast
+```
+
 ## Contracts
 
 - `src/USDC.sol`: Implements ERC20, Ownable, and EIP712 for EIP-3009 (TransferWithAuthorization). Supports configurable decimals.
 - `src/USDT.sol`: Implements standard ERC20 and Ownable. Supports configurable decimals.
 - `src/MerchantCallback.sol`: Upgradeable callback contract for receiving payment notifications via EIP-3009 or Permit2.
+- `src/TopupCallback.sol`: Upgradeable, topup-specific EIP-3009 / Permit2 receiver with exact-amount checks.
 
 ## Testing
 
@@ -177,6 +195,9 @@ forge test -vvv
 
 # Run specific test
 forge test --match-contract MerchantCallbackTest -vv
+
+# Run topup callback tests
+forge test --match-contract TopupCallbackTest -vv
 ```
 
 ## Chain Configuration
@@ -186,3 +207,4 @@ forge test --match-contract MerchantCallbackTest -vv
 | BSC Testnet | 97 | https://data-seed-prebsc-1-s1.binance.org:8545 | https://testnet.bscscan.com |
 | Goat Testnet3 | 48816 | https://rpc.testnet3.goat.network | https://explorer.testnet3.goat.network |
 | Sepolia | 11155111 | https://rpc.sepolia.org | https://sepolia.etherscan.io |
+| Metis Sepolia | 59902 | https://sepolia.metisdevops.link | https://sepolia-explorer.metisdevops.link |

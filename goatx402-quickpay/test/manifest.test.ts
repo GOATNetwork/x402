@@ -76,6 +76,147 @@ describe('validateManifest', () => {
     expect(m.rails.x402.tokens).toEqual([])
     expect(m.rails.mpp.routes).toEqual([])
   })
+  it('rejects a malformed x402 token (bad decimals) when the rail is enabled', () => {
+    const bad = {
+      schema: 'goatx402.quickpay.v1',
+      merchant: { merchant_id: 'acme' },
+      rails: { x402: { enabled: true, tokens: [{ chain_id: 4217, token_symbol: 'USDC', token_contract: '0xT', decimals: -1, min_amount_wei: '1' }] } },
+    }
+    expect(() => validateManifest(bad)).toThrow(/decimals/)
+  })
+  it('rejects an x402 token with a non-integer min_amount_wei', () => {
+    const bad = {
+      schema: 'goatx402.quickpay.v1',
+      merchant: { merchant_id: 'acme' },
+      rails: { x402: { enabled: true, tokens: [{ chain_id: 4217, token_symbol: 'USDC', token_contract: '0xT', decimals: 6, min_amount_wei: '1.5' }] } },
+    }
+    expect(() => validateManifest(bad)).toThrow(/min_amount_wei/)
+  })
+  it('does not validate tokens when the x402 rail is disabled', () => {
+    const m = validateManifest({
+      schema: 'goatx402.quickpay.v1',
+      merchant: { merchant_id: 'acme' },
+      rails: { x402: { enabled: false, tokens: [{ decimals: 'nope' }] } },
+    })
+    expect(m.rails.x402.enabled).toBe(false)
+  })
+  it('rejects an x402 token whose max_amount_wei is below min_amount_wei', () => {
+    const bad = {
+      schema: 'goatx402.quickpay.v1',
+      merchant: { merchant_id: 'acme' },
+      rails: { x402: { enabled: true, tokens: [{ chain_id: 4217, token_symbol: 'USDC', token_contract: '0xT', decimals: 6, min_amount_wei: '1000000', max_amount_wei: '999999' }] } },
+    }
+    expect(() => validateManifest(bad)).toThrow(/max_amount_wei must be >= min_amount_wei/)
+  })
+  it('rejects a malformed MPP route (bad chain_id) when the rail is enabled', () => {
+    const bad = {
+      schema: 'goatx402.quickpay.v1',
+      merchant: { merchant_id: 'acme' },
+      rails: { mpp: { enabled: true, routes: [{ route_canonical: 'GET:api:data', chain_id: 0, token_symbol: 'USDC', amount_wei: '1000000' }] } },
+    }
+    expect(() => validateManifest(bad)).toThrow(/chain_id/)
+  })
+  it('accepts a valid MPP route and preserves it', () => {
+    const m = validateManifest({
+      schema: 'goatx402.quickpay.v1',
+      merchant: { merchant_id: 'acme' },
+      rails: { mpp: { enabled: true, routes: [{ route_canonical: 'GET:api:data', chain_id: 4217, token_symbol: 'USDC', amount_wei: '1000000' }] } },
+    })
+    expect(m.rails.mpp.routes).toHaveLength(1)
+    expect(m.rails.mpp.routes[0].route_canonical).toBe('GET:api:data')
+  })
+  it('does not validate MPP routes when the rail is disabled', () => {
+    const m = validateManifest({
+      schema: 'goatx402.quickpay.v1',
+      merchant: { merchant_id: 'acme' },
+      rails: { mpp: { enabled: false, routes: [{ chain_id: 'nope' }] } },
+    })
+    expect(m.rails.mpp.enabled).toBe(false)
+  })
+
+  const withProducts = (products: unknown[]) => ({
+    schema: 'goatx402.quickpay.v1',
+    merchant: { merchant_id: 'acme' },
+    rails: {
+      x402: {
+        enabled: true,
+        tokens: [{ chain_id: 4217, token_symbol: 'USDC', token_contract: '0xabc', decimals: 6, min_amount_wei: '1000000' }],
+        products,
+      },
+    },
+  })
+
+  it('accepts valid products and preserves them', () => {
+    const m = validateManifest(withProducts([{ product_key: 'mug', name: 'Coffee Mug', price: '9.99', image_url: 'https://x/m.png' }]))
+    expect(m.rails.x402.products).toHaveLength(1)
+    expect(m.rails.x402.products?.[0].product_key).toBe('mug')
+  })
+  it('normalizes a missing products array to []', () => {
+    const m = validateManifest({ schema: 'goatx402.quickpay.v1', merchant: { merchant_id: 'a' }, rails: {} })
+    expect(m.rails.x402.products).toEqual([])
+  })
+  it('rejects a present-but-non-array products (malformed manifest, not "no products")', () => {
+    expect(() => validateManifest({ schema: 'goatx402.quickpay.v1', merchant: { merchant_id: 'a' }, rails: { x402: { enabled: true, tokens: [], products: 'bad' } } })).toThrow(/products must be an array/)
+    expect(() => validateManifest({ schema: 'goatx402.quickpay.v1', merchant: { merchant_id: 'a' }, rails: { x402: { enabled: false, tokens: [], products: { product_key: 'x' } } } })).toThrow(/products must be an array/)
+    expect(() => validateManifest({ schema: 'goatx402.quickpay.v1', merchant: { merchant_id: 'a' }, rails: { x402: { enabled: true, tokens: [], products: null } } })).toThrow(/products must be an array/)
+  })
+  it('rejects a product with a malformed product_key', () => {
+    expect(() => validateManifest(withProducts([{ product_key: 'bad key', name: 'X', price: '1' }]))).toThrow(/product_key/)
+  })
+  it("rejects a product_key of '.'", () => {
+    expect(() => validateManifest(withProducts([{ product_key: '.', name: 'X', price: '1' }]))).toThrow(/product_key/)
+  })
+  it('rejects a product with an empty name', () => {
+    expect(() => validateManifest(withProducts([{ product_key: 'k', name: '  ', price: '1' }]))).toThrow(/name/)
+  })
+  it('rejects a product with a non-positive / malformed price', () => {
+    expect(() => validateManifest(withProducts([{ product_key: 'k', name: 'X', price: '0' }]))).toThrow(/price/)
+    expect(() => validateManifest(withProducts([{ product_key: 'k', name: 'X', price: '0.00' }]))).toThrow(/price/)
+    expect(() => validateManifest(withProducts([{ product_key: 'k', name: 'X', price: '1.2.3' }]))).toThrow(/price/)
+  })
+  it("rejects a price exceeding core's integer/fractional digit bounds", () => {
+    expect(() => validateManifest(withProducts([{ product_key: 'k', name: 'X', price: '1'.repeat(41) }]))).toThrow(/price/)
+    expect(() => validateManifest(withProducts([{ product_key: 'k', name: 'X', price: '1.' + '0'.repeat(18) + '1' }]))).toThrow(/price/)
+  })
+  it('rejects a product with a non-string description', () => {
+    expect(() => validateManifest(withProducts([{ product_key: 'k', name: 'X', price: '1', description: {} }]))).toThrow(/description/)
+  })
+  it('rejects a product with an over-long description', () => {
+    expect(() => validateManifest(withProducts([{ product_key: 'k', name: 'X', price: '1', description: 'a'.repeat(2001) }]))).toThrow(/description/)
+  })
+  it('rejects a product with a non-https image_url', () => {
+    expect(() => validateManifest(withProducts([{ product_key: 'k', name: 'X', price: '1', image_url: 'http://x/m.png' }]))).toThrow(/image_url/)
+  })
+  it('rejects a product whose image_url is a bare scheme / hostless / unparseable https value', () => {
+    expect(() => validateManifest(withProducts([{ product_key: 'k', name: 'X', price: '1', image_url: 'https://' }]))).toThrow(/image_url/)
+    expect(() => validateManifest(withProducts([{ product_key: 'k', name: 'X', price: '1', image_url: 'https://not a url' }]))).toThrow(/image_url/)
+  })
+  it('rejects a product whose image_url embeds credentials', () => {
+    expect(() => validateManifest(withProducts([{ product_key: 'k', name: 'X', price: '1', image_url: 'https://user:pass@x/m.png' }]))).toThrow(/image_url/)
+  })
+  it('rejects a product whose image_url exceeds the length bound', () => {
+    expect(() => validateManifest(withProducts([{ product_key: 'k', name: 'X', price: '1', image_url: 'https://x/' + 'a'.repeat(2050) }]))).toThrow(/image_url/)
+  })
+  it('validates products even when the x402 rail is disabled (fail closed on a malformed product)', () => {
+    // Products are surfaced by inspect and read by payProduct's recovery path regardless of
+    // enabled, so a malformed product must be rejected on ingest, not passed through.
+    expect(() =>
+      validateManifest({
+        schema: 'goatx402.quickpay.v1',
+        merchant: { merchant_id: 'acme' },
+        rails: { x402: { enabled: false, tokens: [], products: [{ product_key: 'bad key', name: '', price: 'x' }] } },
+      }),
+    ).toThrow(/product_key|name|price/)
+  })
+  it('accepts a well-formed product on a disabled rail (only malformed ones fail)', () => {
+    const m = validateManifest({
+      schema: 'goatx402.quickpay.v1',
+      merchant: { merchant_id: 'acme' },
+      rails: { x402: { enabled: false, tokens: [], products: [{ product_key: 'mug', name: 'Mug', price: '9.99' }] } },
+    })
+    expect(m.rails.x402.enabled).toBe(false)
+    expect(m.rails.x402.products?.[0].product_key).toBe('mug')
+  })
 })
 
 describe('endpoints (trust anchor)', () => {

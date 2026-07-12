@@ -59,13 +59,15 @@ User or agent payments go directly to your receiving wallet on the same chain as
 
 ### DELEGATE Mode
 
-DELEGATE is a same-chain EVM custodial settlement path for flows that need payment-triggered contract execution.
+DELEGATE is a TSS-assisted EVM settlement path for flows that need
+payment-triggered contract execution. The merchant configures one callback/
+settlement chain; an eligible buyer source chain may differ.
 
-- Fund flow: User authorization/payment -> TSS-controlled settlement path -> Merchant callback contract / merchant settlement on the same chain
+- Fund flow: User payment on an eligible source chain -> TSS-controlled settlement path -> Merchant callback contract / settlement chain
 - Mechanism: EIP-3009 or Permit2 `SignatureTransfer`, TSS co-signing, SubmitMonitor submission, and merchant callback
-- Best for: In-game purchases, per-call API billing, NFT minting, and other same-chain post-payment execution
-- Requirements: One EVM chain per merchant, receiving address on that chain, and an admin-approved callback contract on that same chain
-- No bridging: DELEGATE does not let users pay on one chain while the merchant receives on another chain
+- Best for: In-game purchases, per-call API billing, NFT minting, and other post-payment execution
+- Requirements: One EVM callback chain per merchant, receiving token configuration on that chain, and an admin-approved callback contract on the same chain
+- Cross-chain checkout: decimal-price Hosted Checkout may offer source-chain/token candidates derived from live TSS and token configuration
 - Proof: Confirmed orders can expose verifiable proof
 
 **Example:** A game operates on GOAT mainnet. The player authorizes a USDC payment on GOAT mainnet; Core verifies the order and the TSS-backed settlement path calls the game's approved GOAT callback contract. The player receives the item without any bridge or chain switch.
@@ -74,14 +76,15 @@ DELEGATE is a same-chain EVM custodial settlement path for flows that need payme
 
 | Feature | DIRECT | DELEGATE |
 | --- | --- | --- |
-| Fund flow | User -> Merchant | Same-chain user authorization/payment -> TSS settlement path -> callback/merchant |
-| Chain scope | Same chain as the order | Same chain only; one EVM chain per merchant |
+| Fund flow | User -> Merchant | Eligible source-chain payment -> TSS settlement -> callback/merchant chain |
+| Chain scope | Selected payment/receiving chain | One merchant callback chain; eligible source chain may differ |
 | Contract callback | No | Yes, via admin-approved callback contract |
 | Gas sponsorship for callback/settlement | No callback path | TSS-submitted settlement/callback path |
 | Settlement proof | Yes, after confirmation | Yes, after confirmation |
-| QuickPay support | Yes | No |
+| Public QuickPay product/link | Yes | No |
+| Server-created Hosted Checkout | Yes | Yes |
 | Integration difficulty | Simplest | Requires callback contract review |
-| Best for | Simple payments and public payment links | Same-chain contract execution after payment |
+| Best for | Simple payments and public payment links | Contract execution after payment |
 
 ### Supported Mainnet Matrix
 
@@ -241,7 +244,9 @@ Important rules:
 
 ### 6.2 Callback Contracts for DELEGATE
 
-DELEGATE merchants must submit a callback contract for admin review before same-chain callback execution can be used.
+DELEGATE merchants must submit a callback contract for admin review before
+callback execution can be used. The contract and merchant receiving-token
+configuration remain locked to the same settlement chain.
 
 Merchant self-service endpoints:
 
@@ -496,12 +501,19 @@ For custom amounts, `POST /quickpay/v1/x402/sessions` accepts `merchant_id`, `pa
 
 For product sessions, send `product_key` with `merchant_id`, `payer_addr`, `chain_id`, `token_contract`, and optional `idempotency_key`.
 
+Browser merchants can open these fixed-price products with
+`goatx402-checkout` and no merchant secret in the page. Dynamic DIRECT carts and
+all DELEGATE hosted checkout use an HMAC-created Checkout Session instead; see
+[Hosted Checkout](x402-checkout.md).
+
 Agent/CLI entry points:
 
 ```bash
 npx goatx402-quickpay inspect https://api.x402.goat.network/quickpay/<merchant_id>/agent.md
 npx goatx402-quickpay pay-x402 https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
   --amount <amount> --token-contract <token_contract> --chain <chain_id>
+npx goatx402-quickpay pay-product https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+  --product <product_key> --token-contract <token_contract> --chain <chain_id>
 ```
 
 Agents should treat `agent.md` as the canonical skills-style instruction file for QuickPay payments and use `manifest.json` for machine-readable capabilities.
@@ -545,7 +557,9 @@ Fees are chain/admin configured. The default documentation baseline is:
 | DIRECT | `$0.10` per order |
 | DELEGATE | `$0.20` per order where supported |
 
-DELEGATE fees are higher because they include same-chain authorization processing, TSS submission, and callback execution overhead. Check the Balance or fee configuration view for the active chain-specific values before launch.
+DELEGATE fees are higher because they include authorization processing, TSS
+submission, payout, and callback execution overhead. Check the Balance or fee
+configuration view for the active chain-specific values before launch.
 
 ### 13.5 Transaction History
 
@@ -594,7 +608,7 @@ Complete the following steps to start accepting payments:
 - [ ] 2. Wait for admin approval
 - [ ] 3. Log in and optionally enable 2FA
 - [ ] 4. Add receiving addresses for each accepted Chain + Token
-- [ ] 5. For DELEGATE, submit a same-chain callback contract for review
+- [ ] 5. For DELEGATE, submit a callback contract on the merchant settlement chain for review
 - [ ] 6. Generate API keys and save the API Secret
 - [ ] 7. Configure webhook callbacks
 - [ ] 8. Top up the fee balance from the Topup page

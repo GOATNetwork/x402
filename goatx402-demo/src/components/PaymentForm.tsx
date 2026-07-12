@@ -2,13 +2,16 @@
  * Payment Form Component
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import type { ChainInfo, TokenInfo } from '../hooks/useConfig'
+import { encodeDemoCallbackCalldata } from '../hooks/useGoatX402'
 
 interface PaymentFormProps {
   chains: ChainInfo[]
   currentChainId: number | null
   isConnected: boolean
+  connectedWalletAddress: string | null
+  receiveType?: string
   loading: boolean
   balance: string | null
   onPay: (chainId: number, tokenContract: string, tokenSymbol: string, amount: string, callbackCalldata?: string) => void
@@ -19,6 +22,8 @@ export function PaymentForm({
   chains,
   currentChainId,
   isConnected,
+  connectedWalletAddress,
+  receiveType,
   loading,
   balance,
   onPay,
@@ -29,6 +34,7 @@ export function PaymentForm({
   const [amount, setAmount] = useState('')
   const [callbackCalldata, setCallbackCalldata] = useState('')
   const [showCalldata, setShowCalldata] = useState(false)
+  const lastAutoCalldataRef = useRef<string | null>(null)
 
   // Set default chain when chains are loaded
   useEffect(() => {
@@ -56,14 +62,40 @@ export function PaymentForm({
     }
   }, [selectedChainId, selectedToken, isConnected, onTokenChange])
 
+  const demoCallbackCalldata = useMemo(() => {
+    if (receiveType !== 'DELEGATE' || !isConnected || !connectedWalletAddress) {
+      return ''
+    }
+    return encodeDemoCallbackCalldata(connectedWalletAddress)
+  }, [connectedWalletAddress, isConnected, receiveType])
+
+  useEffect(() => {
+    if (!demoCallbackCalldata) {
+      return
+    }
+
+    const hasManualCalldata =
+      callbackCalldata.trim() !== '' && callbackCalldata !== lastAutoCalldataRef.current
+    if (hasManualCalldata) {
+      return
+    }
+
+    lastAutoCalldataRef.current = demoCallbackCalldata
+    if (callbackCalldata !== demoCallbackCalldata) {
+      setCallbackCalldata(demoCallbackCalldata)
+    }
+  }, [callbackCalldata, demoCallbackCalldata])
+
   const selectedChain = chains.find((c) => c.chainId === selectedChainId)
   const isWrongChain = currentChainId !== null && currentChainId !== selectedChainId
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!amount || parseFloat(amount) <= 0 || !selectedChainId || !selectedToken) return
-    // Pass callbackCalldata only if it's not empty
-    const calldata = callbackCalldata.trim() || undefined
+    const calldata =
+      receiveType === 'DELEGATE'
+        ? callbackCalldata.trim() || demoCallbackCalldata || undefined
+        : callbackCalldata.trim() || undefined
     onPay(selectedChainId, selectedToken.contract, selectedToken.symbol, amount, calldata)
   }
 
@@ -217,7 +249,7 @@ export function PaymentForm({
                 rows={3}
               />
               <p className="mt-1 text-xs text-gray-500">
-                Only for merchants with receive_type=DELEGATE. The calldata will be executed on the merchant's callback contract after payment.
+                Sent with the order; DELEGATE merchants may return a callback signature request.
               </p>
             </div>
           )}

@@ -1,8 +1,19 @@
 {
   "name": "goatx402-quickpay",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "GoatX402 QuickPay public payer/agent library and CLI",
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GOATNetwork/x402.git",
+    "directory": "goatx402-quickpay"
+  },
   "bin": {
     "goatx402-quickpay": "dist/cli.js"
   },
@@ -10,28 +21,28 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "files": [
-    "dist",
-    "src",
-    "README.md"
+    "dist"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "prepack": "tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
+    "prepack": "npm run clean && npm run build",
+    "prepublishOnly": "npm run test:run",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
-    "clean": "rm -rf dist"
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
     "ethers": "^6.9.0"
   },
   "optionalDependencies": {
-    "goatx402-sdk": "^0.1.1"
+    "goatx402-sdk": "^0.1.2 || ^0.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

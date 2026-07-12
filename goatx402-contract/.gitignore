@@ -1,0 +1,3 @@
+
+# local deploy secrets (private key) — never commit
+.env.deploy
