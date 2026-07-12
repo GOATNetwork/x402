@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2 - 2026-07-12
+
+- Add successful top-level CLI help for `--help`, `-h`, and `help`.
+- Add regression coverage for CLI help routing and public command discovery.
+
 ## 0.2.1 - 2026-07-12
 
 - Treat the `force` option as strictly boolean: only a literal `true` re-broadcasts

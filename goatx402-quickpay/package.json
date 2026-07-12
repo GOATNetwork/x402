@@ -1,6 +1,6 @@
 {
   "name": "goatx402-quickpay",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "GoatX402 QuickPay public payer/agent library and CLI",
   "type": "module",
   "engines": {

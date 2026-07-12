@@ -5,6 +5,9 @@ stateless, and manifest-driven: it does not know any specific merchant — the
 merchant identity comes entirely from the link a merchant shares.
 
 ```bash
+# show available commands
+npx goatx402-quickpay --help
+
 # inspect a merchant's payment capabilities (machine-readable JSON)
 npx goatx402-quickpay inspect https://pay.goat.network/quickpay/acme/agent.md --json
 
