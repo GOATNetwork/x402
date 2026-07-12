@@ -187,7 +187,7 @@ export class ERC20Token {
       return { needed: false }
     }
 
-    const update = await this.replaceApproval(spender, currentAllowance, target)
+    const update = await this.replaceApproval(owner, spender, currentAllowance, target)
     return { needed: true, ...update }
   }
 
@@ -215,7 +215,7 @@ export class ERC20Token {
     if (currentAllowance === target) {
       return {}
     }
-    return this.replaceApproval(spender, currentAllowance, target)
+    return this.replaceApproval(owner, spender, currentAllowance, target)
   }
 
   private approvalTarget(amount: bigint, options: ApprovalOptions): bigint {
@@ -251,27 +251,35 @@ export class ERC20Token {
   }
 
   private async replaceApproval(
+    owner: string,
     spender: string,
     currentAllowance: bigint,
     target: bigint
   ): Promise<ApprovalUpdate> {
-    let resetTx: ethers.TransactionResponse | undefined
     // USDT-style tokens reject every non-zero -> non-zero approve transition,
     // so changing a non-zero allowance may require an approve(0) reset first.
-    // A zero target is itself a reset and needs no extra one. Probe with a
-    // free eth_call simulation before resetting: when the direct write would
-    // succeed (standard ERC20s), a single approval is sent instead — no reset
-    // failure window and no transient zero-allowance gap.
-    if (
-      currentAllowance !== 0n &&
-      target !== 0n &&
-      !(await this.canApproveDirectly(spender, target))
-    ) {
-      // The submit itself is inside the try: a wallet rejection at the
-      // signing prompt must also surface as a reset failure, not a raw error.
+    // A zero target is itself a reset and needs no extra one. Probe with a free
+    // eth_call before resetting: when the direct write would succeed (standard
+    // ERC20s) a single approval is sent instead — no reset failure window and no
+    // transient zero-allowance gap. A `true` here also serves as the final
+    // send's preflight, so the direct path never issues a duplicate eth_call.
+    const directOk =
+      currentAllowance !== 0n && target !== 0n
+        ? await this.canApproveDirectly(spender, target)
+        : false
+
+    let resetTx: ethers.TransactionResponse | undefined
+    if (currentAllowance !== 0n && target !== 0n && !directOk) {
+      // The submit itself is inside the try: a wallet rejection at the signing
+      // prompt must also surface as a reset failure, not a raw error. The
+      // preflight and post-write check catch a non-compliant token that returns
+      // false without reverting — it would otherwise mine a status-1 receipt
+      // while the allowance never changed.
       try {
+        await this.preflightApprove(spender, 0n)
         const submittedResetTx = await this.approve(spender, 0n)
         resetTx = await this.waitForApproval(submittedResetTx)
+        await this.assertAllowanceCleared(owner, spender)
       } catch (cause) {
         throw errorWithCause('allowance reset transaction failed', cause)
       }
@@ -279,8 +287,19 @@ export class ERC20Token {
 
     let tx: ethers.TransactionResponse
     try {
+      // Preflight the final approval unless the direct-write probe already
+      // simulated it as true above.
+      if (!directOk) {
+        await this.preflightApprove(spender, target)
+      }
       tx = await this.approve(spender, target)
       tx = await this.waitForApproval(tx)
+      // Only a zero target is verified by a post-write read: a spender can
+      // never reduce an allowance below zero, so there is no concurrent
+      // transferFrom false negative (unlike a non-zero target).
+      if (target === 0n) {
+        await this.assertAllowanceCleared(owner, spender)
+      }
     } catch (cause) {
       const message = resetTx
         ? 'final approval failed after the allowance was reset to zero'
@@ -296,7 +315,8 @@ export class ERC20Token {
    * the simulation runs and positively reports success; a revert (USDT-style
    * nonzero -> nonzero rejection), a false return, a transport failure, or a
    * contract object without staticCall support all fail closed into the
-   * proven reset path.
+   * proven reset path. This is a lenient SELECTION probe (a non-true result
+   * chooses the reset path); the strict send-time check is preflightApprove.
    */
   private async canApproveDirectly(spender: string, target: bigint): Promise<boolean> {
     const approve = this.contract.approve
@@ -304,9 +324,62 @@ export class ERC20Token {
       return false
     }
     try {
-      return (await approve.staticCall(spender, target)) === true
+      return (await this.simulateApprove(spender, target)) === 'ok'
     } catch {
       return false
+    }
+  }
+
+  /**
+   * Classify an approve simulation independent of the ABI's declared return
+   * type. A compliant token returns encoded `true`; a non-compliant silent
+   * failure returns encoded `false`; USDT and other void-returning tokens
+   * return NOTHING, which ethers cannot decode as bool (a BAD_DATA error on
+   * empty data) even though the call SUCCEEDED. Only an explicit `false` is a
+   * rejection here; a genuine revert or transport error is re-thrown.
+   */
+  private async simulateApprove(spender: string, amount: bigint): Promise<'ok' | 'rejected'> {
+    const staticCall = this.contract.approve.staticCall
+    // Callers only reach here after checking staticCall exists; this also
+    // narrows the optional member and fails open if it is somehow absent.
+    if (typeof staticCall !== 'function') {
+      return 'ok'
+    }
+    try {
+      return (await staticCall(spender, amount)) === false ? 'rejected' : 'ok'
+    } catch (err) {
+      if (isEmptyReturnData(err)) return 'ok'
+      throw err
+    }
+  }
+
+  /**
+   * Strictly simulate an approval that is about to be sent. A token that would
+   * return false without reverting must fail here rather than mine a status-1
+   * receipt that leaves the allowance unchanged; a revert or transport error
+   * propagates for the same reason. An empty (void) return — USDT and similar —
+   * is a success. Fails open only when the contract-like object exposes no
+   * staticCall (minimal wrappers); zero targets are still protected by the
+   * post-write allowance check.
+   */
+  private async preflightApprove(spender: string, amount: bigint): Promise<void> {
+    const approve = this.contract.approve
+    if (typeof approve.staticCall !== 'function') {
+      return
+    }
+    if ((await this.simulateApprove(spender, amount)) === 'rejected') {
+      throw new Error('approval simulation returned false')
+    }
+  }
+
+  /**
+   * Confirm a zero-target approval actually took effect by reading the
+   * allowance back. Zero is the only value verified post-write: it cannot be
+   * reduced further by a concurrent transferFrom, so there is no false negative.
+   */
+  private async assertAllowanceCleared(owner: string, spender: string): Promise<void> {
+    if ((await this.allowance(owner, spender)) !== 0n) {
+      throw new Error('allowance was not cleared after the approval confirmed')
     }
   }
 
@@ -367,6 +440,20 @@ function errorWithCause(message: string, cause: unknown): Error {
   const error = new Error(message) as Error & { cause?: unknown }
   error.cause = cause
   return error
+}
+
+/**
+ * True when an ethers error is the BAD_DATA it throws for empty returndata —
+ * the shape of a SUCCESSFUL call to a void-returning `approve` (e.g. USDT),
+ * which declares a bool return it does not actually emit.
+ */
+function isEmptyReturnData(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    (err as { code?: unknown }).code === 'BAD_DATA' &&
+    (err as { value?: unknown }).value === '0x'
+  )
 }
 
 /**

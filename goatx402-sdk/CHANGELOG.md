@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.1 - 2026-07-12
+
+- Verify approvals actually take effect instead of trusting the receipt alone.
+  A non-compliant ERC20 that signals a rejected `approve` by returning `false`
+  without reverting mines a status-1 receipt; the SDK previously reported
+  success while the allowance was unchanged. Now every approval that is about
+  to be sent is strictly simulated first (via `staticCall`, when the contract
+  exposes it), and every zero-target write (a USDT-style reset and a `0n`
+  revocation) is confirmed by reading the allowance back — so a revocation can
+  no longer falsely claim success while spend authority persists. Non-zero
+  targets rely on the pre-send simulation plus a status-1 receipt (no post-read,
+  which would risk a false negative against a concurrent `transferFrom`).
+
 ## 0.2.0 - 2026-07-12
 
 - **BREAKING:** `PaymentHelper.approveToken` now requires an explicit amount and

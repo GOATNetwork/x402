@@ -81,7 +81,8 @@ describe('ERC20Token', () => {
     const resetTx = transaction()
     const finalTx = transaction()
     const contract = {
-      allowance: vi.fn().mockResolvedValue(10n),
+      // 10n at first, then 0n once the reset has confirmed (state model).
+      allowance: vi.fn().mockResolvedValueOnce(10n).mockResolvedValue(0n),
       approve: vi.fn().mockResolvedValueOnce(resetTx).mockResolvedValueOnce(finalTx),
       decimals: vi.fn(),
     }
@@ -123,10 +124,17 @@ describe('ERC20Token', () => {
     const finalTx = transaction()
     const approve = Object.assign(
       vi.fn().mockResolvedValueOnce(resetTx).mockResolvedValueOnce(finalTx),
-      { staticCall: vi.fn().mockRejectedValue(new Error('USDT-style revert')) }
+      // USDT-style: the direct non-zero -> non-zero probe reverts, but the reset
+      // approve(0) and the post-reset final approval simulate fine.
+      {
+        staticCall: vi
+          .fn()
+          .mockRejectedValueOnce(new Error('USDT-style revert'))
+          .mockResolvedValue(true),
+      }
     )
     const contract = {
-      allowance: vi.fn().mockResolvedValue(10n),
+      allowance: vi.fn().mockResolvedValueOnce(10n).mockResolvedValue(0n),
       approve,
       decimals: vi.fn(),
     }
@@ -146,10 +154,14 @@ describe('ERC20Token', () => {
     const finalTx = transaction()
     const approve = Object.assign(
       vi.fn().mockResolvedValueOnce(resetTx).mockResolvedValueOnce(finalTx),
-      { staticCall: vi.fn().mockResolvedValue(false) }
+      // USDT-style: the direct non-zero -> non-zero probe returns false, but the
+      // reset approve(0) and the post-reset final approval simulate as true.
+      {
+        staticCall: vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true),
+      }
     )
     const contract = {
-      allowance: vi.fn().mockResolvedValue(10n),
+      allowance: vi.fn().mockResolvedValueOnce(10n).mockResolvedValue(0n),
       approve,
       decimals: vi.fn(),
     }
@@ -237,7 +249,8 @@ describe('ERC20Token', () => {
   it('revokes an allowance with one confirmed approve(0) transaction', async () => {
     const revokeTx = transaction()
     const contract = {
-      allowance: vi.fn().mockResolvedValue(5n),
+      // 5n at first, then 0n once the revoke has confirmed (state model).
+      allowance: vi.fn().mockResolvedValueOnce(5n).mockResolvedValue(0n),
       approve: vi.fn().mockResolvedValue(revokeTx),
       decimals: vi.fn(),
     }
@@ -284,7 +297,7 @@ describe('ERC20Token', () => {
     })
     const finalTx = transaction()
     const contract = {
-      allowance: vi.fn().mockResolvedValue(10n),
+      allowance: vi.fn().mockResolvedValueOnce(10n).mockResolvedValue(0n),
       approve: vi.fn().mockResolvedValueOnce(submittedReset).mockResolvedValueOnce(finalTx),
       decimals: vi.fn(),
     }
@@ -436,7 +449,7 @@ describe('ERC20Token', () => {
     })
     const finalTx = transaction()
     const contract = {
-      allowance: vi.fn().mockResolvedValue(10n),
+      allowance: vi.fn().mockResolvedValueOnce(10n).mockResolvedValue(0n),
       approve: vi.fn().mockResolvedValueOnce(submittedReset).mockResolvedValueOnce(finalTx),
       decimals: vi.fn(),
     }
@@ -847,7 +860,7 @@ describe('ERC20Token', () => {
     const resetTx = transaction()
     const finalTx = transaction(0)
     const contract = {
-      allowance: vi.fn().mockResolvedValue(10n),
+      allowance: vi.fn().mockResolvedValueOnce(10n).mockResolvedValue(0n),
       approve: vi.fn().mockResolvedValueOnce(resetTx).mockResolvedValueOnce(finalTx),
       decimals: vi.fn(),
     }
@@ -858,5 +871,139 @@ describe('ERC20Token', () => {
     )
     expect(resetTx.wait).toHaveBeenCalledOnce()
     expect(finalTx.wait).toHaveBeenCalledOnce()
+  })
+
+  it('fails when a false-returning token leaves the reset allowance unchanged', async () => {
+    // approve(0) mines status-1 but the token returned false without reverting,
+    // so the allowance never cleared. The post-write read (not the receipt)
+    // catches it, before any funds-affecting final approval.
+    const resetTx = transaction()
+    const finalTx = transaction()
+    const contract = {
+      allowance: vi.fn().mockResolvedValue(10n), // never clears
+      approve: vi.fn().mockResolvedValueOnce(resetTx).mockResolvedValueOnce(finalTx),
+      decimals: vi.fn(),
+    }
+    const token = tokenWithContract(contract)
+
+    await expect(token.setApproval('0xowner', '0xspender', 25n)).rejects.toThrow(
+      'allowance reset transaction failed'
+    )
+    // The final approval is never sent once the reset is known not to have taken.
+    expect(contract.approve).toHaveBeenCalledTimes(1)
+    expect(contract.approve).toHaveBeenCalledWith('0xspender', 0n)
+  })
+
+  it('fails a revoke when a false-returning token leaves the allowance in place', async () => {
+    // setApproval(0n) mines status-1 but the allowance is unchanged; the SDK
+    // must NOT claim a revocation succeeded while spend authority persists.
+    const revokeTx = transaction()
+    const contract = {
+      allowance: vi.fn().mockResolvedValue(5n), // never clears
+      approve: vi.fn().mockResolvedValue(revokeTx),
+      decimals: vi.fn(),
+    }
+    const token = tokenWithContract(contract)
+
+    await expect(token.setApproval('0xowner', '0xspender', 0n)).rejects.toThrow(
+      'approval transaction failed'
+    )
+    expect(revokeTx.wait).toHaveBeenCalledOnce()
+  })
+
+  it('rejects before sending when the approve simulation returns false', async () => {
+    // A staticCall-capable token that simulates approve as false must fail at
+    // preflight, never broadcasting a doomed (fund-locking or misleading) tx.
+    const approve = Object.assign(vi.fn(), {
+      staticCall: vi.fn().mockResolvedValue(false),
+    })
+    const contract = {
+      allowance: vi.fn().mockResolvedValue(0n), // zero -> nonzero, no reset
+      approve,
+      decimals: vi.fn(),
+    }
+    const token = tokenWithContract(contract)
+
+    await expect(token.setApproval('0xowner', '0xspender', 25n)).rejects.toThrow(
+      'approval transaction failed'
+    )
+    expect(approve.staticCall).toHaveBeenCalledWith('0xspender', 25n)
+    expect(approve).not.toHaveBeenCalled() // never broadcast
+  })
+
+  it('does not issue a duplicate eth_call on the direct-overwrite path', async () => {
+    // The nonzero->nonzero direct probe returning true is reused as the final
+    // preflight; the send-time preflight must not simulate approve a second time.
+    const finalTx = transaction()
+    const approve = Object.assign(vi.fn().mockResolvedValue(finalTx), {
+      staticCall: vi.fn().mockResolvedValue(true),
+    })
+    const contract = {
+      allowance: vi.fn().mockResolvedValue(10n),
+      approve,
+      decimals: vi.fn(),
+    }
+    const token = tokenWithContract(contract)
+
+    await token.setApproval('0xowner', '0xspender', 25n)
+
+    expect(approve.staticCall).toHaveBeenCalledTimes(1)
+    expect(approve).toHaveBeenCalledOnce()
+  })
+
+  it('treats a void-returning approve (USDT) as a successful simulation', async () => {
+    // Real Ethereum USDT's approve returns NOTHING despite a bool-typed ABI, so
+    // ethers throws BAD_DATA(value '0x') decoding the empty (successful) result.
+    // That must NOT be read as a rejection, or every USDT approval would fail.
+    const badData = Object.assign(new Error('could not decode result data'), {
+      code: 'BAD_DATA',
+      value: '0x',
+    })
+    const resetTx = transaction()
+    const finalTx = transaction()
+    const approve = Object.assign(
+      vi.fn().mockResolvedValueOnce(resetTx).mockResolvedValueOnce(finalTx),
+      {
+        // Direct nonzero->nonzero reverts (USDT require), then the reset(0) and
+        // the post-reset final both simulate as an empty/void success.
+        staticCall: vi
+          .fn()
+          .mockRejectedValueOnce(
+            Object.assign(new Error('execution reverted'), { code: 'CALL_EXCEPTION' })
+          )
+          .mockRejectedValue(badData),
+      }
+    )
+    const contract = {
+      allowance: vi.fn().mockResolvedValueOnce(10n).mockResolvedValue(0n),
+      approve,
+      decimals: vi.fn(),
+    }
+    const token = tokenWithContract(contract)
+
+    const result = await token.setApproval('0xowner', '0xspender', 25n)
+
+    expect(approve.mock.calls).toEqual([
+      ['0xspender', 0n],
+      ['0xspender', 25n],
+    ])
+    expect(result).toEqual({ tx: finalTx, resetTx })
+  })
+
+  it('revokes through a fail-open preflight when the contract has no staticCall', async () => {
+    // Minimal contract-likes without staticCall still get the post-write check:
+    // the revoke succeeds only because the allowance actually reaches zero.
+    const revokeTx = transaction()
+    const contract = {
+      allowance: vi.fn().mockResolvedValueOnce(5n).mockResolvedValue(0n),
+      approve: vi.fn().mockResolvedValue(revokeTx),
+      decimals: vi.fn(),
+    }
+    const token = tokenWithContract(contract)
+
+    const result = await token.setApproval('0xowner', '0xspender', 0n)
+
+    expect(result).toEqual({ tx: revokeTx })
+    expect(contract.approve).toHaveBeenCalledWith('0xspender', 0n)
   })
 })
