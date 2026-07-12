@@ -34,7 +34,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
       const key = arg.slice(2)
       const next = argv[i + 1]
 
-      if (next === undefined || next.startsWith('--')) {
+      // A following flag is a boundary, not this flag's value. `--` covers long
+      // flags (including `--help`); `-h` is the only short flag, and it must
+      // still trigger help right after a valueless flag (e.g. `--json -h`) —
+      // otherwise a payment CLI could proceed instead of showing help.
+      if (next === undefined || next.startsWith('--') || next === '-h') {
         flags[key] = true
       } else {
         flags[key] = next
