@@ -8,7 +8,7 @@
 # Usage:
 #   1) cp .env.deploy.example .env.deploy   &&   edit .env.deploy
 #        - PRIVATE_KEY              (required, 0x-prefixed deployer key; it becomes the contract OWNER)
-#        - X402_CALLER_ADDRESS      (optional; the target environment's x402d "Bob" caller from the platform admin)
+#        - X402_CALLER_ADDRESS      (optional; the testnet3 x402d "Bob" caller from the platform admin)
 #        - ETHERSCAN_API_KEY        (optional; only for --verify on bscscan)
 #        - RPC_ALIAS / CHAIN_ID     (optional; default bsc_testnet / 97)
 #   2) Fund the deployer address with a little gas (tBNB on BSC Testnet).
@@ -16,8 +16,9 @@
 #   4) Send the printed Proxy address to your operator to register
 #      (POST /callback-contracts, chain = CHAIN_ID).
 #
-# Foundry is auto-detected: uses local forge/cast if installed, otherwise the
-# Docker image ghcr.io/foundry-rs/foundry (no local install needed).
+# Foundry is auto-detected: uses local forge/cast if installed, otherwise a
+# version-pinned Docker image (override FOUNDRY_IMAGE to bump/pin a digest).
+# The key is only ever read from env by forge (never passed on a command line).
 # ============================================================================
 set -euo pipefail
 
@@ -30,7 +31,16 @@ set -a; . "./$ENV_FILE"; set +a
 : "${PRIVATE_KEY:?PRIVATE_KEY must be set in $ENV_FILE (0x-prefixed deployer key)}"
 RPC_ALIAS="${RPC_ALIAS:-bsc_testnet}"
 CHAIN_ID="${CHAIN_ID:-97}"
-export PRIVATE_KEY ETHERSCAN_API_KEY="${ETHERSCAN_API_KEY:-}"
+# X402_CALLER_ADDRESS is consumed by the Solidity deploy script (vm.envOr) so the
+# authorization is signed with this env key inside forge, never on a cast argv.
+export PRIVATE_KEY ETHERSCAN_API_KEY="${ETHERSCAN_API_KEY:-}" X402_CALLER_ADDRESS="${X402_CALLER_ADDRESS:-}"
+
+# Pin the Foundry image to an immutable content digest (not :latest, nor even a
+# version tag, which the publisher could retag), so a registry change can never
+# silently run replacement code while the deploy key is in scope. The v1.0.0 tag
+# is kept in the reference for legibility; the @sha256 digest is what is pulled.
+# Override FOUNDRY_IMAGE to bump — always to a `tag@sha256:...` digest reference.
+FOUNDRY_IMAGE="${FOUNDRY_IMAGE:-ghcr.io/foundry-rs/foundry:v1.0.0@sha256:d12a373ec950de170d5461014ef9320ba0fb6e0db6f87835999d0fcf3820370e}"
 
 # ---- forge/cast runner: native if present, else cached Docker foundry image ----
 if command -v forge >/dev/null 2>&1 && command -v cast >/dev/null 2>&1; then
@@ -38,10 +48,10 @@ if command -v forge >/dev/null 2>&1 && command -v cast >/dev/null 2>&1; then
   FORGE(){ forge "$@"; }
   CAST(){ cast "$@"; }
 else
-  echo "Local Foundry not found -> using Docker image ghcr.io/foundry-rs/foundry."
-  DRUN(){ docker run --rm -e PRIVATE_KEY -e ETHERSCAN_API_KEY \
+  echo "Local Foundry not found -> using Docker image $FOUNDRY_IMAGE."
+  DRUN(){ docker run --rm -e PRIVATE_KEY -e ETHERSCAN_API_KEY -e X402_CALLER_ADDRESS \
             -v "$REPO_ROOT":/repo -w /repo/goatx402-contract \
-            --entrypoint "$1" ghcr.io/foundry-rs/foundry:latest "${@:2}"; }
+            --entrypoint "$1" "$FOUNDRY_IMAGE" "${@:2}"; }
   FORGE(){ DRUN forge "$@"; }
   CAST(){ DRUN cast "$@"; }
 fi
@@ -81,17 +91,18 @@ echo "=================== RESULT ==================="
 echo "Proxy address (register this as spent_address): ${PROXY:-<see $BCAST>}"
 echo "=============================================="
 
-# ---- authorize the x402 caller (Bob) if provided ----
-if [ -n "${X402_CALLER_ADDRESS:-}" ] && [ -n "${PROXY:-}" ]; then
-  echo "== authorize x402 caller $X402_CALLER_ADDRESS =="
-  CAST send "$PROXY" "setAuthorizedCaller(address,bool)" "$X402_CALLER_ADDRESS" true \
-    --rpc-url "$RPC_ALIAS" --private-key "$PRIVATE_KEY"
-  echo "Authorized."
+# ---- x402 caller (Bob) authorization ----
+# When X402_CALLER_ADDRESS is set it is authorized DURING deployment by the Solidity
+# script (env-signed inside forge), so no separate `cast send --private-key` is run
+# here and the deploy key never appears in a process argument list.
+if [ -n "${X402_CALLER_ADDRESS:-}" ]; then
+  echo "== x402 caller $X402_CALLER_ADDRESS authorized during deploy =="
 else
   echo "NOTE: X402_CALLER_ADDRESS not set -> setAuthorizedCaller SKIPPED."
-  echo "      Get the target environment's x402d 'Bob' caller address from the platform admin, then run:"
-  echo "      (local)  cast send $PROXY \"setAuthorizedCaller(address,bool)\" <BOB_ADDR> true --rpc-url $RPC_ALIAS --private-key \$PRIVATE_KEY"
-  echo "      Without this, the callback will revert with UnauthorizedCaller."
+  echo "      Get the testnet3 x402d 'Bob' caller address from the platform admin, then"
+  echo "      re-run this script with X402_CALLER_ADDRESS set (it is authorized in-deploy,"
+  echo "      keeping the key out of any command line). Without it the callback reverts"
+  echo "      with UnauthorizedCaller."
 fi
 
 echo ""

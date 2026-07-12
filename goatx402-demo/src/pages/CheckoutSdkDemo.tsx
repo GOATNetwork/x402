@@ -12,6 +12,20 @@ import { GoatCheckout } from 'goatx402-checkout'
 // In local dev the hosted checkout (goatx402-quickpay-web) runs on :3005, the
 // platform QuickPay origin. In prod this is e.g. https://pay.goat.network.
 const CHECKOUT_ORIGIN = (import.meta.env.VITE_CHECKOUT_ORIGIN as string | undefined) ?? 'http://localhost:3005'
+
+/**
+ * Return the server-supplied checkout URL only when it is on the trusted
+ * checkout origin, so a tampered/misconfigured response can never redirect the
+ * payment to another host. Returns null otherwise (caller builds a safe URL).
+ */
+function trustedCheckoutUrl(url: string | undefined): string | null {
+  if (!url) return null
+  try {
+    return new URL(url).origin === new URL(CHECKOUT_ORIGIN).origin ? url : null
+  } catch {
+    return null
+  }
+}
 const MERCHANT = (import.meta.env.VITE_QUICKPAY_MERCHANT as string | undefined) ?? 'acme'
 const PRODUCT_KEY = (import.meta.env.VITE_QUICKPAY_PRODUCT as string | undefined) ?? 'mug'
 // The DIRECT (QuickPay product) button targets a SEPARATE, quickpay-enabled DIRECT merchant
@@ -92,7 +106,7 @@ export function CheckoutSdkDemo() {
   // DELEGATE (TSS/Permit2/EIP-3009) hosted checkout. Unlike the DIRECT product flow above,
   // the session is server-created: the backend mints an opaque `checkout_id`
   // (POST /api/create-delegate-checkout), then the buyer is sent to the hosted
-  // /checkout/delegate?cs=<id> page.
+  // canonical /checkout?cs=<id> page returned by the server.
   //
   // OPEN IN A NEW TAB (matching DIRECT) despite the async create: the checkout_id is only
   // known AFTER an await, and window.open() after an await is pop-up-blocked. So we open a
@@ -126,8 +140,13 @@ export function CheckoutSdkDemo() {
         setBusy(false) // allow a retry
         return
       }
-      // Navigate the already-open tab to the hosted DELEGATE checkout page.
-      tab.location.href = `${CHECKOUT_ORIGIN}/checkout/delegate?cs=${encodeURIComponent(data.checkout_id)}`
+      // Prefer the hosted URL the server returned (the SDK's authoritative
+      // checkout URL), but only after confirming it is on the trusted checkout
+      // origin — never navigate to an origin the server could otherwise redirect
+      // us to. Fall back to constructing the URL from the checkout_id.
+      tab.location.href =
+        trustedCheckoutUrl(data.url) ??
+        `${CHECKOUT_ORIGIN}/checkout?cs=${encodeURIComponent(data.checkout_id)}`
       setOutcome('Opened checkout in a new tab — complete the payment there.')
       setBusy(false)
     } catch (err) {

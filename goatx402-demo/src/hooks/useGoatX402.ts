@@ -268,10 +268,13 @@ export function useGoatX402(signer: ethers.Signer | null) {
           })
           setOrderStatus(latestStatus)
 
+          // Stop only on a genuinely terminal outcome. Intermediate states like
+          // PAYMENT_DETECTING / PAYMENT_CONFIRMING mean the transfer was seen but
+          // is not yet confirmed and can still fail, so keep polling through them
+          // (bounded by the retry budget) instead of treating movement as done.
           if (
             isSuccessfulOrderStatus(latestStatus.status) ||
-            isFailedTerminalOrderStatus(latestStatus.status) ||
-            latestStatus.status !== 'CHECKOUT_VERIFIED'
+            isFailedTerminalOrderStatus(latestStatus.status)
           ) {
             return latestStatus
           }
@@ -309,14 +312,12 @@ export function useGoatX402(signer: ethers.Signer | null) {
         }
       }
 
-      if (result.txHash || status.txHash || status.status !== 'CHECKOUT_VERIFIED') {
-        return {
-          success: true,
-          txHash: result.txHash ?? status.txHash,
-        }
-      }
-
-      return result
+      // Reconciliation did not reach a confirmed-success or failed-terminal
+      // status within the retry budget (still CHECKOUT_VERIFIED, PAYMENT_DETECTING,
+      // or PAYMENT_CONFIRMING). An unconfirmed transfer can still fail, so do NOT
+      // fabricate success — return the SDK's own result unchanged. Preserve any
+      // hash the server has surfaced so a later check can resume from it.
+      return { ...result, txHash: result.txHash ?? status.txHash }
     },
     [pollForFailureReconciliation]
   )

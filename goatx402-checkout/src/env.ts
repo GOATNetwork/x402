@@ -18,8 +18,13 @@ export interface IncomingMessage {
 }
 
 export interface BrowserEnv {
-  /** window.open; returns null when the browser blocks the popup. */
-  openPopup(url: string, features: string): PopupWindow | null
+  /**
+   * window.open; returns null when the browser blocks the popup. `name` is the
+   * window target name — each GoatCheckout instance passes its own unique name
+   * so independent instances never share (and fight over) one OS window. When
+   * omitted, a constant fallback name is used.
+   */
+  openPopup(url: string, features: string, name?: string): PopupWindow | null
   /** Full-page navigation (window.location.assign). */
   navigate(url: string): void
   addMessageListener(cb: (e: IncomingMessage) => void): void
@@ -39,14 +44,17 @@ export function hasBrowserEnv(): boolean {
   return typeof window !== 'undefined' && typeof window.open === 'function'
 }
 
+/** Fallback window name used only when a caller does not supply one. */
 const POPUP_NAME = 'goat_checkout'
 
 /** defaultBrowserEnv binds the SDK to the real window. */
 export function defaultBrowserEnv(): BrowserEnv {
   return {
-    openPopup(url, features) {
-      // target name is constant so repeated opens reuse one popup slot.
-      return window.open(url, POPUP_NAME, features) as unknown as PopupWindow | null
+    openPopup(url, features, name) {
+      // The caller (GoatCheckout) supplies a per-instance unique name, so
+      // repeated opens from one instance reuse its window while separate
+      // instances get separate windows.
+      return window.open(url, name || POPUP_NAME, features) as unknown as PopupWindow | null
     },
     navigate(url) {
       window.location.assign(url)

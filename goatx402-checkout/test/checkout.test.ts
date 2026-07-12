@@ -27,16 +27,22 @@ function fakeEnv(opts: { blockPopup?: boolean; openerOrigin?: string; reusePopup
   const popups: FakePopup[] = []
   const navigations: string[] = []
   const opened: string[] = []
-  let shared: FakePopup | null = null
+  // Model real window.open name semantics: one live window per target name.
+  const sharedByName = new Map<string, FakePopup>()
 
   const env: BrowserEnv = {
-    openPopup(url) {
+    openPopup(url, _features, name) {
       opened.push(url)
       if (opts.blockPopup) return null
-      // reusePopup mirrors the real browser reusing one window for a constant name.
+      // reusePopup mirrors the real browser reusing one window per name — so
+      // opens sharing a name get one window, and distinct names get distinct
+      // windows (as independent GoatCheckout instances now do).
       if (opts.reusePopup) {
+        const key = name ?? ''
+        let shared = sharedByName.get(key)
         if (!shared) {
           shared = new FakePopup()
+          sharedByName.set(key, shared)
           popups.push(shared)
         }
         return shared
@@ -309,6 +315,23 @@ describe('handle.close()', () => {
     f.fireMessage({ source: f.popups[0], data: { type: 'goat:success', n: NONCE } })
     expect(onSuccess).not.toHaveBeenCalled()
     expect(onCancel).not.toHaveBeenCalled()
+  })
+
+  it('a stale handle from one instance never closes another instance window', () => {
+    // Shared browser env (windows reused per name); two independent GoatCheckout
+    // instances each get their own unique popup name, so a stale handle from the
+    // first must not close the second's active window.
+    const f = fakeEnv({ reusePopup: true })
+    const hA = GoatCheckout({ origin: ORIGIN }, f.env).open({ merchant: 'acme', productKey: 'mug' })
+    GoatCheckout({ origin: ORIGIN }, f.env).open({ merchant: 'acme', productKey: 'mug' })
+
+    // Two distinct windows opened (one per instance name), not a shared one.
+    expect(f.popups).toHaveLength(2)
+    const [popupA, popupB] = f.popups
+
+    hA.close()
+    expect(popupA.closeCalled).toBe(true) // A closes its own window
+    expect(popupB.closeCalled).toBe(false) // B's active window is untouched
   })
 })
 

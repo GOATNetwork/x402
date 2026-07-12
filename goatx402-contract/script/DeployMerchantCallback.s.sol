@@ -39,6 +39,15 @@ contract DeployMerchantCallback is Script {
         // Get the proxy address as MerchantCallback
         MerchantCallback callback = MerchantCallback(address(proxy));
 
+        // Optionally authorize the x402 caller (e.g. the platform "Bob" address)
+        // in the SAME broadcast. Signing happens with the env-provided key inside
+        // forge, so the key is never placed on a `cast` command line (argv), unlike
+        // a follow-up shell `cast send --private-key`.
+        address x402Caller = vm.envOr("X402_CALLER_ADDRESS", address(0));
+        if (x402Caller != address(0)) {
+            callback.setAuthorizedCaller(x402Caller, true);
+        }
+
         console.log("===========================================");
         console.log("MerchantCallback deployed successfully!");
         console.log("===========================================");
@@ -47,6 +56,9 @@ contract DeployMerchantCallback is Script {
         console.log("Owner:", callback.owner());
         console.log("Version:", callback.version());
         console.log("Chain ID:", block.chainid);
+        if (x402Caller != address(0)) {
+            console.log("Authorized x402 caller:", x402Caller);
+        }
         console.log("===========================================");
 
         // Stop broadcasting

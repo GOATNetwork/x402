@@ -34,8 +34,9 @@ a commit that was not tested, and nothing from a dirty tree may ship.
 2. **Clean checkout of the release commit.** `git clone` (or
    `git worktree add`) at that exact commit — do not reuse a working tree with
    local modifications.
-3. **Install and test.** In each package directory: `npm ci` (or
-   `pnpm install --frozen-lockfile`) then `npm run test:run`. The
+3. **Install and test.** These packages ship a `pnpm-lock.yaml` and no
+   `package-lock.json`, so a reproducible install uses pnpm. In each package
+   directory: `pnpm install --frozen-lockfile` then `npm run test:run`. The
    `prepublishOnly` hook re-runs tests at publish time as a backstop, not a
    substitute for this step.
 4. **Version-uniqueness guard.** For each package, confirm the version is not

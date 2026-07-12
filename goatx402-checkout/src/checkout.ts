@@ -11,6 +11,12 @@ import type {
   RedirectOptions,
 } from './types.js'
 
+// Monotonic counter giving each GoatCheckout instance a distinct popup window
+// name. Two instances must not share one OS window: their generation counters
+// are independent, so a stale handle from one instance could otherwise close
+// another instance's active checkout window.
+let checkoutInstanceSeq = 0
+
 const DEFAULT_CHECKOUT_PATH = '/checkout'
 // Product/custom QuickPay opens (NO server-pinned checkout session) still target the
 // legacy QuickPay checkout page; only a server-created CheckoutSession (`cs`) uses the
@@ -167,14 +173,20 @@ export function GoatCheckout(config: GoatCheckoutConfig, env: BrowserEnv = defau
   const readyTimeoutMs = config.readyTimeoutMs ?? DEFAULT_READY_TIMEOUT_MS
   const closeGraceMs = config.closeGraceMs ?? DEFAULT_CLOSE_GRACE_MS
 
-  // At most one checkout popup is observed per instance: the named window is reused
-  // by the browser, so a second open() (e.g. a double-click) must retire the first's
-  // listener/timers, else the stale call could fire onCancel/opener_unavailable after
-  // the second call already succeeded. `activeCheckout` supersedes the prior one.
+  // This instance's own popup window name. Repeated opens from THIS instance
+  // reuse this one window; a different instance uses a different name and so a
+  // separate window, which is what keeps generation tracking below correct.
+  const popupName = `goat_checkout_${++checkoutInstanceSeq}`
+
+  // At most one checkout popup is observed per instance: this instance's named
+  // window is reused, so a second open() (e.g. a double-click) must retire the
+  // first's listener/timers, else the stale call could fire
+  // onCancel/opener_unavailable after the second call already succeeded.
+  // `activeCheckout` supersedes the prior one.
   let activeCheckout: (() => void) | null = null
-  // popupGen identifies the latest popup launch. Because the named window is shared,
-  // only the handle whose generation is still current may close it — a stale handle
-  // must never close a NEWER checkout's reused window.
+  // popupGen identifies the latest popup launch for THIS instance's window.
+  // Only the handle whose generation is still current may close it — a stale
+  // handle must never close a newer checkout's reused window.
   let popupGen = 0
 
   // launchPopup opens the top-level checkout window (at targetPath) and wires the
@@ -184,7 +196,7 @@ export function GoatCheckout(config: GoatCheckoutConfig, env: BrowserEnv = defau
     const nonce = env.randomNonce()
     const url = buildUrl(origin, targetPath, params, { o: env.openerOrigin, n: nonce })
     // window.open MUST be called synchronously in the user gesture; callers do so.
-    const popup = env.openPopup(url, features)
+    const popup = env.openPopup(url, features, popupName)
     if (!popup) {
       opts.onError?.('popup_blocked')
       return noopHandle()

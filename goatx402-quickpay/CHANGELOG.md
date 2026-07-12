@@ -2,6 +2,12 @@
 
 ## 0.2.1 - 2026-07-12
 
+- Treat the `force` option as strictly boolean: only a literal `true` re-broadcasts
+  a reused session, so a truthy non-boolean (e.g. the string `"false"`) can no
+  longer bypass the double-pay guard.
+- Report the server-confirmed hash for a fresh payment that a wallet fee-bumped
+  into a replacement, while still preserving the locally broadcast hash for a
+  forced reused session.
 - Make clean package builds reproducible and publish only runtime artifacts.
 - Run the test suite on `prepublishOnly` so a publish cannot skip tests.
 - Split the build lifecycle so every install path gets a working `dist`:

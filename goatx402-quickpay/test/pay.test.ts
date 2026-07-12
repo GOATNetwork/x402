@@ -175,6 +175,43 @@ describe('payX402', () => {
     expect(transferErc20).toHaveBeenCalledTimes(1)
   })
 
+  it('does NOT pay a reused session when force is a truthy non-boolean (string "false")', async () => {
+    // A plain-JS caller passing the string "false" must not bypass the reused
+    // double-pay guard: only a literal boolean true forces a broadcast.
+    const session = { session_id: 's3s', reused: true, status: 'ORDER_CREATED', x402: { accepts: [{ scheme: 'exact', network: 'eip155:4217', payTo: '0xP', asset: '0xToken', amount: '1000000' }] } }
+    const { fetch } = routeFetch(session, ['ORDER_CREATED', { status: 'PAYMENT_CONFIRMED', tx_hash: '0xPrior' }])
+    const transferErc20 = vi.fn(async () => '0xTx')
+    const backend: PaymentBackend = { getAddress: async () => '0xPayer', transferErc20 }
+    const out = await payX402({ input: 'https://pay.goat.network/quickpay/acme', amount: '1', tokenSymbol: 'USDC', chainId: 4217, backend, force: 'false' as unknown as boolean, fetchImpl: fetch, pollIntervalMs: 0, sleep: async () => {} })
+    expect(transferErc20).not.toHaveBeenCalled()
+    expect(out.tx_hash).toBe('0xPrior')
+  })
+
+  it('adopts the server-confirmed replacement hash for a fresh fee-bumped payment', async () => {
+    // Fresh session (reused=false): the wallet sped up the broadcast, so the
+    // watcher confirms a DIFFERENT (replacement) hash. The result must report the
+    // confirmed on-chain hash, not the original pre-replacement one.
+    const session = { session_id: 's-bump', order_id: 'o-bump', status: 'ORDER_CREATED', x402: { accepts: [{ scheme: 'exact', network: 'eip155:4217', payTo: '0xPayTo', asset: '0xToken', amount: '1000000' }] } }
+    const { fetch } = routeFetch(session, [{ status: 'PAYMENT_CONFIRMED', tx_hash: '0xReplacement' }])
+    const transferErc20 = vi.fn(async () => '0xOriginal')
+    const backend: PaymentBackend = { getAddress: async () => '0xPayer', transferErc20 }
+    const out = await payX402({ input: 'https://pay.goat.network/quickpay/acme', amount: '1', tokenSymbol: 'USDC', chainId: 4217, backend, fetchImpl: fetch, pollIntervalMs: 0, sleep: async () => {} })
+    expect(out.reused).toBe(false)
+    expect(out.tx_hash).toBe('0xReplacement')
+  })
+
+  it('keeps the locally broadcast hash for a forced reused session (never adopts a different server tx)', async () => {
+    // Forced reuse: we broadcast a NEW tx; the server may still report a prior/
+    // different tx for the session. That must NOT overwrite the hash we just sent.
+    const session = { session_id: 's-force-keep', reused: true, status: 'ORDER_CREATED', x402: { accepts: [{ scheme: 'exact', network: 'eip155:4217', payTo: '0xPayTo', asset: '0xToken', amount: '1000000' }] } }
+    const { fetch } = routeFetch(session, [{ status: 'PAYMENT_CONFIRMED', tx_hash: '0xServerPrior' }])
+    const transferErc20 = vi.fn(async () => '0xLocalNew')
+    const backend: PaymentBackend = { getAddress: async () => '0xPayer', transferErc20 }
+    const out = await payX402({ input: 'https://pay.goat.network/quickpay/acme', amount: '1', tokenSymbol: 'USDC', chainId: 4217, backend, force: true, fetchImpl: fetch, pollIntervalMs: 0, sleep: async () => {} })
+    expect(transferErc20).toHaveBeenCalledTimes(1)
+    expect(out.tx_hash).toBe('0xLocalNew')
+  })
+
   it('ignores a malformed server amount_wei and reports its own computed amount (custom)', async () => {
     // A reused custom session whose status reports a garbage amount_wei: the client's
     // own expectedAmountWei is authoritative (the reuse tuple keys on it), so we must

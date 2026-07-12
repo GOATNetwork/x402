@@ -235,6 +235,14 @@ async function runX402Session(intent: SessionIntent): Promise<PayX402Result> {
   const pollUntilTerminal = async (
     fromStatus: string,
     knownTx = '',
+    // adoptServerHash lets a FRESH broadcast replace its local hash with the
+    // server-confirmed one. A wallet fee-bump mines a replacement tx, and the
+    // watcher records that replacement as the order's tx_hash; for a fresh
+    // session that hash is authoritative for the same payment, so reporting the
+    // original pre-replacement hash would be wrong. It is NOT enabled for a
+    // forced reused session, where the server may report a DIFFERENT prior tx
+    // that must not overwrite the hash we just broadcast.
+    adoptServerHash = false,
   ): Promise<{ status: string; txHash: string; serverAmountWei: string; gotSnapshot: boolean }> => {
     let status = fromStatus
     let txHash = knownTx
@@ -260,12 +268,15 @@ async function runX402Session(intent: SessionIntent): Promise<PayX402Result> {
       }
       gotSnapshot = true
       status = s.status ?? status
-      // NEVER overwrite a hash we already hold: knownTx is the tx THIS invocation
-      // broadcast, and on a forced reused session the status may report a DIFFERENT
-      // (prior) tx — overwriting would lose the hash of the payment we just sent and
-      // strand it for reconciliation. Only adopt the server's tx_hash when we have none
-      // (Cases 1 & 2, which pass knownTx='' and rely on the server for the hash).
-      if (!txHash && typeof s.tx_hash === 'string' && s.tx_hash) txHash = s.tx_hash
+      // Adopt the server's tx_hash when we hold none (Cases 1 & 2, which pass
+      // knownTx='' and rely on the server for the hash) OR when adoptServerHash
+      // is set for a fresh broadcast whose tx may have been fee-bumped into a
+      // confirmed replacement. Never overwrite otherwise: on a forced reused
+      // session the status may report a DIFFERENT prior tx, and losing the hash
+      // we just broadcast would strand it for reconciliation.
+      if ((adoptServerHash || !txHash) && typeof s.tx_hash === 'string' && s.tx_hash) {
+        txHash = s.tx_hash
+      }
       // Accept ONLY a well-formed integer amount; ignore a malformed/garbage value so
       // neither the product (substantiation) nor custom (drift) reporting path can ever
       // surface a non-integer amount instead of the client's authoritative quote.
@@ -435,8 +446,11 @@ async function runX402Session(intent: SessionIntent): Promise<PayX402Result> {
 
   // Preserve the broadcast tx hash through polling (pollUntilTerminal keeps
   // knownTx even on a status-fetch failure), so a poll error can never lose the
-  // record of a real on-chain payment and trigger a re-broadcast on retry.
-  const { status, txHash: finalTx } = await pollUntilTerminal(initialStatus, txHash)
+  // record of a real on-chain payment and trigger a re-broadcast on retry. For a
+  // FRESH session (reused=false) adopt the server-confirmed hash if the wallet
+  // fee-bumped this payment into a replacement; a forced reuse keeps its local
+  // hash so a prior server-reported tx cannot overwrite what we just sent.
+  const { status, txHash: finalTx } = await pollUntilTerminal(initialStatus, txHash, !reused)
   return result(status, finalTx || txHash)
 }
 
@@ -491,7 +505,10 @@ export async function payX402(o: PayX402Options): Promise<PayX402Result> {
       memo: o.memo,
       idempotency_key: o.idempotencyKey,
     },
-    force: o.force,
+    // Coerce to a strict boolean: a plain-JS caller passing a truthy non-boolean
+    // (e.g. the string "false") must never bypass the reused-session double-pay
+    // guard. Only a literal true forces a broadcast on a reused session.
+    force: o.force === true,
     backend: o.backend,
     fetchImpl,
     pollIntervalMs: pollInterval,
@@ -662,7 +679,10 @@ export async function payProduct(o: PayProductOptions): Promise<PayX402Result> {
       product_key: productKey,
       idempotency_key: o.idempotencyKey,
     },
-    force: o.force,
+    // Coerce to a strict boolean: a plain-JS caller passing a truthy non-boolean
+    // (e.g. the string "false") must never bypass the reused-session double-pay
+    // guard. Only a literal true forces a broadcast on a reused session.
+    force: o.force === true,
     backend: o.backend,
     fetchImpl,
     pollIntervalMs: pollInterval,

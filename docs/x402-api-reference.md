@@ -537,7 +537,7 @@ Response:
 {
   "checkout_id": "cs_...",
   "checkout_type": "DIRECT",
-  "url": "https://pay.goat.network/checkout/direct?cs=cs_...",
+  "url": "https://pay.goat.network/checkout?cs=cs_...",
   "expires_at": 1780000000
 }
 ```
