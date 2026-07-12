@@ -1,6 +1,6 @@
 {
   "name": "goatx402-sdk",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "TypeScript SDK for GoatX402 payment integration",
   "type": "module",
   "engines": {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3 - 2026-07-12
+
+- Fix `-h` being swallowed as a preceding flag's value (e.g. `inspect <url>
+  --json -h`, `pay-x402 ... --force -h`): `-h` is now a flag boundary, so help
+  is shown instead of the CLI proceeding with the command.
+
 ## 0.2.2 - 2026-07-12
 
 - Add successful top-level CLI help for `--help`, `-h`, and `help`.
