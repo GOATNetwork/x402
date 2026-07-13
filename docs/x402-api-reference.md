@@ -41,7 +41,7 @@ Before calling the x402 API, confirm that you already have:
 Use the following environment variable naming consistently:
 
 ```bash
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://x402-api.goat.network
 GOATX402_API_KEY=your_api_key
 GOATX402_API_SECRET=your_api_secret
 GOATX402_MERCHANT_ID=your_merchant_id
@@ -49,7 +49,7 @@ GOATX402_MERCHANT_ID=your_merchant_id
 
 Notes:
 
-- **Production base URL**: `https://api.x402.goat.network`
+- **Production base URL**: `https://x402-api.goat.network`
 - Common local Core URL: `http://localhost:8180`
 - Docker-mapped Core URL: `http://localhost:8286`
 - Demo app URL: `http://localhost:3000`
@@ -157,6 +157,11 @@ The supported public network matrix is:
 | Metis | 1088 | Yes | No | andromeda-explorer.metis.io |
 | Tempo | 4217 | Yes | No | explore.tempo.xyz |
 
+> This matrix reflects the current checked-in platform configuration. Actual chain, token, and
+> contract support is config-driven and can vary by merchant — read supported chains and
+> parameters from the merchant/Core configuration or the API at runtime instead of hardcoding
+> this table.
+
 > Important: the actual supported chains and tokens always depend on each merchant's Core configuration. Do not hardcode support purely from the static table.
 
 ---
@@ -261,7 +266,7 @@ Content-Type: application/json
 {
   "x402Version": 2,
   "resource": {
-    "url": "https://api.x402.goat.network/api/v1/orders/{order_id}",
+    "url": "https://x402-api.goat.network/api/v1/orders/{order_id}",
     "description": "Payment: 10000000 USDC",
     "mimeType": "application/json"
   },

@@ -96,7 +96,7 @@ import type { Order as ClientOrder } from 'goatx402-sdk'
 
 // Initialize client
 const client = new GoatX402Client({
-  baseUrl: 'https://api.x402.goat.network',
+  baseUrl: 'https://x402-api.goat.network',
   apiKey: process.env.GOATX402_API_KEY,
   apiSecret: process.env.GOATX402_API_SECRET,
 })
@@ -500,7 +500,7 @@ Content-Type: application/json
 {
   "x402Version": 2,
   "resource": {
-    "url": "https://api.x402.goat.network/api/v1/orders/{order_id}",
+    "url": "https://x402-api.goat.network/api/v1/orders/{order_id}",
     "description": "Payment: 10000000 USDC",
     "mimeType": "application/json"
   },
@@ -887,12 +887,12 @@ and the selected token decimals.
 QuickPay package and CLI:
 
 ```bash
-npx goatx402-quickpay inspect https://api.x402.goat.network/quickpay/merchant_123/agent.md
-npx goatx402-quickpay pay-x402 https://api.x402.goat.network/quickpay/merchant_123/agent.md \
+npx goatx402-quickpay inspect https://x402-api.goat.network/quickpay/merchant_123/agent.md
+npx goatx402-quickpay pay-x402 https://x402-api.goat.network/quickpay/merchant_123/agent.md \
   --amount 10 --token-contract 0xToken --chain 137 --idempotency-key invoice-123
-npx goatx402-quickpay pay-product https://api.x402.goat.network/quickpay/merchant_123/agent.md \
+npx goatx402-quickpay pay-product https://x402-api.goat.network/quickpay/merchant_123/agent.md \
   --product mug --token-contract 0xToken --chain 137
-npx goatx402-quickpay pay-mpp https://api.x402.goat.network/quickpay/merchant_123/agent.md \
+npx goatx402-quickpay pay-mpp https://x402-api.goat.network/quickpay/merchant_123/agent.md \
   --route <route_canonical>
 ```
 

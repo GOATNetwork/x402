@@ -119,7 +119,7 @@ Document:
 Use the following environment variable naming consistently:
 
 ```bash
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://x402-api.goat.network
 GOATX402_API_KEY=your_api_key
 GOATX402_API_SECRET=your_api_secret
 GOATX402_MERCHANT_ID=your_merchant_id
@@ -127,7 +127,7 @@ GOATX402_MERCHANT_ID=your_merchant_id
 
 Notes:
 
-- **Production base URL**: `https://api.x402.goat.network`
+- **Production base URL**: `https://x402-api.goat.network`
 - Local Core URL: `http://localhost:8180`; Docker-mapped Core URL: `http://localhost:8286`
 - Local demo app URL: `http://localhost:3000`
 - If older docs mention `GOATX402_BASE_URL`, migrate to `GOATX402_API_URL`
@@ -236,7 +236,7 @@ When the HMAC-protected order API creates a payable order, `HTTP 402 Payment Req
 {
   "x402Version": 2,
   "resource": {
-    "url": "https://api.x402.goat.network/api/v1/orders/<order_id>",
+    "url": "https://x402-api.goat.network/api/v1/orders/<order_id>",
     "description": "Payment: <amount> <token>",
     "mimeType": "application/json"
   },
@@ -287,10 +287,10 @@ QuickPay session creation returns normal `200` JSON with an `x402` object when t
 CLI examples:
 
 ```bash
-npx goatx402-quickpay inspect https://api.x402.goat.network/quickpay/<merchant_id>/agent.md
-npx goatx402-quickpay pay-x402 https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatx402-quickpay inspect https://x402-api.goat.network/quickpay/<merchant_id>/agent.md
+npx goatx402-quickpay pay-x402 https://x402-api.goat.network/quickpay/<merchant_id>/agent.md \
   --amount <amount> --token-contract <token_contract> --chain <chain_id>
-npx goatx402-quickpay pay-product https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatx402-quickpay pay-product https://x402-api.goat.network/quickpay/<merchant_id>/agent.md \
   --product <product_key> --token-contract <token_contract> --chain <chain_id>
 ```
 
@@ -326,6 +326,11 @@ rail, not a general-purpose bridge.
 | GOAT | `2345` | Yes | Yes |
 | Metis | `1088` | Yes | No |
 | Tempo | `4217` | Yes | No |
+
+> This matrix reflects the current checked-in platform configuration. Actual chain, token, and
+> contract support is config-driven and can vary by merchant — read supported chains and
+> parameters from the merchant/Core configuration or the API at runtime instead of hardcoding
+> this table.
 
 ### 9.3 Common order states
 

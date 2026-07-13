@@ -36,7 +36,7 @@ The GOAT x402 Merchant Portal is your management dashboard for:
 **Access URLs:**
 
 - Merchant Portal: `https://x402-merchant.goat.network`
-- Production API: `https://api.x402.goat.network`
+- Production API: `https://x402-api.goat.network`
 
 ---
 
@@ -103,6 +103,11 @@ settlement chain; an eligible buyer source chain may differ.
 | Metis | `1088` | Yes | No | `andromeda-explorer.metis.io` |
 | Tempo | `4217` | Yes | No | `explore.tempo.xyz` |
 
+> This matrix reflects the current checked-in platform configuration. Actual chain, token, and
+> contract support is config-driven and can vary by merchant — read supported chains and
+> parameters from the merchant/Core configuration or the API at runtime instead of hardcoding
+> this table.
+
 ---
 
 ## 3. Register a Merchant Account
@@ -121,7 +126,7 @@ Visit the Merchant Portal and click the **Apply** tab to access the registration
 | --- | --- | --- |
 | **Merchant ID** | Unique merchant identifier; cannot be changed after registration | Letters, numbers, hyphens, and underscores only. Reserved IDs and `topup-` / `topup_` prefixes are not available. |
 | **Merchant Name** | Display name; can be changed later | Any merchant display text |
-| **Receive Type** | Payment mode | Select `DIRECT` or `DELEGATE` after confirming the chain/mode matrix above |
+| **Receive Type** | Payment mode. `DIRECT` and `DELEGATE` are mutually exclusive; the choice is fixed at registration (a later change is admin-only and blocked while addresses/contracts exist) | Select `DIRECT` or `DELEGATE` after confirming the chain/mode matrix above |
 | **Email** | Owner login email | Valid email address |
 | **Password** | Owner login password | 8 to 72 characters |
 
@@ -309,7 +314,7 @@ After clicking **Rotate API Keys**, the system generates a new API Key and API S
 Use API keys only from your backend:
 
 ```bash
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://x402-api.goat.network
 GOATX402_API_KEY=your_API_Key
 GOATX402_API_SECRET=your_API_Secret
 ```
@@ -509,10 +514,10 @@ all DELEGATE hosted checkout use an HMAC-created Checkout Session instead; see
 Agent/CLI entry points:
 
 ```bash
-npx goatx402-quickpay inspect https://api.x402.goat.network/quickpay/<merchant_id>/agent.md
-npx goatx402-quickpay pay-x402 https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatx402-quickpay inspect https://x402-api.goat.network/quickpay/<merchant_id>/agent.md
+npx goatx402-quickpay pay-x402 https://x402-api.goat.network/quickpay/<merchant_id>/agent.md \
   --amount <amount> --token-contract <token_contract> --chain <chain_id>
-npx goatx402-quickpay pay-product https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatx402-quickpay pay-product https://x402-api.goat.network/quickpay/<merchant_id>/agent.md \
   --product <product_key> --token-contract <token_contract> --chain <chain_id>
 ```
 
@@ -620,7 +625,7 @@ Complete the following steps to start accepting payments:
 npm install goatx402-sdk goatx402-sdk-server
 
 # Backend configuration
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://x402-api.goat.network
 GOATX402_API_KEY=your_API_Key
 GOATX402_API_SECRET=your_API_Secret
 ```

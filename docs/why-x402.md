@@ -175,6 +175,9 @@ on the merchant's single settlement chain. Metis and Tempo are DIRECT-only as
 merchant settlement modes in this matrix; eligible cross-chain payment sources are
 derived from live configuration.
 
+Do not hardcode this matrix in application code — read supported chains and
+parameters from configuration or the API at runtime.
+
 ### Protocol Guarantees
 
 #### Security Guarantees

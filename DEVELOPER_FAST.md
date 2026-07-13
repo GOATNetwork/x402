@@ -24,7 +24,7 @@ A minimal integration guide for merchants, covering:
 Use this naming convention:
 
 ```bash
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://x402-api.goat.network
 GOATX402_API_KEY=your_api_key
 GOATX402_API_SECRET=your_api_secret
 GOATX402_MERCHANT_ID=your_merchant_id

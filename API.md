@@ -2,7 +2,7 @@
 This document summarizes the GoatX402 Core APIs invoked by `goatx402-sdk-server`, in a Swagger-like format. It focuses on request/response shapes, auth requirements, and how each SDK method maps to Core endpoints.
 
 **Base Url**
-Production: `https://api.x402.goat.network`.
+Production: `https://x402-api.goat.network`.
 
 SDKs accept `{baseUrl}` in `GoatX402Client`; paths below are appended to it.
 

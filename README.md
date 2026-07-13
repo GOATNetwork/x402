@@ -83,7 +83,7 @@ Quick references:
 - `docs/x402-checkout.md` - hosted Checkout Sessions and browser SDK.
 - `docs/README.md` - structured public docs index, including QuickPay, Checkout, MPP, and agent integration paths.
 
-Production API base URL: `https://api.x402.goat.network`.
+Production API base URL: `https://x402-api.goat.network`.
 
 ## License
 

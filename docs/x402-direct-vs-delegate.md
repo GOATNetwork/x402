@@ -16,6 +16,8 @@ That is why GOAT x402 supports two modes:
 - **DIRECT**
 - **DELEGATE**
 
+These modes are **mutually exclusive** and are fixed when the merchant account is registered.
+
 ---
 
 ## What Is DIRECT?
@@ -33,6 +35,7 @@ This mode is simpler and better suited for lightweight payment scenarios. The pa
 - API monetization
 - tips / donations
 - payment flows that do not require complex on-chain execution
+- hosted payment links and QuickPay web checkout (no API key required)
 
 ### DIRECT Characteristics
 
@@ -41,6 +44,7 @@ This mode is simpler and better suited for lightweight payment scenarios. The pa
 - usually does not require complex callback execution
 - available on all supported EVM mainnets
 - lower per-chain configured fee
+- available via **QuickPay**, whose web surface now includes the hosted Checkout flow (see [Hosted Checkout](./x402-checkout.md))
 
 ### DIRECT Default Fee
 
@@ -107,7 +111,9 @@ This matrix describes merchant receiving/callback-chain availability. DELEGATE
 requires Permit2 or EIP-3009 support plus a reviewed callback contract on the
 merchant settlement chain. Metis and Tempo should be configured as DIRECT
 settlement chains. Cross-chain Hosted Checkout source candidates are derived from
-live TSS/token configuration and are not implied by this static matrix.
+live TSS/token configuration and are not implied by this static matrix. Read supported
+chains and parameters from configuration or the API at runtime instead of hardcoding
+this matrix.
 
 ---
 

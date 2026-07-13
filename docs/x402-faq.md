@@ -52,6 +52,18 @@ The threshold signature scheme (TSS) is designed for enterprise-grade security:
 
 ---
 
+#### How is the platform Bob caller authorized?
+
+DELEGATE callbacks are protected by the merchant-owned `MerchantCallback` contract:
+
+- the platform operator/admin provides the current Bob caller address
+- the merchant deploys `MerchantCallback`
+- the merchant calls `setAuthorizedCaller(bob, true)`
+- the merchant submits the callback contract in the Merchant Portal for admin review
+- the callback contract rejects callers that are not authorized
+
+---
+
 ## Security Model
 
 #### How does x402 prevent replay attacks?

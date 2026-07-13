@@ -61,7 +61,7 @@ Non-onboarding admin routes require a fully authenticated session: `POST /admin/
 
 ```bash
 # Mainnet (production)
-export API_URL="https://api.x402.goat.network"
+export API_URL="https://x402-api.goat.network"
 
 # Testnet3 (development)
 # Use the operator-provided Testnet3/staging API base for that environment.
@@ -230,7 +230,7 @@ Create `goatx402-demo/.env` with the credentials from the admin:
 ```bash
 GOATX402_MERCHANT_ID=my_shop
 # Mainnet (production)
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://x402-api.goat.network
 # Testnet3 (development): use the operator-provided Testnet3/staging API base.
 # GOATX402_API_URL=<testnet3-api-base>
 GOATX402_API_KEY=your_api_key
@@ -628,7 +628,7 @@ $ curl -s -X POST http://localhost:3001/api/orders -H "Content-Type: application
 ```bash
 # Setup: run the session login + mandatory TOTP flow in "Prerequisites (CLI Session Auth)" first.
 # Mainnet (production)
-export API_URL="https://api.x402.goat.network"
+export API_URL="https://x402-api.goat.network"
 # Testnet3 (development): export API_URL="<testnet3-api-base>" instead.
 
 # Merchant CRUD

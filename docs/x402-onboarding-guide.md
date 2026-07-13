@@ -20,7 +20,7 @@ This guide is intended for the following audiences:
 The recommended onboarding flow for GOAT x402 is:
 
 1. **Step 01 — Register Merchant Account**
-2. **Step 02 — Configure Receiving Address**
+2. **Step 02 — Configure Receiving Tokens & Addresses**
 3. **Step 03 — Generate API Credentials**
 4. **Step 04 — Integrate x402 SDK**
 5. **Step 05 — Test & Go Live**
@@ -69,51 +69,60 @@ For a more detailed registration guide, please refer to:
 
 ---
 
-# Step 02 — Configure Receiving Address
+# Step 02 — Configure Receiving Tokens & Addresses
 
 ## Goal
 
-Complete the merchant receiving setup and define how settlement should be received.
+Complete **Payment Setup → Receiving Tokens & Addresses** and define how payments should be received.
 
 ## Why This Step Matters
 
 Before integration and launch, you must clearly define:
 
 - where funds should be received
-- which chain should be used for settlement
-- which token should be used for settlement
+- which EVM chain should be used for settlement
+- which token should be accepted
 - whether your payment flow requires more advanced post-payment execution
 
 ## What This Step Usually Includes
 
-### 1. Configure Settlement Chain
-Confirm which chain the merchant wants to receive settlement on.
+### 1. Configure EVM Chain
+Confirm which EVM chain the merchant wants to receive settlement on.
 
-### 2. Configure Settlement Token
-Confirm which token the merchant wants to receive, such as USDC or USDT.
+### 2. Configure Receiving Token
+Confirm which token the merchant wants to accept, such as USDC or USDT.
 
-### 3. Configure Receiving Address
+### 3. Configure Receiving Tokens & Addresses
 Set and verify the final receiving address.
 
 ### 4. Select Payment Mode
 Choose the payment mode based on your business scenario:
 
-- **DIRECT**: the user pays directly to the merchant address
+- **DIRECT**: the user pays directly to the merchant receiving address; supports
+  QuickPay hosted web checkout with no API key, optional programmatic x402 with
+  HMAC API keys, and Machine Payments Protocol (MPP) buyer flows
 - **DELEGATE**: TSS-assisted EVM settlement using EIP-3009 or Permit2 and an
   approved callback contract on one merchant settlement chain; eligible payment
-  source chains may differ
+  source chains may differ; requires API keys
+
+DIRECT and DELEGATE are mutually exclusive and fixed at merchant registration.
 
 ### 5. Configure Callback / Execution Logic (if applicable)
-If your flow requires payment-triggered on-chain execution, complete the related callback or execution configuration here.
+If your flow requires DELEGATE payment-triggered on-chain execution:
+
+1. Deploy a `MerchantCallback` contract.
+2. Get the platform Bob address from the platform operator/admin.
+3. Call `setAuthorizedCaller(bob, true)` on the callback contract.
+4. Submit the callback contract in the Merchant Portal for admin review.
 
 If your flow needs public payment links or agent-native payments, use `DIRECT` and plan to enable QuickPay after receiving addresses are configured.
 
 ## What You Should Have After This Step
 
-- A confirmed receiving address
-- A confirmed settlement chain and token
+- Confirmed receiving tokens and addresses
+- A confirmed EVM chain and token
 - A confirmed payment mode
-- If applicable, a registered callback / execution configuration
+- If using DELEGATE callback execution, an approved callback / execution configuration with Bob authorization
 
 ---
 
@@ -157,7 +166,7 @@ It is recommended that your development team store credentials in environment va
 - API Secret
 - Clear guidance on test vs production environments
 
-Production API integrations should use `https://api.x402.goat.network`.
+Production API integrations should use `https://x402-api.goat.network`.
 
 ---
 
@@ -205,13 +214,13 @@ This approach is suitable for teams that:
 In this mode, the merchant's QuickPay **agent guide** is the concrete agent-readable file:
 
 ```text
-https://api.x402.goat.network/quickpay/<merchant_id>/agent.md
+https://x402-api.goat.network/quickpay/<merchant_id>/agent.md
 ```
 
 The same merchant also exposes a machine-readable manifest:
 
 ```text
-https://api.x402.goat.network/quickpay/<merchant_id>/manifest.json
+https://x402-api.goat.network/quickpay/<merchant_id>/manifest.json
 ```
 
 The QuickPay `agent.md` helps the Agent understand:
