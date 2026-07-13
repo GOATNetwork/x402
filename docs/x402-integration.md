@@ -23,7 +23,7 @@
 
 ### 1.1 What is GoatX402
 
-GOAT x402 is a cross-chain payment infrastructure for merchants, applications, and agent-oriented workflows, supporting EVM chains and Solana. It provides two payment receiving modes to meet different merchant needs.
+GOAT x402 is an EVM-only payment infrastructure for merchants, applications, and agent-oriented workflows. It provides two payment receiving modes to meet different merchant needs.
 
 ### 1.2 SDK Components
 
@@ -31,25 +31,22 @@ GOAT x402 is a cross-chain payment infrastructure for merchants, applications, a
 |-----|---------|---------|
 | **goatx402-sdk** | Frontend client SDK | `npm install goatx402-sdk` |
 | **goatx402-sdk-server-ts** | TypeScript backend SDK | `npm install goatx402-sdk-server` |
-| **goatx402-sdk-server-go** | Go backend SDK | `go get github.com/goatx402/sdk-server-go` |
+| **goatx402-sdk-server-go** | Go backend SDK | `go get github.com/goatnetwork/goatx402-sdk-server` |
 
 ### 1.3 Two Payment Modes
 
 | Mode | Identifier | Receiving Method | Fixed Fee | Use Case |
 |------|------------|------------------|-----------|----------|
-| **Direct Mode** | `DIRECT` | User transfers directly to merchant wallet | Lower (e.g., $0.10/tx) | Simple payments, no callbacks |
-| **Delegate Mode** | `DELEGATE` | User transfers to TSS wallet, system pays merchant | Higher (e.g., $0.20/tx) | Callbacks, complex business logic |
+| **Direct Mode** | `DIRECT` | User transfers directly to merchant receiving address | Lower (e.g., $0.10/tx) | QuickPay, simple payments, Machine Payments Protocol (MPP) buyer flows, no callbacks |
+| **Delegate Mode** | `DELEGATE` | User transfers ERC-20 to TSS `payToAddress`; optional Bob callback authorization | Higher (e.g., $0.20/tx) | Programmatic x402 callbacks, complex business logic |
+
+DIRECT and DELEGATE are mutually exclusive and fixed at merchant registration.
 
 ### 1.4 Supported Blockchain Networks
 
-| Network | Chain ID | Support Status |
-|---------|----------|----------------|
-| Ethereum | 1 | ✅ |
-| Polygon | 137 | ✅ |
-| Arbitrum | 42161 | ✅ |
-| BSC | 56 | ✅ |
-| Solana | - | ✅ |
-| GOAT Testnet | 2345 | ✅ Test |
+Supported chains are DB/config-driven and can vary by merchant. Checked-in examples include Ethereum `1`, Base `8453`, Arbitrum `42161`, BSC `56`, and Metis `1088` for mainnet receiving configuration; Tempo `4217` / `42431` for MPP examples; and GOAT Testnet3 `48816`, BSC Testnet `97`, and Sepolia `11155111` in repository testnet seeds.
+
+Do not hardcode a static chain matrix in application code. Read supported chains, tokens, contract addresses, confirmations, and RPCs from the merchant/Core configuration.
 
 ---
 
@@ -58,8 +55,11 @@ GOAT x402 is a cross-chain payment infrastructure for merchants, applications, a
 ### 2.1 Prerequisites
 
 1. **Merchant Account**: Contact GoatX402 to obtain
-2. **API Credentials**: `API_KEY` and `API_SECRET`
-3. **Fee Balance**: Ensure sufficient USD fee balance
+2. **API Credentials**: `API_KEY` and `API_SECRET` for HMAC-authenticated programmatic x402, including DELEGATE
+3. **Fee Balance**: Ensure sufficient USD Fee Balance
+4. **DELEGATE callback setup**: If callback calldata is used, deploy `MerchantCallback`, get the platform Bob address from the operator/admin, call `setAuthorizedCaller(bob, true)`, and submit it for admin review
+
+Machine Payments Protocol (MPP) buyer `/mpp/v1/challenge` and `/mpp/v1/verify` calls do not use merchant API keys. MPP route configuration is managed separately through merchant JWT-authenticated portal APIs.
 
 ### 2.2 Installation
 
@@ -78,7 +78,7 @@ import { GoatX402Client } from 'goatx402-sdk-server'
 
 // Initialize client
 const client = new GoatX402Client({
-  baseUrl: 'https://api.goatx402.com',
+  baseUrl: 'https://x402-api.goat.network',
   apiKey: process.env.GOATX402_API_KEY,
   apiSecret: process.env.GOATX402_API_SECRET,
 })
@@ -87,9 +87,9 @@ const client = new GoatX402Client({
 async function createOrder(userId: string, amount: string) {
   const order = await client.createOrder({
     dappOrderId: `order_${Date.now()}`,  // Merchant order ID
-    chainId: 137,                         // Polygon
+    chainId: 8453,                        // Example configured chain: Base
     tokenSymbol: 'USDC',
-    tokenContract: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
+    tokenContract: '0xConfiguredTokenContract',
     fromAddress: '0xUserWalletAddress',   // User wallet address
     amountWei: '10000000',                // 10 USDC (6 decimals)
     // callbackCalldata: '0x...',         // Optional: callback data (delegate mode only)
@@ -156,11 +156,11 @@ const status = await client.getOrderStatus(orderId)
 ┌───────────────────────────────────────────────────────────────────┐
 │                      GoatX402 Platform                             │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │  API Gateway │  │ Payment Eng │  │ TSS Gateway │              │
+│  │  API Gateway │  │ Payment Eng │  │ Bob Relayer │              │
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 │                                                                  │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │ EVM Watcher │  │ Sol Watcher │  │ Fee System  │              │
+│  │ EVM Watcher │  │ Callback Svc│  │ Fee System  │              │
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 └───────────────────────────────────────────────────────────────────┘
             │                            │
@@ -168,7 +168,7 @@ const status = await client.getOrderStatus(orderId)
 ┌───────────────────────────────────────────────────────────────────┐
 │                      Blockchain Networks                          │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│  │ Ethereum │  │ Polygon  │  │   BSC    │  │  Solana  │        │
+│  │ Ethereum │  │   Base   │  │ Arbitrum │  │   BSC    │        │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
 └───────────────────────────────────────────────────────────────────┘
 ```
@@ -191,7 +191,7 @@ sequenceDiagram
     MFE->>Chain: 6. Send token transfer (Client SDK)
     Chain-->>API: 7. Transfer event detected
     API->>API: 8. Process payment confirmation
-    API-->>MBE: 9. Webhook notification (optional)
+    API-->>MBE: 9. order.invoiced webhook (optional)
 ```
 
 ---
@@ -200,12 +200,12 @@ sequenceDiagram
 
 ### 4.1 Direct Mode (DIRECT)
 
-**Overview**: User directly transfers tokens to merchant's wallet address, without GoatX402 intermediation.
+**Overview**: User directly transfers tokens to the merchant receiving address. DIRECT also supports QuickPay hosted checkout without API keys, programmatic x402 with HMAC API keys, and Machine Payments Protocol (MPP) buyer flows without merchant API keys.
 
 **Features**:
 - Simplest payment method
 - Lowest fixed fee
-- No TSS wallet involvement
+- Pays the merchant receiving address directly
 - No callback support
 
 **Payment Flow**:
@@ -228,7 +228,7 @@ sequenceDiagram
     API->>API: 7. Update order status
 ```
 
-**Flow Types**: `ERC20_DIRECT`, `SOL_DIRECT`
+**Flow Types**: `ERC20_DIRECT`
 
 **Code Example**:
 
@@ -236,28 +236,32 @@ sequenceDiagram
 // Backend creates order
 const order = await client.createOrder({
   dappOrderId: 'order_001',
-  chainId: 137,
+  chainId: 8453,
   tokenSymbol: 'USDC',
-  tokenContract: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
+  tokenContract: '0xConfiguredTokenContract',
   fromAddress: userWallet,
   amountWei: '10000000',
   // No callbackCalldata - Direct mode
 })
 
 // order.flow = 'ERC20_DIRECT'
-// order.payToAddress = Merchant wallet address
+// order.payToAddress = Merchant receiving address
 ```
 
 ---
 
 ### 4.2 Delegate Mode (DELEGATE)
 
-**Overview**: User transfers tokens to GoatX402's TSS wallet, GoatX402 then transfers funds to merchant.
+**Overview**: DELEGATE is programmatic x402 only. The order `payToAddress` is a TSS wallet, and the buyer SDK transfers the ERC-20 payment to that address. If callback calldata is present, the buyer also signs an EIP-712 callback authorization, and the platform Bob caller submits it to the merchant's approved `MerchantCallback` contract.
 
 **Features**:
 - Supports callback functionality (execute merchant contracts)
-- Higher fixed fee (includes TSS payout gas cost)
-- TSS multi-sig wallet ensures fund security
+- Higher fixed fee (includes Bob-submitted callback execution overhead)
+- Requires API keys
+- Uses a TSS wallet as the ERC-20 payment recipient
+- Callback execution requires a deployed `MerchantCallback` contract
+- Callback execution requires Bob authorization with `setAuthorizedCaller(bob, true)`, using the Bob address supplied by the platform operator/admin
+- Callback execution requires Merchant Portal admin review before launch
 - Supports complex business logic
 
 **Payment Flow**:
@@ -267,32 +271,32 @@ sequenceDiagram
     participant User as User Wallet
     participant SDK as Client SDK
     participant Token as Token Contract
-    participant TSS as TSS Wallet
     participant API as GoatX402 API
-    participant Merchant as Merchant Wallet
+    participant TSS as TSS Wallet
+    participant Bob as Platform Bob Caller
+    participant Callback as MerchantCallback
+    participant Merchant as Merchant Contract
 
-    SDK->>Token: 1. Check balance
-    Token-->>SDK: Balance sufficient
-
-    Note over SDK,User: If callback sign request exists
-    SDK->>User: 2. Request EIP-712 signature
-    User-->>SDK: 3. Return signature
-    SDK->>API: 4. Submit signature
-
-    SDK->>User: 5. Request transfer signature
-    User->>Token: 6. transfer(TSS, amount)
-    Token-->>TSS: 7. Tokens arrive at TSS
-    Token-->>SDK: 8. Transaction receipt
-
-    API->>API: 9. Watcher detects transfer
-    API->>API: 10. Create Payout task
-    API->>TSS: 11. Request TSS signature
-    TSS-->>API: 12. Return signature
-    API->>Token: 13. Execute Payout (with callback)
-    Token-->>Merchant: 14. Tokens arrive
+    SDK->>API: 1. Create programmatic x402 order
+    API-->>SDK: 2. Return TSS payToAddress and optional calldataSignRequest
+    opt Callback calldata present
+      SDK->>User: 3. Request EIP-712 callback authorization
+      User-->>SDK: 4. Return signature
+      SDK->>API: 5. Submit callback signature
+    end
+    SDK->>User: 6. Request ERC-20 payment
+    User->>Token: 7. transfer or authorize transfer to TSS payToAddress
+    Token-->>TSS: 8. Tokens arrive at TSS payToAddress
+    API->>API: 9. Detect and confirm payment
+    opt Callback calldata present
+      API->>Bob: 10. Dispatch callback execution
+      Bob->>Callback: 11. Submit authorization and calldata
+      Callback->>Callback: 12. Verify Bob is authorized
+      Callback->>Merchant: 13. Execute merchant logic
+    end
 ```
 
-**Flow Types**: `ERC20_3009`, `ERC20_APPROVE_XFER`, `SOL_APPROVE_XFER`
+**Flow Types**: `ERC20_3009`, `ERC20_APPROVE_XFER`
 
 **Code Example**:
 
@@ -300,9 +304,9 @@ sequenceDiagram
 // Backend creates order (with callback)
 const order = await client.createOrder({
   dappOrderId: 'order_002',
-  chainId: 137,
+  chainId: 8453,
   tokenSymbol: 'USDC',
-  tokenContract: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
+  tokenContract: '0xConfiguredTokenContract',
   fromAddress: userWallet,
   amountWei: '10000000',
   callbackCalldata: '0x...', // Callback data (optional)
@@ -310,7 +314,8 @@ const order = await client.createOrder({
 
 // order.flow = 'ERC20_3009' or 'ERC20_APPROVE_XFER'
 // order.payToAddress = TSS wallet address
-// order.calldataSignRequest = EIP-712 sign request (if callback exists)
+// order.calldataSignRequest = EIP-712 callback sign request (if callback exists)
+// If callbackCalldata is used, MerchantCallback must authorize Bob with setAuthorizedCaller(bob, true)
 ```
 
 ---
@@ -319,12 +324,14 @@ const order = await client.createOrder({
 
 | Feature | Direct Mode (DIRECT) | Delegate Mode (DELEGATE) |
 |---------|----------------------|--------------------------|
-| **Receiving Address** | Merchant wallet | TSS wallet |
+| **Receiving Target** | Merchant receiving address | TSS `payToAddress`; optional MerchantCallback via platform Bob caller |
 | **Fixed Fee** | Lower (e.g., $0.10) | Higher (e.g., $0.20) |
-| **Funds Arrival** | Immediate after user transfer | After TSS Payout |
-| **Callback Support** | ❌ Not supported | ✅ Supported |
+| **Funds Arrival** | Immediate after user transfer | After ERC-20 transfer to TSS `payToAddress` confirms |
+| **Callback Support** | ❌ Not supported | ✅ Optional when callback calldata is present |
+| **API Keys** | Required for programmatic x402; not required for QuickPay or MPP buyer challenge/verify | ✅ Required |
+| **Bob Authorization** | Not used | Required when callback calldata is present |
 | **Use Case** | Simple payments | Complex business logic |
-| **Gas Cost** | User only | User + TSS both need Gas |
+| **Gas Cost** | User transfer gas | User payment gas or token authorization; Bob callback gas included in service fee when callback is used |
 
 ---
 
@@ -332,7 +339,7 @@ const order = await client.createOrder({
 
 ### 5.1 Fee Structure
 
-GoatX402 uses a **fixed fee** model (not percentage), charged per order.
+GoatX402 uses a **fixed fee** model (not percentage). The fee is charged when an order is created and refunded if the order expires or is canceled.
 
 | Fee Type | Direct Mode | Delegate Mode | Description |
 |----------|-------------|---------------|-------------|
@@ -340,61 +347,63 @@ GoatX402 uses a **fixed fee** model (not percentage), charged per order.
 | Default Fee | $0.10/tx | $0.20/tx | Customizable per chain |
 
 **Why is Delegate Mode fee higher?**
-- TSS needs to execute Payout transaction
-- Additional on-chain gas cost
-- Multi-signature security mechanism cost
+- Platform Bob submits callback execution
+- Additional on-chain gas cost for callback execution
+- Admin-reviewed MerchantCallback operations
 
 ### 5.2 Fee Balance System
 
-Merchants need to **pre-fund a USD fee balance**, deducted when orders are created.
+Merchants need to **pre-fund a USD Fee Balance**, deducted when orders are created.
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │                Fee Balance Flow                      │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
-│  1. Operator topup → merchant_fee_balance += $100   │
+│  1. Fee Top-up → merchant_fee_balance += $100       │
 │                                                     │
 │  2. Create order → Check balance                    │
-│     ├─ Insufficient → Return HTTP 402 error         │
+│     ├─ Insufficient → Return HTTP 400 error         │
 │     └─ Sufficient → Charge fee, create order        │
 │                                                     │
 │  3. Payment successful → Fee consumed (no refund)   │
 │                                                     │
-│  4. Order expired → Fee refunded → balance += fee   │
+│  4. Order expired/canceled → Fee refunded           │
 │                                                     │
 └─────────────────────────────────────────────────────┘
 ```
+
+QuickPay may surface fee-balance unavailability as HTTP `503`. HTTP `402` is the expected successful Payment Required response for programmatic order creation, not the insufficient-fee error.
 
 ### 5.3 Fee Calculation Examples
 
 ```typescript
 // Direct mode order
 const directOrder = {
-  chainId: 137,  // Polygon
+  chainId: 8453, // Example configured chain: Base
   mode: 'DIRECT',
-  fee: '$0.10',  // Fixed fee
+  fee: '$0.10',  // Default; actual fee is per-chain config
 }
 
 // Delegate mode order
 const delegateOrder = {
-  chainId: 137,  // Polygon
+  chainId: 8453, // Example configured chain: Base
   mode: 'DELEGATE',
-  fee: '$0.20',  // Fixed fee (includes Payout Gas)
+  fee: '$0.20',  // Default; actual fee is per-chain config
 }
 
 // Whether order amount is $10 or $10,000, fee is fixed
 ```
 
-### 5.4 Insufficient Balance Handling
+### 5.4 Insufficient Fee Balance Handling
 
 ```typescript
 try {
   const order = await client.createOrder(orderParams)
 } catch (error) {
-  if (error.status === 402) {
+  if (error.status === 400 || error.status === 503) {
     // Fee balance insufficient
-    console.error('Insufficient fee balance, please contact operator to topup')
+    console.error('Insufficient Fee Balance, please contact operator for Fee Top-up')
     // error.message: "Insufficient fee balance"
   }
 }
@@ -431,9 +440,9 @@ interface CreateOrderParams {
 
 const order = await client.createOrder({
   dappOrderId: `order_${Date.now()}`,
-  chainId: 137,
+  chainId: 8453,
   tokenSymbol: 'USDC',
-  tokenContract: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
+  tokenContract: '0xConfiguredTokenContract',
   fromAddress: '0x742d35Cc6634C0532925a3b844Bc...',
   amountWei: '10000000', // 10 USDC
 })
@@ -473,9 +482,7 @@ const status = await client.getOrderStatus(orderId)
 
 ```typescript
 // After user signs on frontend, submit to backend
-await client.submitCalldataSignature(orderId, {
-  signature: '0x...',  // User's EIP-712 signature
-})
+await client.submitCalldataSignature(orderId, '0x...') // User's EIP-712 signature
 ```
 
 ### 6.6 Get Payment Proof
@@ -647,9 +654,10 @@ export function PayButton({ order, onSuccess, onError }: PayButtonProps) {
 ```typescript
 // Server SDK handles signature automatically
 // Signature algorithm:
-// 1. Sort params by key
-// 2. Concatenate: key1=value1&key2=value2
-// 3. HMAC-SHA256(secret, payload)
+// 1. Combine query args, body params, api_key, timestamp, and nonce
+// 2. Sort params by key
+// 3. Concatenate: key1=value1&key2=value2
+// 4. HMAC-SHA256(secret, payload)
 
 // Request headers:
 // X-API-Key: {apiKey}
@@ -661,35 +669,42 @@ export function PayButton({ order, onSuccess, onError }: PayButtonProps) {
 ### 8.2 EIP-712 Signature (Callback Authorization)
 
 ```typescript
-// User signature authorizes callback execution
+// User signature authorizes callback execution when callback calldata exists.
+// Use the calldataSignRequest returned by the order; do not hardcode these values.
 const signRequest: CalldataSignRequest = {
   domain: {
-    name: 'GoatX402',
+    name: 'GoatX402 Pay Callback',
     version: '1',
-    chainId: 137,
+    chainId: 8453,
     verifyingContract: '0xCallbackContract...',
   },
   types: {
-    Permit: [
+    Eip3009CallbackData: [
+      { name: 'token', type: 'address' },
+      { name: 'owner', type: 'address' },
       { name: 'payer', type: 'address' },
       { name: 'amount', type: 'uint256' },
-      { name: 'nonce', type: 'uint256' },
+      { name: 'orderId', type: 'bytes32' },
+      { name: 'calldataNonce', type: 'uint256' },
       { name: 'deadline', type: 'uint256' },
-      { name: 'orderId', type: 'string' },
       { name: 'calldataHash', type: 'bytes32' },
     ],
   },
-  primaryType: 'Permit',
+  primaryType: 'Eip3009CallbackData',
   message: {
+    token: '0xConfiguredTokenContract',
+    owner: '0xTssPayToAddress',
     payer: '0xUserAddress',
     amount: '10000000',
-    nonce: '1',              // Anti-replay
+    orderId: '0xOrderIdHash',
+    calldataNonce: '1',      // Anti-replay
     deadline: '1704067200',  // Expiration time
-    orderId: 'order_123',
     calldataHash: '0x...',   // Callback data hash
   },
 }
 ```
+
+For DELEGATE integrations with callback calldata, the merchant must also deploy `MerchantCallback`, get the platform Bob address from the platform operator/admin, call `setAuthorizedCaller(bob, true)`, and submit the callback contract in the Merchant Portal for admin review.
 
 ### 8.3 Security Mechanisms
 
@@ -750,9 +765,7 @@ const amount = formatUnits(100500000n, 6) // "100.5"
 type PaymentFlow =
   | 'ERC20_DIRECT'        // Direct mode
   | 'ERC20_3009'          // Delegate mode (EIP-3009)
-  | 'ERC20_APPROVE_XFER'  // Delegate mode (Permit2)
-  | 'SOL_DIRECT'          // Solana direct
-  | 'SOL_APPROVE_XFER'    // Solana delegate
+  | 'ERC20_APPROVE_XFER'  // Delegate mode (approve and transfer)
 
 // Order status
 type OrderStatus =
@@ -761,6 +774,7 @@ type OrderStatus =
   | 'INVOICED'            // Complete
   | 'EXPIRED'             // Expired
   | 'FAILED'              // Failed
+  | 'CANCELLED'           // Cancelled while still cancellable
 
 // Order interface
 interface Order {
@@ -792,24 +806,24 @@ interface PaymentResult {
 
 | Error Code | Description | Solution |
 |------------|-------------|----------|
-| `402` | Fee balance insufficient | Contact operator to topup fee balance |
-| `400` | Request parameter error | Check parameter format and required fields |
+| `402` | Payment Required success response from order creation | Continue with the x402 payment flow |
+| `400` | Request parameter or business rule error, including insufficient Fee Balance for programmatic create | Check parameters or contact operator for Fee Top-up |
 | `401` | Authentication failed | Check API Key/Secret and signature |
 | `404` | Order not found | Check order ID |
 | `409` | Order already exists | dappOrderId duplicate |
-| `503` | TSS balance insufficient | Contact operator to fund TSS wallet |
+| `503` | QuickPay fee unavailable, Bob relay, or callback service unavailable | Retry or contact the platform operator |
 
 ### 10.2 Frontend Common Issues
 
-#### Issue 1: Fee Balance Insufficient (HTTP 402)
+#### Issue 1: Fee Balance Insufficient (HTTP 400 or 503)
 
 ```typescript
 try {
   const order = await client.createOrder(params)
 } catch (error) {
-  if (error.status === 402) {
+  if (error.status === 400 || error.status === 503) {
     // Display prompt
-    alert('Merchant fee balance insufficient, please contact admin to topup')
+    alert('Merchant Fee Balance insufficient, please contact admin for Fee Top-up')
   }
 }
 ```
@@ -952,7 +966,7 @@ function validateAmount(amount: string, minUsd: number, maxUsd: number) {
   }
 }
 
-// ✅ Handle Webhook notifications
+// ✅ Handle order.invoiced webhook notifications
 app.post('/webhook/goatx402', async (req, res) => {
   const { orderId, status, txHash } = req.body
 
@@ -987,7 +1001,7 @@ async function getPaymentHelper() {
 function getErrorMessage(error: any): string {
   if (error.code === 'ACTION_REJECTED') return 'You cancelled the transaction'
   if (error.message?.includes('insufficient')) return 'Insufficient balance'
-  if (error.status === 402) return 'Merchant fee balance insufficient'
+  if (error.status === 400 || error.status === 503) return 'Merchant Fee Balance insufficient'
   return 'Payment failed, please try again'
 }
 
@@ -1057,22 +1071,13 @@ my-payment-app/
 
 ### 13.2 Token Contract Addresses
 
-| Token | Chain | Contract Address |
-|-------|-------|------------------|
-| USDC | Ethereum | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` |
-| USDC | Polygon | `0x3c499c542cef5e3811e1192ce70d8cc03d5c3359` |
-| USDT | Ethereum | `0xdAC17F958D2ee523a2206206994597C13D831ec7` |
-| USDT | Polygon | `0xc2132D05D31c914a87C6611C10748AEb04B58e8F` |
+Token support and contract addresses come from Core DB/configuration. Treat any token address in examples as an environment-specific value and read the configured token contract for the selected merchant, chain, and token.
 
 ### 13.3 Chain RPC Configuration
 
 ```typescript
-const CHAIN_RPCS: Record<number, string> = {
-  1: 'https://eth.llamarpc.com',
-  137: 'https://polygon.llamarpc.com',
-  42161: 'https://arb1.arbitrum.io/rpc',
-  56: 'https://bsc-dataseed.binance.org',
-}
+// Example only. Use the chain/RPC configuration supplied by Core.
+const chainRpc = coreConfig.chains[order.chainId].rpcUrl
 ```
 
 ---

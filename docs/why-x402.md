@@ -57,7 +57,7 @@ That can mean:
 
 ### HTTP 402 Finally Becomes Useful
 
-HTTP 402 **Payment Required** was reserved in 1999. x402 gives it a practical implementation for programmable money.
+HTTP 402 **Payment Required** has existed for decades. x402 gives it a practical implementation for programmable money.
 
 Instead of inventing a custom payment pattern for every product, x402 turns payment into a protocol-native flow.
 
@@ -130,7 +130,7 @@ The exact code can vary by implementation, but the key point is that the develop
 | Transaction monitoring | you build it | handled |
 | Nonce management | you build it | handled |
 | Callback verification | you build it | handled |
-| Balance management | you build it | handled |
+| Fee Balance management | you build it | handled |
 | Replay protection | you build it | handled |
 
 For developers, x402 is valuable not only because it enables payment, but because it removes repeated infrastructure work.
@@ -147,8 +147,8 @@ This implementation is differentiated by practical builder-focused features rath
 
 | Feature | Description | Why It Matters |
 | --- | --- | --- |
-| Unified SDK | same integration path across ETH, Polygon, Arbitrum, BSC, Solana, and GOAT-oriented flows | integrate once and reuse |
-| TSS security | threshold signing with no single point of failure | stronger operational security |
+| Unified SDK | same integration path across configured EVM chains, for example Ethereum, Base, Arbitrum, BSC, and Metis | integrate once and reuse |
+| Bob-authorized callbacks | merchant-owned `MerchantCallback` contracts authorize the platform Bob caller with `setAuthorizedCaller(bob, true)` | controlled callback execution |
 | Native callbacks | on-chain callback execution bound with EIP-712 | trust-minimized business logic |
 | Fee abstraction | predictable USD-denominated pricing | easier budgeting |
 | Fast settlement | sub-minute confirmation targets on supported chains | faster fulfillment |
@@ -159,7 +159,7 @@ This implementation is differentiated by practical builder-focused features rath
 
 - EIP-712 signatures bind payment to exact calldata
 - nonce tracking prevents replay attacks
-- threshold signing protects key material
+- MerchantCallback caller allowlists restrict DELEGATE execution to the authorized platform Bob caller
 - confirmation thresholds reduce reorg risk
 - circuit breakers reduce cascading failure risk
 
@@ -167,9 +167,9 @@ This implementation is differentiated by practical builder-focused features rath
 
 - payment confirmation time depends on the target chain
 - callback execution can be atomic with payment handling
-- order creation is idempotent
+- Machine Payments Protocol (MPP) and QuickPay retry flows support reuse semantics; programmatic order creation requires a unique `dappOrderId`
 - expired flows can be refunded automatically
-- webhook notifications can be emitted for all state changes
+- webhook notifications currently emit `order.invoiced`
 
 ---
 

@@ -55,6 +55,7 @@ The integration must follow these security rules:
 5. Preserve existing business logic and only add payment enforcement to explicitly protected actions.
 6. Do not call sensitive Merchant APIs directly from the frontend.
 7. If using DELEGATE + callback, do not hardcode EIP-712 domain/type on the frontend; use the `calldataSignRequest` returned by the order.
+8. For DELEGATE, require API keys; if callback calldata is used, require an approved `MerchantCallback` and Bob authorization via `setAuthorizedCaller(bob, true)` before launch.
 
 ---
 
@@ -119,7 +120,7 @@ Document:
 Use the following environment variable naming consistently:
 
 ```bash
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://x402-api.goat.network
 GOATX402_API_KEY=your_api_key
 GOATX402_API_SECRET=your_api_secret
 GOATX402_MERCHANT_ID=your_merchant_id
@@ -127,7 +128,7 @@ GOATX402_MERCHANT_ID=your_merchant_id
 
 Notes:
 
-- **Production base URL**: `https://api.x402.goat.network`
+- **Production base URL**: `https://x402-api.goat.network`
 - Common local Core / demo URL: `http://localhost:8286`
 - If older docs mention `GOATX402_BASE_URL`, migrate to `GOATX402_API_URL`
 
@@ -179,7 +180,7 @@ The frontend should:
 - Guide wallet signing/payment steps
 - Handle success, failure, cancellation, and timeout
 - If `calldataSignRequest` exists, sign first and send the signature back to the backend
-- Execute the actual transfer to `payToAddress`
+- Execute the ERC-20 payment to `payToAddress`; in DELEGATE this is a TSS wallet
 - Resume the original business action after payment succeeds
 
 ### Step 6: Run local validation
@@ -212,9 +213,9 @@ To keep this guide consistent with the API reference, the integration must expli
 
 ### 8.2 Who the user actually pays
 
-- In all flow types, the user-side payment action is a transfer to **`payToAddress`**
-- `DIRECT`: usually the merchant address
-- `DELEGATE`: usually the TSS / delegated settlement address
+- `DIRECT`: the user-side payment action is a transfer to **`payToAddress`**, usually the merchant receiving address
+- `DELEGATE`: the user-side payment action is an ERC-20 payment to **`payToAddress`**, which is a TSS wallet; if callback calldata is present, the buyer also signs an EIP-712 callback authorization and the platform Bob caller submits it to the merchant's approved `MerchantCallback`
+- For DELEGATE callback execution, the Bob address must come from the platform operator/admin and the callback contract must authorize it with `setAuthorizedCaller(bob, true)`
 
 ### 8.3 Common backend endpoint mapping
 
@@ -233,10 +234,17 @@ To keep this guide consistent with the API reference, the integration must expli
 
 ### 9.1 Payment modes
 
-| Mode | Flow Types | User transfer target | Callback support |
+| Mode | Flow Types | Payment / execution target | Callback support |
 | --- | --- | --- | --- |
-| `DIRECT` | `ERC20_DIRECT`, `SOL_DIRECT` | Merchant address | No |
-| `DELEGATE` | `ERC20_3009`, `ERC20_APPROVE_XFER`, `SOL_APPROVE_XFER` | TSS / delegated settlement address | Yes |
+| `DIRECT` | `ERC20_DIRECT` | Merchant receiving address | No |
+| `DELEGATE` | `ERC20_3009`, `ERC20_APPROVE_XFER` | TSS `payToAddress`; optional MerchantCallback via platform Bob caller | Optional |
+
+Mode rules:
+
+- `DIRECT` supports QuickPay hosted checkout with no API key, optional programmatic x402 with HMAC API keys, and Machine Payments Protocol (MPP) buyer challenge/verify flows without merchant API keys.
+- `DELEGATE` is programmatic x402 only, requires API keys, and pays a TSS `payToAddress`; callback execution additionally requires `MerchantCallback`, Bob authorization, and admin review.
+- MPP route configuration is separate merchant configuration and uses merchant JWT authentication.
+- DIRECT and DELEGATE are mutually exclusive and fixed at merchant registration.
 
 ### 9.2 Common order states
 
@@ -305,6 +313,7 @@ Use the following as baseline acceptance criteria:
 - Merchant configuration is read correctly by the backend
 - `POST /api/v1/orders` and its `402` semantics are handled correctly
 - The frontend correctly handles `calldataSignRequest` when applicable
+- DELEGATE callback integrations verify `MerchantCallback` approval and Bob authorization before payment testing
 - The backend can query status, retrieve proof, and cancel stale orders
 - Local validation steps are complete and reproducible
 - Delivery documentation is sufficient for future maintainers

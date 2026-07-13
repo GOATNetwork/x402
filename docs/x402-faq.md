@@ -17,16 +17,16 @@ x402 brings the HTTP 402 **Payment Required** standard to Web3. Unlike payment w
 - returns a standard HTTP 402 response with payment details
 - uses on-chain settlement with cryptographic proof
 - supports programmable callbacks for atomic payment + action flows
-- enables multi-chain support through a single integration
+- enables EVM-chain support through a single integration
 
 #### How does payment verification work?
 
 Payments are verified on-chain through event monitoring:
 
-1. The user transfers tokens to the designated `payToAddress`.
-2. A multi-chain listener monitors `Transfer` events.
-3. The system matches the transfer to a pending order.
-4. The target-chain payment and callback are completed.
+1. In DIRECT, the user transfers tokens to the designated merchant `payToAddress`; in DELEGATE, the buyer SDK transfers ERC-20 tokens to a TSS `payToAddress`.
+2. The EVM listener monitors transfer events and, when callback calldata is present, callback execution events.
+3. The system matches the transfer event and optional callback authorization to a pending order.
+4. The target-chain payment and optional callback are completed.
 5. A payment proof is generated and cryptographically bound to the order.
 6. Merchants can verify the proof through the API or directly on-chain.
 
@@ -39,15 +39,15 @@ The monitoring system is designed for high reliability:
 - order expiration leaves a 20-minute detection window
 - if a payment is truly missed, contact support with the transaction hash
 
-#### How are TSS keys managed?
+#### How is the platform Bob caller authorized?
 
-The threshold signature scheme (TSS) is designed for enterprise-grade security:
+DELEGATE callbacks are protected by the merchant-owned `MerchantCallback` contract:
 
-- key shares are distributed across multiple independent nodes (`t-of-n` threshold)
-- no single node can access the full private key
-- signing requires collaboration from at least `t` nodes
-- nodes are geographically distributed
-- keys are rotated and audited regularly
+- the platform operator/admin provides the current Bob caller address
+- the merchant deploys `MerchantCallback`
+- the merchant calls `setAuthorizedCaller(bob, true)`
+- the merchant submits the callback contract in the Merchant Portal for admin review
+- the callback contract rejects callers that are not authorized
 
 ---
 
@@ -59,7 +59,7 @@ Replay protection uses multiple layers:
 
 | Layer | Mechanism |
 | --- | --- |
-| API | Timestamp validation (±5 minutes) + idempotency key |
+| API | Timestamp validation (±5 minutes) + required request nonce |
 | On-chain | EIP-712 nonce per user address |
 | Callback | `calldataNonces` mapping inside the MerchantCallback contract |
 
@@ -69,30 +69,24 @@ EIP-712 typed-data signatures bind the callback to the full execution context.
 
 The signature covers:
 
-`token + owner + payer + amount + orderId + nonce + deadline + keccak256(calldata)`
+`token + owner + payer + amount + orderId + calldataNonce + deadline + keccak256(calldata)`
 
 Any change to any field invalidates the signature.
 
 #### How are chain reorganizations handled?
 
-Payments require a minimum number of confirmations before being finalized:
-
-- GOAT Network: 2 blocks (~7 seconds)
-- Ethereum: 12 blocks (~3 minutes)
-- Polygon: 128 blocks (~4 minutes)
-- Arbitrum: 1 block (L2 finality derived from L1)
-- BSC: 15 blocks (~45 seconds)
+Payments require a configured minimum number of confirmations before being finalized. Confirmation thresholds are chain/token configuration, not a fixed docs table. Repository testnet examples include GOAT Testnet3 `48816`, BSC Testnet `97`, Sepolia `11155111`, and Tempo examples `4217` / `42431`.
 
 Deep reorganizations beyond these thresholds are extremely rare and would require significant computational power.
 
-#### What if a TSS node is compromised?
+#### What if the Bob caller needs to be rotated?
 
-Threshold signing provides resilience:
+Bob caller changes are handled through the callback allowlist:
 
-- a single compromised node cannot sign transactions
-- an attacker would need the threshold minimum (for example, 3 out of 5)
-- compromised nodes can be rotated without changing wallet addresses
-- anomaly detection monitors suspicious signing patterns
+- the platform operator/admin provides the replacement Bob address
+- the merchant authorizes the replacement with `setAuthorizedCaller(newBob, true)`
+- the merchant removes the old caller if instructed by the platform
+- callback execution fails closed if the caller is not authorized
 
 ---
 
@@ -105,8 +99,8 @@ Threshold signing provides resilience:
 A user needs:
 
 1. A compatible wallet (MetaMask, Coinbase Wallet, WalletConnect-compatible wallets, etc.)
-2. A supported token on a supported chain (such as USDC or USDT)
-3. A small amount of native gas token, unless the flow uses a gasless mode
+2. A supported token on a supported EVM chain (such as USDC or USDT)
+3. A small amount of native gas token for standard transfer or approval paths, unless the selected flow uses gasless EIP-3009 signing
 
 #### Which wallets are supported?
 
@@ -120,16 +114,7 @@ Tested wallets include MetaMask, Coinbase Wallet, and Rainbow.
 
 #### How long does one payment take?
 
-Timing depends on the chain and required confirmations. Reference timing after the transaction is broadcast:
-
-| Chain | User Action | Detection | Final Confirmation |
-| --- | --- | --- | --- |
-| GOAT Network | ~3s | 2–5s | ~10s |
-| Polygon | ~3s | 5–15s | ~20s |
-| Arbitrum | ~3s | 2–5s | ~10s |
-| BSC | ~3s | 15–30s | ~35s |
-| Ethereum | ~3s | 30–60s | ~1 min |
-| Solana | ~2s | 5–10s | ~15s |
+Timing depends on the selected EVM chain, RPC health, and configured confirmation threshold. Treat timing numbers as environment-specific and read the active chain configuration instead of hardcoding a table.
 
 #### Can users pay on mobile?
 
@@ -143,22 +128,24 @@ Yes. The SDK supports mobile wallet flows through:
 
 ## Payment Flow
 
+DIRECT and DELEGATE are mutually exclusive and fixed at merchant registration.
+
 #### How many transactions does the user need to sign?
 
 Usually one:
 
-- **DIRECT mode**: a single ERC-20 transfer
-- **DELEGATE mode with callback**: one signature that covers both payment and callback authorization
+- **DIRECT mode**: usually a single ERC-20 transfer
+- **DELEGATE mode**: the buyer completes the ERC-20 payment to the TSS `payToAddress`; if callback calldata is present, the buyer also signs a callback authorization that Bob submits to the approved `MerchantCallback`
 
 If the token flow requires an approval-style step, that may introduce an additional setup action depending on the integration path.
 
 #### What if I do not hold tokens on the merchant’s preferred chain?
 
-x402 supports cross-chain payment flows:
+x402 supports payment flows across supported EVM chains:
 
 1. The merchant specifies accepted chains.
 2. The user chooses which chain to pay from.
-3. Settlement completes automatically to the merchant’s preferred chain.
+3. Payment and settlement behavior follow the merchant's configured chain/token support.
 
 #### Can a payment be canceled after sending?
 
@@ -184,24 +171,24 @@ The system matches exact amounts:
 
 #### How much does x402 charge merchants?
 
-GOAT x402 uses a **fixed fee model charged per order**, not a percentage-based fee. Fees are configured by mode and chain. In general, **DIRECT mode carries a lower fixed fee**, while **DELEGATE mode carries a higher fixed fee** because it includes additional settlement, payout gas, and execution overhead. Merchant fees are deducted from a **pre-funded USD fee balance** when orders are created.
+GOAT x402 uses a **fixed fee model charged per order**, not a percentage-based fee. Fees are configured by mode and chain. In general, **DIRECT mode carries a lower fixed fee**, while **DELEGATE mode carries a higher fixed fee** because it includes Bob-submitted callback execution overhead. Merchant fees are deducted from a **pre-funded USD Fee Balance** when orders are created.
 
 #### Who pays gas fees?
 
 It depends on the mode:
 
 - **User-paid**: standard ERC-20 transfer (user wallet → merchant)
-- **Abstracted**: DELEGATE mode (user pays to the TSS address, and the TSS flow covers the payout gas)
+- **Abstracted callback gas**: in DELEGATE callback flows, platform Bob submits the callback transaction
 
-In DELEGATE mode, gas costs are included in the service fee.
+DELEGATE payment still uses the order's ERC-20 payment flow to a TSS `payToAddress`. EIP-3009 can make the user payment gasless; approval-transfer flows may still require an approval transaction depending on token and wallet behavior. Bob-submitted callback gas costs are included in the service fee when callback execution is used.
 
 #### How do merchants pay fees?
 
-Merchants maintain a USD-denominated fee balance:
+Merchants maintain a USD-denominated Fee Balance:
 
-1. top up through the dashboard or API
+1. complete a Fee Top-up through the Fee Balance page or the operator-assisted process
 2. fees are deducted when orders are created
-3. if the balance is too low, the API returns HTTP 402
+3. if the balance is too low, programmatic order creation returns a business error such as HTTP `400`; QuickPay may return HTTP `503`
 4. unused fees from expired orders are refunded
 
 #### Which tokens are supported?
@@ -223,27 +210,27 @@ The system is currently optimized for stablecoins such as USDC and USDT to suppo
 | Mode | Settlement Time |
 | --- | --- |
 | DIRECT | Immediate (same transfer flow) |
-| DELEGATE | Within 1–2 blocks after payment confirmation |
+| DELEGATE | After the ERC-20 transfer to the TSS `payToAddress` confirms; callback completion depends on Bob submission if callback calldata is present |
 
 #### Can merchants receive funds on a preferred chain or token?
 
-Yes. Merchants can configure:
+Yes. Merchants can configure this in **Payment Setup → Receiving Tokens & Addresses**:
 
-- settlement chain (for example, GOAT Network)
-- settlement token (for example, USDC)
-- settlement address
+- EVM chain (for example, GOAT Network)
+- receiving token (for example, USDC)
+- receiving address
 
-Cross-chain settlement is handled automatically.
+Supported EVM-chain routing depends on the merchant's current platform configuration.
 
 #### Is there a minimum payment amount?
 
-There is no protocol-enforced minimum. In practice, the lower bound is around **$0.01**, because below that gas and operational costs may exceed the payment value.
+There is no global USD minimum in the protocol docs. Minimum amounts are configured per supported token and chain.
 
 #### How do merchants reconcile payments with accounting systems?
 
 Available options include:
 
-- webhook notifications for every status change
+- webhook notifications for `order.invoiced`
 - merchant order ID correlation
 - API polling for order status
 - CSV export from the dashboard
@@ -262,26 +249,26 @@ x402 is a hybrid system optimized for practicality:
 | --- | --- | --- |
 | API servers | Centralized | performance and user experience |
 | Payment settlement | Decentralized | on-chain and trust-minimized |
-| TSS signing | Distributed | multiple independent nodes |
+| Bob caller authorization | Merchant-controlled allowlist | only approved platform Bob callers can submit DELEGATE callbacks |
 | MerchantCallback | Decentralized | merchant-owned contract |
 
 #### Does x402 custody user funds?
 
-No.
+It depends on the mode.
 
 Funds flow as follows:
 
 1. **DIRECT mode**: user → merchant (x402 never touches the funds)
-2. **DELEGATE mode**: user → TSS → merchant (TSS temporarily handles settlement, usually for less than one minute)
+2. **DELEGATE mode**: buyer ERC-20 payment → TSS `payToAddress`; optional callback authorization → platform Bob caller → merchant-approved `MerchantCallback`
 
-The system does not have unilateral access to user or merchant funds.
+The DELEGATE path uses the TSS `payToAddress` for payment collection and merchant-approved callback execution when callback calldata is present.
 
 #### Can x402 freeze or censor payments?
 
 Its intervention ability is limited:
 
 - it cannot stop DIRECT-mode payments because those are direct user → merchant transfers
-- in DELEGATE mode, TSS could theoretically delay payout, but funds are still destined for the merchant
+- in DELEGATE mode, Bob submission can be delayed, but Bob cannot call a callback unless the merchant authorized it
 - all transactions are auditable on-chain
 - MerchantCallback contracts are owned and upgradeable by merchants
 
@@ -290,7 +277,7 @@ Its intervention ability is limited:
 Impact depends on the component:
 
 - **DIRECT orders**: unaffected, because they are direct wallet transfers
-- **in-flight DELEGATE orders**: TSS would still need to settle and distribute funds
+- **in-flight DELEGATE orders**: may require TSS payment processing, Bob submission, retry, or migration support from the operator
 - **MerchantCallback contracts**: continue to function because merchants own them
 - **API / SDK layer**: may require migration or open-source alternatives in the future
 
@@ -325,7 +312,7 @@ They are complementary, not competitive:
 | Purpose | Gas abstraction | Payment protocol |
 | Scope | Single transaction gas | Full payment lifecycle |
 | Callback support | No | Yes (programmable) |
-| Multi-chain | Per-chain setup | Unified flow |
+| EVM-chain support | Per-chain setup | Unified flow |
 
 A combined flow is also possible: users can pay for the service via x402 while gas is sponsored through a Paymaster.
 
@@ -334,9 +321,9 @@ A combined flow is also possible: users can pay for the service via x402 while g
 Yes, through two common paths:
 
 1. **EIP-3009 tokens (such as USDC)**: `receiveWithAuthorization` supports gasless user flow
-2. **Permit2**: users sign a permit and a relayer executes the transaction
+2. **ERC20_APPROVE_XFER**: users may approve token spending and the platform executes the transfer path specified by the order
 
-In both cases, the user signs but does not directly pay gas.
+In EIP-3009 DELEGATE flows, the user signs but does not directly pay gas. Approval-transfer flows may still require an approval transaction depending on token and wallet behavior.
 
 #### Does x402 work with WalletConnect?
 
@@ -344,7 +331,7 @@ Yes. WalletConnect is fully supported:
 
 - the SDK detects WalletConnect providers
 - signature requests are forwarded to the connected mobile wallet
-- the flow works across supported chains
+- the flow works across supported EVM chains
 
 ### Account Abstraction Details
 
@@ -384,11 +371,12 @@ Not directly. x402 uses standard transactions, but it remains compatible:
 
 #### Is there a testnet or sandbox?
 
-Yes. Testnet support includes:
+Yes. Testnet support is environment-specific. Repository seed examples include:
 
-- GOAT testnet (Chain ID: 2345)
-- Polygon Mumbai
-- Arbitrum Sepolia
+- GOAT Testnet3 (Chain ID: `48816`)
+- BSC Testnet (Chain ID: `97`)
+- Sepolia (Chain ID: `11155111`)
+- Tempo Moderato (Chain ID: `42431`) for Machine Payments Protocol (MPP) examples
 
 Use testnet credentials for testing without real funds.
 
@@ -403,9 +391,9 @@ x402 is designed to fit into an existing checkout path as an additional payment 
 
 ## Troubleshooting
 
-#### Why do I get HTTP 402 when creating an order?
+#### Why do I get an insufficient Fee Balance error when creating an order?
 
-In this context, the API returns HTTP 402 when the merchant fee balance is insufficient.
+For programmatic order creation, insufficient Fee Balance is a business error such as HTTP `400`. QuickPay may surface fee-balance unavailability as HTTP `503`. HTTP `402` is the successful x402 Payment Required response for a created order, not the insufficient-fee error.
 
 Example:
 
@@ -417,7 +405,7 @@ Example:
 }
 ```
 
-Top up the merchant fee balance and retry.
+Complete a Fee Top-up for the merchant Fee Balance and retry.
 
 #### The payment was sent, but the order is still `CHECKOUT_VERIFIED`. Why?
 
@@ -464,7 +452,7 @@ The system provides:
 
 - full transaction history through the API
 - CSV export for accounting
-- webhook events for real-time integration
+- `order.invoiced` webhook events for real-time integration
 - merchant-defined order IDs for reconciliation
 
 Tax calculation and reporting remain the merchant’s responsibility.

@@ -16,15 +16,23 @@ That is why GOAT x402 supports two modes:
 - **DIRECT**
 - **DELEGATE**
 
+These modes are **mutually exclusive** and are fixed when the merchant account is registered.
+
 ---
 
 ## What Is DIRECT?
 
 DIRECT mode means:
 
-> **The user pays directly to the merchant address.**
+> **The user pays directly to the merchant receiving address.**
 
 This mode is simpler and better suited for lightweight payment scenarios.
+
+DIRECT supports two usage paths:
+
+- **QuickPay hosted checkout**: no API key required
+- **Programmatic x402**: HMAC API key required
+- **Machine Payments Protocol (MPP) buyer flows**: no merchant API key required for buyer challenge/verify
 
 ### Good Fit For
 
@@ -32,13 +40,17 @@ This mode is simpler and better suited for lightweight payment scenarios.
 - paid content
 - API monetization
 - tips / donations
-- payment flows that do not require complex on-chain execution
+- hosted QuickPay links
+- payment flows that do not require MerchantCallback execution
 
 ### DIRECT Characteristics
 
 - simpler integration path
-- funds go directly to the merchant address
-- usually does not require complex callback execution
+- funds go directly to the merchant receiving address
+- QuickPay does not require an API key
+- programmatic x402 requires HMAC API keys
+- MPP buyer challenge/verify flows do not require merchant API keys; route configuration is managed separately through merchant JWT-authenticated APIs
+- does not use the platform Bob callback caller
 - lower default fixed fee
 
 ### DIRECT Default Fee
@@ -51,22 +63,36 @@ This mode is simpler and better suited for lightweight payment scenarios.
 
 DELEGATE mode means:
 
-> **Payment does not just complete fund transfer — it also supports post-payment on-chain execution logic.**
+> **Programmatic x402 payment can trigger merchant-owned on-chain execution through an approved MerchantCallback contract.**
 
 This mode is better suited for more advanced business flows.
+
+DELEGATE is **programmatic x402 only**. It requires:
+
+- API keys
+
+Callback execution additionally requires:
+
+- a deployed `MerchantCallback` contract
+- the platform Bob caller authorized with `setAuthorizedCaller(bob, true)`
+- the Bob address supplied by the platform operator/admin
+- the callback contract submitted in the Merchant Portal for admin review
+
+In the payment flow, the buyer SDK transfers the ERC-20 payment to the TSS `payToAddress`. If callback calldata is present, the buyer also signs an EIP-712 callback authorization. The platform **Bob** caller submits that callback authorization to the merchant's approved callback contract.
 
 ### Good Fit For
 
 - NFT minting
 - in-game on-chain actions
-- gas top-up flows
+- gas funding flows
 - agent-driven execution
 - scenarios where payment success should immediately trigger callback or contract logic
 
 ### DELEGATE Characteristics
 
 - more powerful payment flow
-- supports callback / execution configuration
+- requires callback / execution configuration
+- callback execution requires Bob caller authorization on the merchant callback contract
 - better for payment + execution scenarios
 - higher default fixed fee
 
@@ -82,8 +108,10 @@ This mode is better suited for more advanced business flows.
 | --- | --- | --- |
 | Core goal | collect payment | collect payment + execute logic |
 | Complexity | low | medium / high |
-| User fund path | more direct | includes more complex system-assisted settlement |
-| Callback / execution | usually not needed | supported |
+| API key requirement | not required for QuickPay or MPP buyer challenge/verify; required for programmatic x402 | required |
+| User fund path | direct to merchant receiving address | ERC-20 payment to TSS `payToAddress` |
+| Callback / execution | not supported | optional through approved MerchantCallback when callback calldata is present |
+| Bob authorization | not used | required when callback calldata is present |
 | Best fit | simple payments | advanced on-chain business flows |
 | Default fee | $0.10 / order | $0.20 / order |
 
@@ -104,10 +132,10 @@ It does **not** use:
 
 - DIRECT: default fixed fee is typically **$0.10 per order**
 - DELEGATE: default fixed fee is typically **$0.20 per order**
-- fees are paid from the merchant’s **fee balance**
-- fee balance is checked when an order is created
+- fees are paid from the merchant’s **Fee Balance**
+- Fee Balance is checked when an order is created
 - if an order completes successfully, the fee is consumed
-- if an order expires or is canceled, the fee is refunded to the fee balance
+- if an order expires or is canceled, the fee is refunded to the Fee Balance
 
 ---
 
@@ -118,13 +146,16 @@ It does **not** use:
 - faster integration
 - a simpler payment flow
 - a payment-only experience without downstream execution
+- QuickPay hosted checkout without API keys
+- optional programmatic x402 or Machine Payments Protocol (MPP) buyer flows
 
 ### Choose DELEGATE if you need:
 
 - post-payment on-chain execution
-- callback / contract execution
+- MerchantCallback / contract execution
 - more advanced merchant workflows
 - a combined payment + business action experience
+- API-key-based programmatic x402 with optional Bob-authorized callback submission
 
 ---
 

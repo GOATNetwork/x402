@@ -29,10 +29,10 @@ Also review:
 Before calling the x402 API, confirm that you already have:
 
 - a Merchant Account
-- merchant receiving capability configured
-- an `API Key` and `API Secret`
+- merchant receiving tokens and addresses configured
+- an `API Key` and `API Secret` for HMAC-authenticated programmatic x402, including DELEGATE
 - test and production environment details confirmed
-- sufficient fee balance funded
+- sufficient Fee Balance funded
 
 ---
 
@@ -41,7 +41,7 @@ Before calling the x402 API, confirm that you already have:
 Use the following environment variable naming consistently:
 
 ```bash
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://x402-api.goat.network
 GOATX402_API_KEY=your_api_key
 GOATX402_API_SECRET=your_api_secret
 GOATX402_MERCHANT_ID=your_merchant_id
@@ -49,7 +49,7 @@ GOATX402_MERCHANT_ID=your_merchant_id
 
 Notes:
 
-- **Production base URL**: `https://api.x402.goat.network`
+- **Production base URL**: `https://x402-api.goat.network`
 - Common local Core / demo URL: `http://localhost:8286`
 - Older docs may mention `GOATX402_BASE_URL`; prefer `GOATX402_API_URL`
 
@@ -63,27 +63,36 @@ Protected endpoints use **HMAC-SHA256** authentication with these required heade
 
 - `X-API-Key`
 - `X-Timestamp`
+- `X-Nonce`
 - `X-Sign`
 
 ### 4.2 Signature algorithm
 
 The signature process is:
 
-1. Take the request body fields and add `api_key` and `timestamp`
+1. Take query arguments and request body fields, then add `api_key`, `timestamp`, and `nonce`
 2. Remove empty values and the `sign` field if present
 3. Sort keys in ASCII order
 4. Build a string like `k1=v1&k2=v2`
 5. Sign with HMAC-SHA256 using the `API Secret`
 6. Hex-encode the result and send it as `X-Sign`
 
-### 4.3 Important security principles
+`X-Nonce` is required and replay-protected. Requests missing it are rejected.
+
+### 4.3 Authentication models
+
+x402 has three distinct authentication models:
+
+- Programmatic `POST /api/v1/orders` and related order APIs use HMAC API keys.
+- Machine Payments Protocol (MPP) route configuration is merchant-portal configuration and uses merchant JWT authentication.
+- Machine Payments Protocol (MPP) buyer endpoints, such as `/mpp/v1/challenge` and `/mpp/v1/verify`, do not use merchant API keys.
+
+### 4.4 Important security principles
 
 - `GOATX402_API_SECRET` must stay on the backend only
 - do not call sensitive merchant APIs directly from the frontend
 - do not commit API credentials to public repositories
 - wallet signing must happen in a user-controlled wallet context
-
-> Note: some older implementation discussions mention `X-Nonce`. The current official API docs and official x402 page use `X-API-Key`, `X-Timestamp`, and `X-Sign` as the canonical required headers.
 
 ---
 
@@ -95,7 +104,7 @@ The standard integration flow is:
 2. Backend calls `POST /api/v1/orders`
 3. Core returns an x402 payment-required response
 4. If `calldataSignRequest` exists, the frontend signs first and the backend submits the signature
-5. Frontend performs the actual token transfer to `payToAddress`
+5. Frontend performs the ERC-20 payment to `payToAddress`; in DELEGATE this is a TSS wallet
 6. Backend polls the order status
 7. After confirmation, backend retrieves the proof
 8. Unused orders should be cancelled while they are still cancellable
@@ -104,40 +113,39 @@ The standard integration flow is:
 
 - **`POST /api/v1/orders` returning HTTP 402 does not mean failure**  
   In the x402 protocol, this is the expected success path for order creation.
-- For all flow types, the user-side payment action is still a transfer to **`payToAddress`**.
+- For DIRECT, `payToAddress` is usually the merchant receiving address. For DELEGATE, `payToAddress` is a TSS wallet; if callback calldata is present, the buyer also signs the returned callback authorization and the backend submits it.
 
 ---
 
 ## 6. Payment modes and flow types
 
-| Mode | Flow Types | User transfer target | Callback support | Typical use |
+| Mode | Flow Types | Payment / execution target | Callback support | Typical use |
 | --- | --- | --- | --- | --- |
-| `DIRECT` | `ERC20_DIRECT`, `SOL_DIRECT` | Merchant address | No | Simple payment gating |
-| `DELEGATE` | `ERC20_3009`, `ERC20_APPROVE_XFER`, `SOL_APPROVE_XFER` | TSS / delegated settlement address | Yes | Advanced settlement and callback workflows |
+| `DIRECT` | `ERC20_DIRECT` | Merchant receiving address | No | QuickPay hosted checkout, simple payment gating, Machine Payments Protocol (MPP) buyer flows |
+| `DELEGATE` | `ERC20_3009`, `ERC20_APPROVE_XFER` | TSS `payToAddress`; optional MerchantCallback via platform Bob caller | Optional | Programmatic x402 with optional callback execution |
 
 Notes:
 
-- `DIRECT`: the user pays directly to the merchant address
-- `DELEGATE`: the user first pays the TSS address, then Core continues the settlement / callback path
+- `DIRECT`: QuickPay hosted checkout does not require an API key; optional programmatic x402 requires HMAC API keys; MPP buyer challenge/verify endpoints do not require merchant API keys; the user pays directly to the merchant receiving address
+- `DELEGATE`: programmatic x402 only; requires API keys and pays a TSS `payToAddress`; callback execution additionally requires an approved `MerchantCallback` contract
+- For DELEGATE callback execution, the merchant must get the platform Bob address from the platform operator/admin, call `setAuthorizedCaller(bob, true)`, and submit the callback contract in the Merchant Portal for admin review
+- In DELEGATE, the buyer SDK transfers the ERC-20 payment to the TSS `payToAddress`; if callback calldata is present, the buyer also signs an EIP-712 callback authorization and the platform Bob caller submits it to the merchant's approved callback
+- DIRECT and DELEGATE are mutually exclusive and fixed at merchant registration
 - If the order response contains `calldataSignRequest`, the frontend must sign first and the backend must submit that signature
 
 ---
 
 ## 7. Supported chains and tokens (docs layer)
 
-The official x402 page currently lists the following support matrix:
+GOAT x402 docs are EVM-only. Supported chains and tokens are DB/config-driven and can vary by merchant configuration.
 
-| Chain | Chain ID | Tokens | Status |
-| --- | --- | --- | --- |
-| GOAT Network | 2345 | USDC, USDT | Live |
-| Ethereum | 1 | USDC, USDT | Live |
-| Polygon | 137 | USDC, USDT | Live |
-| Arbitrum | 42161 | USDC, USDT | Live |
-| BSC | 56 | USDC, USDT | Live |
-| Metis | 1088 | USDT | Live |
-| Solana | — | USDC, USDT | Live |
+Examples from checked-in configuration include:
 
-> Important: the actual supported chains and tokens always depend on each merchant's Core configuration. Do not hardcode support purely from the static table.
+- Mainnet merchant receiving chains: Ethereum `1`, Base `8453`, Arbitrum `42161`, BSC `56`, and Metis `1088`
+- MPP Tempo examples: Tempo `4217` and Tempo Moderato `42431`
+- Repository testnet seed examples: GOAT Testnet3 `48816`, BSC Testnet `97`, and Sepolia `11155111`
+
+Metis is DIRECT-only at the merchant level. Do not hardcode a static chain matrix; read supported chain and token configuration from merchant/Core configuration.
 
 ---
 
@@ -369,7 +377,7 @@ Common order states are:
 
 ### Common business errors
 
-- `insufficient fee balance`
+- `insufficient fee balance` (typically HTTP `400` for programmatic order creation; QuickPay may use HTTP `503`)
 - `invalid signature`
 - `wrong chain / token / amount`
 - `callback failed`
@@ -385,15 +393,18 @@ When using DELEGATE mode and post-payment on-chain execution is required, also p
 
 - `callback_calldata`
 - `calldataSignRequest`
-- callback adapter contract setup
-- callback caller allowlist
+- `MerchantCallback` contract setup
+- platform Bob caller allowlist
 - EIP-712 domain config such as `eip712_name` and `eip712_version`
 
 The official docs and engineering implementation emphasize:
 
 - do not hardcode EIP-712 domain/type on the frontend
 - use the `calldataSignRequest` returned in the order response
-- only allow the authorized x402 Core caller to invoke the callback entrypoint
+- get the Bob caller address from the platform operator/admin
+- call `setAuthorizedCaller(bob, true)` on the merchant callback contract before launch
+- submit the callback contract in the Merchant Portal for admin review
+- only allow the authorized platform Bob caller to invoke the callback entrypoint
 
 ---
 
@@ -402,14 +413,15 @@ The official docs and engineering implementation emphasize:
 Based on the official x402 page and local engineering files, the recommended sequence is:
 
 1. complete Merchant / receiving / fee setup
-2. integrate the server SDK on the backend
-3. integrate wallet + payment SDK on the frontend
-4. create the order
-5. if callback is used, sign and submit the signature first
-6. execute the frontend payment
-7. poll order status on the backend
-8. retrieve proof
-9. cancel stale or abandoned orders in time
+2. for DELEGATE callback execution, deploy `MerchantCallback`, authorize Bob with `setAuthorizedCaller(bob, true)`, and complete admin review
+3. integrate the server SDK on the backend
+4. integrate wallet + payment SDK on the frontend
+5. create the order
+6. execute the ERC-20 payment to `payToAddress`
+7. if callback calldata is used, sign and submit the callback authorization
+8. poll order status on the backend
+9. retrieve proof
+10. cancel stale or abandoned orders in time
 
 ---
 
@@ -434,7 +446,7 @@ Recommended references:
 
 The x402 API is not just “an order creation endpoint.” The real integration path is:
 
-**create order → return Payment Required → user pays `payToAddress` → poll status → retrieve proof → optionally callback / cancel**
+**create order → return Payment Required → user pays `payToAddress` → optionally submit DELEGATE callback authorization → poll status → retrieve proof → optionally callback / cancel**
 
 ---
 

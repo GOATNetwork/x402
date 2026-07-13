@@ -10,7 +10,7 @@
 This guide is for:
 
 - developers who want to start integrating x402 quickly
-- teams that already have a Merchant Account and API credentials
+- teams that already have a Merchant Account and, for programmatic flows, API credentials
 - projects that want to get a minimal payment flow working before expanding further
 
 ---
@@ -20,10 +20,11 @@ This guide is for:
 Before getting started, make sure you already have:
 
 - a created Merchant Account
-- a configured Receiving Address
-- generated API Key and API Secret
+- configured Receiving Tokens & Addresses
+- generated API Key and API Secret if using HMAC-authenticated programmatic x402, including DELEGATE
 - a working test or development environment
-- a chosen payment mode: DIRECT or DELEGATE
+- a chosen payment mode: DIRECT or DELEGATE; modes are mutually exclusive and fixed at merchant registration
+- for DELEGATE callback execution, a deployed `MerchantCallback` contract that authorizes the platform Bob caller with `setAuthorizedCaller(bob, true)` and has been submitted for admin review
 
 If these prerequisites are not ready yet, read:
 
@@ -73,7 +74,7 @@ If your team uses an Agent-assisted integration flow, a provided skills file can
 
 # Step 02 — Configure API Credentials
 
-Configure the following values in your backend project:
+For programmatic integrations, configure the following values in your backend project:
 
 - API URL
 - API Key
@@ -97,7 +98,7 @@ When creating an order, confirm the following:
 - token
 - amount
 - payment mode (DIRECT / DELEGATE)
-- callback / execution configuration (if applicable)
+- callback / execution configuration (if callback calldata is used)
 
 After order creation succeeds, the backend should return:
 
@@ -116,7 +117,7 @@ This step usually includes:
 - launching the payment action
 - wallet signature / user confirmation
 - showing loading / success / error UI
-- handling any callback-related pre-signature if required
+- handling any DELEGATE callback authorization signature if callback calldata is present
 
 ---
 
@@ -156,12 +157,12 @@ Typical proof use cases include:
 Before going live, it is recommended to validate at least the following:
 
 - DIRECT flow works
-- DELEGATE flow works (if applicable)
-- receiving address is correct
+- DELEGATE flow works (if registered and approved)
+- receiving tokens and addresses are correct
 - payment status updates correctly
 - proof can be retrieved
 - error handling behaves as expected
-- fee balance is sufficient for order creation
+- Fee Balance is sufficient for order creation
 
 ---
 
@@ -171,7 +172,7 @@ Before going live, it is recommended to validate at least the following:
 Check first:
 
 - whether the API key / secret is correct
-- whether fee balance is sufficient
+- whether Fee Balance is sufficient
 - whether chain / token / receiving configuration is correct
 
 ### 2. Order status does not update after payment
@@ -184,7 +185,8 @@ Check:
 ### 3. DELEGATE callback does not complete successfully
 Check:
 
-- whether callback configuration is correct
+- whether callback configuration is correct and approved in the Merchant Portal
+- whether the callback contract called `setAuthorizedCaller(bob, true)` with the Bob address supplied by the platform operator/admin
 - whether calldata is valid
 - whether contract state matches expectations
 

@@ -20,7 +20,7 @@ This guide is intended for the following audiences:
 The recommended onboarding flow for GOAT x402 is:
 
 1. **Step 01 — Register Merchant Account**
-2. **Step 02 — Configure Receiving Address**
+2. **Step 02 — Configure Receiving Tokens & Addresses**
 3. **Step 03 — Generate API Credentials**
 4. **Step 04 — Integrate x402 SDK**
 5. **Step 05 — Test & Go Live**
@@ -40,7 +40,7 @@ Create your merchant account and obtain access for the next stages of setup and 
 - Create a Merchant Account
 - Fill in the required basic information
 - Confirm merchant identity details
-- Get access to continue with receiving setup and API integration
+- Get access to continue with Payment Setup and API integration
 
 ## Merchant Registration Link
 
@@ -69,47 +69,54 @@ For a more detailed registration guide, please refer to:
 
 ---
 
-# Step 02 — Configure Receiving Address
+# Step 02 — Configure Receiving Tokens & Addresses
 
 ## Goal
 
-Complete the merchant receiving setup and define how settlement should be received.
+Complete **Payment Setup → Receiving Tokens & Addresses** and define how payments should be received.
 
 ## Why This Step Matters
 
 Before integration and launch, you must clearly define:
 
 - where funds should be received
-- which chain should be used for settlement
-- which token should be used for settlement
+- which EVM chain should be used
+- which token should be accepted
 - whether your payment flow requires more advanced post-payment execution
 
 ## What This Step Usually Includes
 
-### 1. Configure Settlement Chain
-Confirm which chain the merchant wants to receive settlement on.
+### 1. Configure EVM Chain
+Confirm which EVM chain the merchant wants to use.
 
-### 2. Configure Settlement Token
-Confirm which token the merchant wants to receive, such as USDC or USDT.
+### 2. Configure Receiving Token
+Confirm which token the merchant wants to accept, such as USDC or USDT.
 
-### 3. Configure Receiving Address
+### 3. Configure Receiving Tokens & Addresses
 Set and verify the final receiving address.
 
 ### 4. Select Payment Mode
 Choose the payment mode based on your business scenario:
 
-- **DIRECT**: the user pays directly to the merchant address
-- **DELEGATE**: the system participates in settlement and supports more advanced post-payment execution flows
+- **DIRECT**: supports QuickPay hosted checkout with no API key, optional programmatic x402 with HMAC API keys, and Machine Payments Protocol (MPP) buyer flows without merchant API keys; the user pays directly to the merchant receiving address
+- **DELEGATE**: programmatic x402 only; requires API keys and pays a TSS `payToAddress`; callback execution additionally requires an approved `MerchantCallback` contract authorized for the platform Bob caller
+
+DIRECT and DELEGATE are mutually exclusive and fixed at merchant registration.
 
 ### 5. Configure Callback / Execution Logic (if applicable)
-If your flow requires payment-triggered on-chain execution, complete the related callback or execution configuration here.
+If your flow requires DELEGATE payment-triggered on-chain execution:
+
+1. Deploy a `MerchantCallback` contract.
+2. Get the platform Bob address from the platform operator/admin.
+3. Call `setAuthorizedCaller(bob, true)` on the callback contract.
+4. Submit the callback contract in the Merchant Portal for admin review.
 
 ## What You Should Have After This Step
 
-- A confirmed receiving address
-- A confirmed settlement chain and token
+- Confirmed receiving tokens and addresses
+- A confirmed EVM chain and token
 - A confirmed payment mode
-- If applicable, a registered callback / execution configuration
+- If using DELEGATE callback execution, an approved callback / execution configuration with Bob authorization
 
 ---
 
@@ -117,7 +124,7 @@ If your flow requires payment-triggered on-chain execution, complete the related
 
 ## Goal
 
-Generate the API credentials required by your development team to begin integration.
+Generate the API credentials required by your development team for HMAC-authenticated programmatic x402 and all DELEGATE integrations.
 
 ## What This Step Will Complete
 
@@ -128,7 +135,7 @@ Generate the API credentials required by your development team to begin integrat
 
 ## Why This Step Matters
 
-API credentials are the foundation of backend integration. Without valid credentials, you cannot:
+API credentials are the foundation of backend integration. DIRECT QuickPay and MPP buyer challenge/verify flows do not require merchant API keys, but without valid credentials, programmatic integrations cannot:
 
 - create orders
 - query payment status
@@ -238,9 +245,9 @@ It is recommended to verify the following in the test environment:
 
 - merchant configuration is correct
 - API credentials are valid
-- receiving address is correct
+- receiving tokens and addresses are correct
 - DIRECT flow works
-- DELEGATE flow works (if applicable)
+- DELEGATE flow works (if registered); callback execution works if configured and approved
 - payment status updates correctly
 - proof can be retrieved
 - webhook notifications are received correctly (if applicable)
@@ -249,16 +256,17 @@ It is recommended to verify the following in the test environment:
 
 ### Merchant Setup
 - [ ] Merchant account has been created
-- [ ] Receiving address has been confirmed
-- [ ] Settlement chain / token has been confirmed
+- [ ] Receiving tokens and addresses have been confirmed
+- [ ] EVM chain / token has been confirmed
 - [ ] Payment mode has been confirmed
+- [ ] If using DELEGATE callback execution, `MerchantCallback` is deployed, Bob is authorized with `setAuthorizedCaller(bob, true)`, and admin review is complete
 
 ### Technical Integration
 - [ ] API key / secret has been switched to the correct environment
 - [ ] Frontend payment flow has been fully tested
 - [ ] Backend order creation flow has been fully tested
 - [ ] Status query and proof retrieval are working correctly
-- [ ] Callback configuration has been verified (if applicable)
+- [ ] Callback configuration, Bob authorization, and admin approval have been verified (if using DELEGATE callback execution)
 
 ### Documentation and Support
 - [ ] Support email is ready
@@ -267,23 +275,23 @@ It is recommended to verify the following in the test environment:
 - [ ] Contact path is confirmed
 
 ### Launch Preparation
-- [ ] The team has checked the **fee balance** in the Dashboard
-- [ ] If needed, the fee balance has been topped up
+- [ ] The team has checked the **Fee Balance** page
+- [ ] If needed, a Fee Top-up has been completed
 - [ ] Test orders have been successfully completed
 - [ ] Error messaging has been reviewed
 - [ ] The support path is clearly defined
 
 ## Fee Items That Must Be Confirmed Before Launch
 
-Before going live, make sure the merchant’s **fee balance** is sufficient to support order creation.
+Before going live, make sure the merchant’s **Fee Balance** is sufficient to support order creation.
 
-Please check the **Dashboard** before launch to confirm:
+Please check the **Fee Balance** page before launch to confirm:
 
-- the current fee balance is greater than 0
+- the current Fee Balance is greater than 0
 - the balance is sufficient for initial production usage
-- any required top-up has already been completed
+- any required Fee Top-up has already been completed
 
-If the fee balance is insufficient, order creation will fail with an error such as **insufficient fee balance**.
+If the Fee Balance is insufficient, order creation will fail with an error such as **insufficient fee balance**.
 
 ## Direct and Delegate Pricing Model
 
@@ -291,23 +299,26 @@ x402 currently uses a **fixed-fee per order model**, not a percentage-based take
 
 ### DIRECT
 - The default fixed fee is typically **$0.10 per order**
-- Best suited for simple payment flows
-- The user typically pays directly to the merchant address
+- Best suited for QuickPay, simple payment flows, optional programmatic x402, and Machine Payments Protocol (MPP) buyer flows
+- QuickPay hosted checkout does not require API keys
+- Programmatic DIRECT requires HMAC API keys; MPP buyer challenge/verify flows do not
+- The user pays directly to the merchant receiving address
 
 ### DELEGATE
 - The default fixed fee is typically **$0.20 per order**
-- The higher fee reflects additional settlement, payout gas, and execution overhead
-- Best suited for flows that require post-payment on-chain execution
+- The higher fee reflects Bob-submitted callback execution overhead
+- Best suited for programmatic x402 flows that require post-payment on-chain execution
+- Requires API keys and pays a TSS `payToAddress`; callback execution requires an approved `MerchantCallback` and Bob authorization
 
 ### Pricing Logic Summary
 - Pricing is based on a **fixed fee per order**, not a percentage of payment amount
 - **DIRECT typically defaults to $0.10 per order**
 - **DELEGATE typically defaults to $0.20 per order**
 - Fees may vary by chain or configuration, but the default documentation baseline uses these two tiers
-- Fees are deducted from the merchant’s **fee balance**
+- Fees are deducted from the merchant’s **Fee Balance**
 - Fee balance is checked when an order is created
 - If the order completes successfully, the fee is consumed
-- If the order expires or is canceled, the corresponding fee is refunded to the fee balance
+- If the order expires or is canceled, the corresponding fee is refunded to the Fee Balance
 
 ## What You Should Have After This Step
 
@@ -336,7 +347,7 @@ It is recommended to read this guide together with:
 
 The GOAT x402 onboarding path can be summarized as:
 
-**register merchant → configure receiving → generate credentials → integrate SDK → test and go live**
+**register merchant → configure receiving tokens & addresses → generate credentials → integrate SDK → test and go live**
 
 Once all five steps are complete, you have the core requirements needed to launch x402 payment capability.
 

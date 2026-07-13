@@ -117,7 +117,7 @@ Within GOAT Network, x402 is more than a payment button. It acts as a broader:
 
 In the GOAT implementation, x402 helps merchants and developers:
 
-- support multi-chain payments
+- support payments across supported EVM chains
 - integrate through a unified SDK
 - obtain proof after payment completes
 - support callback / execution in more advanced scenarios
@@ -135,8 +135,16 @@ This makes x402 well-suited to serve as:
 
 The current GOAT x402 implementation mainly supports two modes:
 
+DIRECT and DELEGATE are mutually exclusive and fixed at merchant registration.
+
 ### 1. DIRECT
-The user pays directly to the merchant address.
+The user pays directly to the merchant receiving address.
+
+DIRECT supports:
+
+- QuickPay hosted checkout with no API key
+- optional programmatic x402 with HMAC API keys
+- Machine Payments Protocol (MPP) buyer flows without merchant API keys
 
 Suitable for:
 - simple payments
@@ -145,7 +153,7 @@ Suitable for:
 - lightweight checkout scenarios
 
 ### 2. DELEGATE
-Payment is not just about receiving funds. It also supports more advanced settlement and post-payment execution logic.
+DELEGATE is programmatic x402 only. It requires API keys and uses a TSS `payToAddress` as the payment recipient. The buyer SDK transfers the ERC-20 payment to that address. If callback calldata is present, the buyer also signs an EIP-712 callback authorization; that callback path requires a deployed `MerchantCallback`, Bob authorization through `setAuthorizedCaller(bob, true)`, and Merchant Portal admin review.
 
 Suitable for:
 - callback-enabled flows
@@ -211,7 +219,7 @@ In those cases, traditional payment systems may be more direct.
 A typical onboarding path looks like this:
 
 1. Register a Merchant Account
-2. Configure Receiving Address
+2. Configure Receiving Tokens & Addresses
 3. Generate API Credentials
 4. Choose an integration path (GitHub SDK or Agent Integration)
 5. Test and go live
