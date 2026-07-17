@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	receiptspec "github.com/goatnetwork/goatx402-mpp-middleware-go/receiptspec"
+	receiptspec "github.com/goatnetwork/goatflow-mpp-middleware-go/receiptspec"
 )
 
 // fixedClock returns t whenever called. Wraps time.Now for tests.

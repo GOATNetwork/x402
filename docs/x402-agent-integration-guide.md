@@ -119,7 +119,7 @@ Document:
 Use the following environment variable naming consistently:
 
 ```bash
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://flow-api.goat.network
 GOATX402_API_KEY=your_api_key
 GOATX402_API_SECRET=your_api_secret
 GOATX402_MERCHANT_ID=your_merchant_id
@@ -127,7 +127,7 @@ GOATX402_MERCHANT_ID=your_merchant_id
 
 Notes:
 
-- **Production base URL**: `https://api.x402.goat.network`
+- **Production base URL**: `https://flow-api.goat.network`
 - Local Core URL: `http://localhost:8180`; Docker-mapped Core URL: `http://localhost:8286`
 - Local demo app URL: `http://localhost:3000`
 - If older docs mention `GOATX402_BASE_URL`, migrate to `GOATX402_API_URL`
@@ -236,7 +236,7 @@ When the HMAC-protected order API creates a payable order, `HTTP 402 Payment Req
 {
   "x402Version": 2,
   "resource": {
-    "url": "https://api.x402.goat.network/api/v1/orders/<order_id>",
+    "url": "https://flow-api.goat.network/api/v1/orders/<order_id>",
     "description": "Payment: <amount> <token>",
     "mimeType": "application/json"
   },
@@ -287,10 +287,10 @@ QuickPay session creation returns normal `200` JSON with an `x402` object when t
 CLI examples:
 
 ```bash
-npx goatx402-quickpay inspect https://api.x402.goat.network/quickpay/<merchant_id>/agent.md
-npx goatx402-quickpay pay-x402 https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatflow-quickpay inspect https://flow-api.goat.network/quickpay/<merchant_id>/agent.md
+npx goatflow-quickpay pay-x402 https://flow-api.goat.network/quickpay/<merchant_id>/agent.md \
   --amount <amount> --token-contract <token_contract> --chain <chain_id>
-npx goatx402-quickpay pay-product https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatflow-quickpay pay-product https://flow-api.goat.network/quickpay/<merchant_id>/agent.md \
   --product <product_key> --token-contract <token_contract> --chain <chain_id>
 ```
 

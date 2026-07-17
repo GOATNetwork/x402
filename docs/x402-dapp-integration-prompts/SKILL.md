@@ -82,10 +82,10 @@ Then:
 
 Clone `X402_REPO` from the canonical `goat-x402` monorepo into a temporary directory and build:
 
-- `goatx402-sdk`
-- `goatx402-sdk-server-ts` (repository directory; npm package name is `goatx402-sdk-server`)
+- `goatflow-sdk`
+- `goatx402-sdk-server-ts` (repository directory; npm package name is `goatflow-sdk-server`)
 
-Install both packages into the working project from local paths using the package names `goatx402-sdk` and `goatx402-sdk-server`. Verify that each package has a valid `dist` build before continuing.
+Install both packages into the working project from local paths using the package names `goatflow-sdk` and `goatflow-sdk-server`. Verify that each package has a valid `dist` build before continuing.
 
 ### 4. Add Backend x402 Capabilities
 
@@ -156,7 +156,7 @@ Frontend payment flow:
 1. create session
 2. request quote
 3. create order
-4. initiate wallet payment with `goatx402-sdk`
+4. initiate wallet payment with `goatflow-sdk`
 5. poll order status
 6. call reveal after successful confirmation
 

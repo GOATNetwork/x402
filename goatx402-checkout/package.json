@@ -1,7 +1,7 @@
 {
-  "name": "goatx402-checkout",
+  "name": "goatflow-checkout",
   "version": "0.1.0",
-  "description": "GoatX402 drop-in browser SDK for unified DIRECT and DELEGATE hosted checkout",
+  "description": "GOAT Flow drop-in browser SDK for unified DIRECT and DELEGATE hosted checkout",
   "type": "module",
   "engines": {
     "node": ">=18"
@@ -44,6 +44,7 @@
     "vitest": "^1.6.0"
   },
   "keywords": [
+    "goatflow",
     "goatx402",
     "quickpay",
     "checkout",

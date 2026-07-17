@@ -1,25 +1,25 @@
-# goatx402-sdk
+# goatflow-sdk
 
-Frontend TypeScript SDK for **GoatX402** payment integration, built on
+Frontend TypeScript SDK for **GOAT Flow** payment integration, built on
 [ethers v6](https://docs.ethers.org/v6/). It handles the wallet side of a
 payment: ERC20 operations, EIP-712 signing, payment execution, and the MPP
 (Machine Payments Protocol) buyer flow.
 
 > **This SDK does NOT handle API authentication.** Order creation requires an
 > API key/secret that must never reach the browser — use
-> [`goatx402-sdk-server`](https://github.com/GOATNetwork/x402/tree/main/goatx402-sdk-server-ts)
+> [`goatflow-sdk-server`](https://github.com/GOATNetwork/x402/tree/main/goatx402-sdk-server-ts)
 > on your backend to create orders, then hand the order to this SDK for payment.
 
 ## Install
 
 ```bash
-npm install goatx402-sdk
+npm install goatflow-sdk
 ```
 
 ## Quick start
 
 ```typescript
-import { PaymentHelper } from 'goatx402-sdk'
+import { PaymentHelper } from 'goatflow-sdk'
 import { ethers } from 'ethers'
 
 // Connect wallet
@@ -27,7 +27,7 @@ const provider = new ethers.BrowserProvider(window.ethereum)
 const signer = await provider.getSigner()
 const payment = new PaymentHelper(signer)
 
-// Get an order from YOUR backend (created there with goatx402-sdk-server)
+// Get an order from YOUR backend (created there with goatflow-sdk-server)
 const order = await fetch('/api/orders', {
   method: 'POST',
   body: JSON.stringify({ /* ... */ }),
@@ -43,7 +43,7 @@ if (result.success) {
 ## MPP (Machine Payments Protocol)
 
 ```typescript
-import { MPPClient } from 'goatx402-sdk'
+import { MPPClient } from 'goatflow-sdk'
 
 const mpp = new MPPClient({ coreUrl: 'https://core.example.com', signer })
 const result = await mpp.pay({

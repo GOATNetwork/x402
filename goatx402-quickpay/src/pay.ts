@@ -12,7 +12,7 @@ export interface PaymentBackend {
   transferErc20(p: { chainId: number; tokenContract: string; to: string; amountWei: string }): Promise<string>
 }
 
-/** MppBackend abstracts the MPP challenge→pay→verify flow (default: goatx402-sdk MPPClient). */
+/** MppBackend abstracts the MPP challenge→pay→verify flow (default: goatflow-sdk MPPClient). */
 export interface MppBackend {
   pay(p: { coreUrl: string; merchantId: string; routeCanonical: string; chainId: number }): Promise<{
     txHash: string
@@ -733,7 +733,7 @@ export async function payMpp(o: PayMppOptions): Promise<PayMppResult> {
   // on-chain tx hash AND the receipt artifact the merchant middleware verifies.
   // Returning ok:true unconditionally would tell an agent the payment succeeded
   // even when nothing was broadcast (no hash) or the authorization proof is
-  // missing (no receipt) — e.g. if the optional goatx402-sdk shape drifts.
+  // missing (no receipt) — e.g. if the optional goatflow-sdk shape drifts.
   const txHash = typeof r.txHash === 'string' ? r.txHash.trim() : ''
   // Require the SIGNED Payment-Receipt HEADER specifically — that is the artifact the
   // merchant middleware verifies. A decoded `receipt` BODY alone is NOT sufficient

@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import type { ChainInfo, TokenInfo } from '../hooks/useConfig'
-import { encodeDemoCallbackCalldata } from '../hooks/useGoatX402'
+import { encodeDemoCallbackCalldata } from '../hooks/useGoatFlow'
 
 interface PaymentFormProps {
   chains: ChainInfo[]

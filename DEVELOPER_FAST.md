@@ -1,4 +1,4 @@
-# GOAT Network x402 Developer Guide (Concise)
+# GOAT Flow Developer Guide (Concise)
 
 ## 1. Goal
 A minimal integration guide for merchants, covering:
@@ -12,8 +12,8 @@ A minimal integration guide for merchants, covering:
 ---
 
 ## 2. Integration Boundaries
-- Frontend (`goatx402-sdk`): wallet signing and token transfer only (EVM).
-- Backend (TS package `goatx402-sdk-server` / Go module `github.com/goatnetwork/goatx402-sdk-server`): call GoatX402 Core APIs (HMAC authenticated).
+- Frontend (`goatflow-sdk`): wallet signing and token transfer only (EVM).
+- Backend (TS package `goatflow-sdk-server` / Go module `github.com/goatnetwork/goatflow-sdk-server`): call GOAT Flow Core APIs (HMAC authenticated).
 - Core: auth verification, order creation, fee charge, on-chain payment watching, state transition, proof issuance.
 
 **Security baseline:** `API_KEY` / `API_SECRET` must only exist on backend, never in frontend.
@@ -24,7 +24,7 @@ A minimal integration guide for merchants, covering:
 Use this naming convention:
 
 ```bash
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://flow-api.goat.network
 GOATX402_API_KEY=your_api_key
 GOATX402_API_SECRET=your_api_secret
 GOATX402_MERCHANT_ID=your_merchant_id
@@ -36,17 +36,17 @@ Note: `GOATX402_BASE_URL` in old docs has the same meaning as `GOATX402_API_URL`
 
 ## 3.1 Recommended Browser Path: Hosted Checkout
 
-Use `goatx402-checkout` when the platform-hosted page should own wallet connection
+Use `goatflow-checkout` when the platform-hosted page should own wallet connection
 and payment UX:
 
 ```bash
-pnpm install goatx402-checkout
+pnpm install goatflow-checkout
 ```
 
 A fixed DIRECT QuickPay product can open without a merchant backend:
 
 ```ts
-import { GoatCheckout } from 'goatx402-checkout'
+import { GoatCheckout } from 'goatflow-checkout'
 
 const goat = GoatCheckout({ origin: 'https://pay.goat.network' })
 goat.open({ merchant: 'merchant_123', productKey: 'mug' })
@@ -89,17 +89,17 @@ trusted backend status check. Full guide: `docs/x402-checkout.md`.
 
 ---
 
-## 5. Frontend SDK (`goatx402-sdk`)
+## 5. Frontend SDK (`goatflow-sdk`)
 Install:
 
 ```bash
-pnpm install goatx402-sdk ethers
+pnpm install goatflow-sdk ethers
 ```
 
 Example:
 
 ```ts
-import { PaymentHelper } from 'goatx402-sdk'
+import { PaymentHelper } from 'goatflow-sdk'
 import { ethers } from 'ethers'
 
 const provider = new ethers.BrowserProvider(window.ethereum)
@@ -123,7 +123,7 @@ if (!result.success) {
 ```
 
 Notes:
-- `goatx402-sdk` depends on `ethers` and is an EVM SDK.
+- `goatflow-sdk` depends on `ethers` and is an EVM SDK.
 
 ---
 
@@ -131,15 +131,15 @@ Notes:
 Install:
 
 ```bash
-pnpm install goatx402-sdk-server
+pnpm install goatflow-sdk-server
 ```
 
 Initialize:
 
 ```ts
-import { GoatX402Client } from 'goatx402-sdk-server'
+import { GoatFlowClient } from 'goatflow-sdk-server'
 
-const client = new GoatX402Client({
+const client = new GoatFlowClient({
   baseUrl: process.env.GOATX402_API_URL!,
   apiKey: process.env.GOATX402_API_KEY!,
   apiSecret: process.env.GOATX402_API_SECRET!,
@@ -184,7 +184,7 @@ await client.cancelOrder(order.orderId) // only cancellable in CHECKOUT_VERIFIED
 Install:
 
 ```bash
-go get github.com/goatnetwork/goatx402-sdk-server
+go get github.com/goatnetwork/goatflow-sdk-server
 ```
 
 Example:
@@ -237,9 +237,9 @@ PRIVATE_KEY=<OWNER_KEY> forge script script/DeployMerchantCallback.s.sol:DeployM
   --broadcast
 ```
 
-Merchant setup by GoatX402:
+Merchant setup by GOAT Flow:
 
-Send the following fields to GoatX402 for merchant setup:
+Send the following fields to GOAT Flow for merchant setup:
 - `merchant_id`
 - `chain_id`
 - `spent_address`
@@ -249,7 +249,7 @@ Send the following fields to GoatX402 for merchant setup:
 Notes:
 - The deploy script reads the deployer key from the `PRIVATE_KEY` environment variable.
 - `eip712_name` and `eip712_version` are required in callback signature flow.
-- Add GoatX402 authorized caller (`x402d`) to callback contract allowlist.
+- Add GOAT Flow authorized caller (`x402d`) to callback contract allowlist.
 
 ---
 

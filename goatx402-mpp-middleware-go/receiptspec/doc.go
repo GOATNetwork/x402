@@ -1,11 +1,11 @@
 // Package receiptspec defines the canonical on-wire format, deterministic
-// identifier derivation, and signature primitives for the GoatX402 MPP
+// identifier derivation, and signature primitives for the GOAT Flow MPP
 // (Merchant Payment Protocol) Payment-Receipt.
 //
 // # Vendoring note (Round-17 codex P2)
 //
 // This package is a BYTE-FOR-BYTE MIRROR of the standalone
-// github.com/goatnetwork/goatx402-mpp-receipt-spec module. The mirror
+// github.com/goatnetwork/goatflow-mpp-receipt-spec module. The mirror
 // exists because go.mod `replace` directives are not honoured for
 // downstream consumers; without the in-module copy the public
 // middleware library would not be `go get`-able outside the monorepo.

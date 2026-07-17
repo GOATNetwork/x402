@@ -1,5 +1,5 @@
 /**
- * GoatX402 Server SDK Client
+ * GOAT Flow Server SDK Client
  *
  * This client handles API authentication securely on the backend.
  * Never expose API credentials to the frontend!
@@ -7,7 +7,7 @@
 
 import { signRequest } from './signature.js'
 import type {
-  GoatX402Config,
+  GoatFlowConfig,
   CreateOrderParams,
   CreateCheckoutSessionParams,
   CheckoutSession,
@@ -17,19 +17,19 @@ import type {
   OrderProof,
   OrderProofResponse,
   MerchantInfo,
-  GoatX402Error,
+  GoatFlowError,
   PaymentFlow,
   OrderStatus,
   X402PaymentRequired,
 } from './types.js'
 import { fromCAIP2 } from './types.js'
 
-export class GoatX402Client {
+export class GoatFlowClient {
   private baseUrl: string
   private apiKey: string
   private apiSecret: string
 
-  constructor(config: GoatX402Config) {
+  constructor(config: GoatFlowConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, '') // Remove trailing slash
     this.apiKey = config.apiKey
     this.apiSecret = config.apiSecret
@@ -168,7 +168,7 @@ export class GoatX402Client {
   }
 
   /**
-   * @deprecated Use {@link GoatX402Client.createCheckoutSession} with
+   * @deprecated Use {@link GoatFlowClient.createCheckoutSession} with
    * `checkoutType: 'DELEGATE'`. Thin wrapper kept for one version; it forwards to
    * the unified endpoint, wrapping the single `tokenContract` into
    * `acceptableTokens: [tokenContract]` and mapping `amountWei → fixedAmountWei`.
@@ -379,8 +379,8 @@ export class GoatX402Client {
         (Object.keys(data).length > 0 ? JSON.stringify(data) : null) ||
         responseText ||
         `HTTP ${response.status}`
-      const error = new Error(errorMessage) as GoatX402Error
-      error.name = 'GoatX402Error'
+      const error = new Error(errorMessage) as GoatFlowError
+      error.name = 'GoatFlowError'
       error.code = data.code as string | undefined
       error.status = response.status
       ;(error as unknown as Record<string, unknown>).responseBody = responseText
@@ -406,8 +406,8 @@ export class GoatX402Client {
     const data = (await response.json().catch(() => ({}))) as Record<string, unknown>
 
     if (!response.ok) {
-      const error = new Error((data.error as string) || `HTTP ${response.status}`) as GoatX402Error
-      error.name = 'GoatX402Error'
+      const error = new Error((data.error as string) || `HTTP ${response.status}`) as GoatFlowError
+      error.name = 'GoatFlowError'
       error.code = data.code as string | undefined
       error.status = response.status
       throw error

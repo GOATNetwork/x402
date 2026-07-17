@@ -1,4 +1,4 @@
-package goatx402
+package goatflow
 
 import (
 	"bytes"
@@ -12,13 +12,13 @@ import (
 	"time"
 )
 
-// Client is the GoatX402 API client for server-side usage
+// Client is the GOAT Flow API client for server-side usage
 type Client struct {
 	config     Config
 	httpClient *http.Client
 }
 
-// NewClient creates a new GoatX402 client
+// NewClient creates a new GOAT Flow client
 func NewClient(config Config) *Client {
 	// Remove trailing slash from base URL
 	config.BaseURL = strings.TrimSuffix(config.BaseURL, "/")
@@ -110,9 +110,9 @@ func (c *Client) parseX402ToOrder(x402 *X402PaymentRequired, params CreateOrderP
 	}
 
 	// Extract data from extensions
-	if x402.Extensions.GoatX402 != nil {
-		order.PayToChainID = FromCAIP2(x402.Extensions.GoatX402.DestinationChain)
-		order.ExpiresAt = x402.Extensions.GoatX402.ExpiresAt
+	if x402.Extensions.GoatFlow != nil {
+		order.PayToChainID = FromCAIP2(x402.Extensions.GoatFlow.DestinationChain)
+		order.ExpiresAt = x402.Extensions.GoatFlow.ExpiresAt
 	}
 
 	// Extract calldata sign request if present

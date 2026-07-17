@@ -1,4 +1,4 @@
-package goatx402
+package goatflow
 
 import (
 	"encoding/base64"
@@ -10,7 +10,7 @@ import (
 
 // Config holds the SDK configuration
 type Config struct {
-	// BaseURL is the GoatX402 API base URL
+	// BaseURL is the GOAT Flow API base URL
 	BaseURL string
 	// APIKey is the merchant API key
 	APIKey string
@@ -159,7 +159,7 @@ type X402PaymentOption struct {
 	Extra             map[string]any `json:"extra,omitempty"`
 }
 
-// X402GoatExtension contains GoatX402-specific extension data
+// X402GoatExtension contains GOAT Flow-specific extension data
 type X402GoatExtension struct {
 	DestinationChain  string `json:"destinationChain"`            // CAIP-2 format
 	ExpiresAt         int64  `json:"expiresAt"`                   // Unix timestamp
@@ -176,7 +176,7 @@ type X402PaymentRequired struct {
 	Resource    X402Resource        `json:"resource"`
 	Accepts     []X402PaymentOption `json:"accepts"`
 	Extensions  struct {
-		GoatX402 *X402GoatExtension `json:"goatx402,omitempty"`
+		GoatFlow *X402GoatExtension `json:"goatx402,omitempty"`
 	} `json:"extensions,omitempty"`
 
 	// Backward compatibility fields
@@ -207,15 +207,15 @@ func (x *X402PaymentRequired) GetSourceChainID() int {
 
 // GetDestinationChainID extracts the destination chain ID from extensions
 func (x *X402PaymentRequired) GetDestinationChainID() int {
-	if x.Extensions.GoatX402 == nil {
+	if x.Extensions.GoatFlow == nil {
 		return 0
 	}
-	return FromCAIP2(x.Extensions.GoatX402.DestinationChain)
+	return FromCAIP2(x.Extensions.GoatFlow.DestinationChain)
 }
 
 // Order represents a payment order (normalized from x402 response)
 type Order struct {
-	// OrderID is the GoatX402 order ID
+	// OrderID is the GOAT Flow order ID
 	OrderID string `json:"order_id"`
 	// Flow is the payment flow type
 	Flow string `json:"flow"`

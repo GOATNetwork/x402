@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 - Unreleased
+
+- Renamed the package `goatx402-sdk-server` to `goatflow-sdk-server` for the
+  GOAT Flow rebrand.
+- Renamed the exported `GoatX402Client`, `GoatX402Config`, and `GoatX402Error`
+  APIs to `GoatFlowClient`, `GoatFlowConfig`, and `GoatFlowError`. Consumers
+  must update imports and class references.
+
 ## 0.2.1 - 2026-07-12
 
 - Make clean package builds reproducible and exclude sources and maps.

@@ -1,7 +1,7 @@
-# GOAT x402 Onboarding Guide
+# GOAT Flow Onboarding Guide
 
 > An onboarding guide for Merchants, Builders, and Operations / PM teams.  
-> This document walks you through the full process of getting started with GOAT x402, from merchant registration and receiving setup to API credentials, SDK integration, testing, and launch.
+> This document walks you through the full process of getting started with GOAT Flow, from merchant registration and receiving setup to API credentials, SDK integration, testing, and launch.
 
 ---
 
@@ -17,7 +17,7 @@ This guide is intended for the following audiences:
 
 ## Overall Onboarding Flow
 
-The recommended onboarding flow for GOAT x402 is:
+The recommended onboarding flow for GOAT Flow is:
 
 1. **Step 01 — Register Merchant Account**
 2. **Step 02 — Configure Receiving Address**
@@ -51,7 +51,7 @@ Create your merchant account and obtain access for the next stages of setup and 
 
 For a more detailed registration guide, please refer to:
 
-- [GOAT x402 Merchant Guide (English)](./merchant-guide.md)
+- [GOAT Flow Merchant Guide (English)](./merchant-guide.md)
 
 ## Information You Should Prepare in Advance
 
@@ -157,7 +157,7 @@ It is recommended that your development team store credentials in environment va
 - API Secret
 - Clear guidance on test vs production environments
 
-Production API integrations should use `https://api.x402.goat.network`.
+Production API integrations should use `https://flow-api.goat.network`.
 
 ---
 
@@ -205,13 +205,13 @@ This approach is suitable for teams that:
 In this mode, the merchant's QuickPay **agent guide** is the concrete agent-readable file:
 
 ```text
-https://api.x402.goat.network/quickpay/<merchant_id>/agent.md
+https://flow-api.goat.network/quickpay/<merchant_id>/agent.md
 ```
 
 The same merchant also exposes a machine-readable manifest:
 
 ```text
-https://api.x402.goat.network/quickpay/<merchant_id>/manifest.json
+https://flow-api.goat.network/quickpay/<merchant_id>/manifest.json
 ```
 
 The QuickPay `agent.md` helps the Agent understand:
@@ -219,7 +219,7 @@ The QuickPay `agent.md` helps the Agent understand:
 - which public endpoints are safe to call
 - which tokens and chains are offered
 - how to create and poll QuickPay x402 sessions
-- how to pay custom amounts with `goatx402-quickpay`
+- how to pay custom amounts with `goatflow-quickpay`
 - which predefined Products are available through `product_key`, when configured
 
 This approach is better suited for teams that want a more standardized, AI-assisted, or workflow-driven integration process.
@@ -357,7 +357,7 @@ It is recommended to read this guide together with:
 
 # One-Line Summary
 
-The GOAT x402 onboarding path can be summarized as:
+The GOAT Flow onboarding path can be summarized as:
 
 **register merchant → configure receiving → generate credentials → integrate SDK → test and go live**
 

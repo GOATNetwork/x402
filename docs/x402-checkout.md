@@ -1,10 +1,10 @@
-# GOAT x402 Hosted Checkout
+# GOAT Flow Hosted Checkout
 
 Hosted Checkout is the recommended browser integration when a merchant does not
 want to build wallet connection, payment UI, session polling, and settlement UX
 inside its own application.
 
-The browser package is `goatx402-checkout`. It opens a platform-hosted, top-level
+The browser package is `goatflow-checkout`. It opens a platform-hosted, top-level
 checkout page; the server packages create authenticated Checkout Sessions.
 
 ## Choose the right path
@@ -15,7 +15,7 @@ checkout page; the server packages create authenticated Checkout Sessions.
 | Dynamic DIRECT cart/amount | Unified Checkout Session + `open({ checkoutId })` | Yes |
 | DELEGATE checkout | Unified Checkout Session + `open({ checkoutId })` | Yes |
 | Donation or buyer-entered amount | `openCustom({ merchant, amount })` | No, but server-side reconciliation is required |
-| Fully custom wallet/order UI | `goatx402-sdk` + `goatx402-sdk-server` | Yes |
+| Fully custom wallet/order UI | `goatflow-sdk` + `goatflow-sdk-server` | Yes |
 
 Do not use `openCustom` for automatic fulfillment. Its amount originates in the
 browser and is not a merchant-authoritative price.
@@ -23,10 +23,10 @@ browser and is not a merchant-authoritative price.
 ## Install
 
 ```bash
-npm install goatx402-checkout
+npm install goatflow-checkout
 
 # Backend, when creating Checkout Sessions:
-npm install goatx402-sdk-server
+npm install goatflow-sdk-server
 ```
 
 The checkout package is framework-free. It can also be delivered as
@@ -39,7 +39,7 @@ The merchant first configures a QuickPay product. The merchant page passes only 
 merchant ID and product key:
 
 ```ts
-import { GoatCheckout } from 'goatx402-checkout'
+import { GoatCheckout } from 'goatflow-checkout'
 
 const goat = GoatCheckout({ origin: 'https://pay.goat.network' })
 
@@ -82,9 +82,9 @@ request body.
 ### TypeScript: dynamic DIRECT checkout
 
 ```ts
-import { GoatX402Client } from 'goatx402-sdk-server'
+import { GoatFlowClient } from 'goatflow-sdk-server'
 
-const client = new GoatX402Client({
+const client = new GoatFlowClient({
   baseUrl: process.env.GOATX402_API_URL!,
   apiKey: process.env.GOATX402_API_KEY!,
   apiSecret: process.env.GOATX402_API_SECRET!,
@@ -172,7 +172,7 @@ For DELEGATE cross-chain price mode, set `CheckoutType: "DELEGATE"` and
 Return the opaque `checkoutId` to the browser; never return the API secret.
 
 ```ts
-import { GoatCheckout } from 'goatx402-checkout'
+import { GoatCheckout } from 'goatflow-checkout'
 
 const goat = GoatCheckout({ origin: 'https://pay.goat.network' })
 

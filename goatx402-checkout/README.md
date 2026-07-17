@@ -1,6 +1,6 @@
-# goatx402-checkout
+# goatflow-checkout
 
-Framework-free browser SDK for GoatX402 hosted checkout. It opens the
+Framework-free browser SDK for GOAT Flow hosted checkout. It opens the
 platform-controlled payment page in a top-level popup, tab, or full-page redirect;
 wallet connection and payment happen there, not in the merchant page.
 
@@ -10,7 +10,7 @@ DIRECT/DELEGATE flow and server SDK examples.
 ## Install
 
 ```bash
-npm install goatx402-checkout
+npm install goatflow-checkout
 ```
 
 The package also builds a browser IIFE for script-tag delivery:
@@ -25,7 +25,7 @@ A QuickPay-enabled DIRECT merchant can open a server-priced product without a
 merchant backend. The browser carries the product key, never the amount.
 
 ```ts
-import { GoatCheckout } from 'goatx402-checkout'
+import { GoatCheckout } from 'goatflow-checkout'
 
 const goat = GoatCheckout({ origin: 'https://pay.goat.network' })
 
@@ -54,7 +54,7 @@ the popup or tab.
 ## Unified Checkout Session
 
 Dynamic DIRECT checkout and all DELEGATE checkout start on the merchant backend.
-Create a server-authoritative session with `goatx402-sdk-server`, return only the
+Create a server-authoritative session with `goatflow-sdk-server`, return only the
 opaque `checkoutId` to the browser, then open it with this package:
 
 ```ts

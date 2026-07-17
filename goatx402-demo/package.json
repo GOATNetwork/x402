@@ -1,5 +1,5 @@
 {
-  "name": "goatx402-demo",
+  "name": "goatflow-demo",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,9 +17,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "goatx402-sdk": "link:../goatx402-sdk",
-    "goatx402-checkout": "link:../goatx402-checkout",
-    "goatx402-sdk-server": "link:../goatx402-sdk-server-ts",
+    "goatflow-sdk": "link:../goatx402-sdk",
+    "goatflow-checkout": "link:../goatx402-checkout",
+    "goatflow-sdk-server": "link:../goatx402-sdk-server-ts",
     "@goatnetwork/mpp-middleware": "link:../goatx402-mpp-middleware-ts",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

@@ -1,8 +1,8 @@
-# GOAT Network x402 FAQ
+# GOAT Flow FAQ
 
 ## Overview
 
-This document summarizes common questions about GOAT Network x402, including architecture, security, user experience, settlement, decentralization, wallet compatibility, and developer integration.
+This document summarizes common questions about GOAT Flow, including architecture, security, user experience, settlement, decentralization, wallet compatibility, and developer integration.
 
 ---
 
@@ -212,7 +212,7 @@ The system matches exact amounts:
 
 #### How much does x402 charge merchants?
 
-GOAT x402 uses a **fixed fee model charged per order**, not a percentage-based fee. Fees are configured by mode and chain. In general, **DIRECT mode carries a lower fixed fee**, while **DELEGATE mode carries a higher fixed fee** because it includes additional settlement, payout gas, and execution overhead. Merchant fees are deducted from a **pre-funded USD fee balance** when orders are created.
+GOAT Flow uses a **fixed fee model charged per order**, not a percentage-based fee. Fees are configured by mode and chain. In general, **DIRECT mode carries a lower fixed fee**, while **DELEGATE mode carries a higher fixed fee** because it includes additional settlement, payout gas, and execution overhead. Merchant fees are deducted from a **pre-funded USD fee balance** when orders are created.
 
 #### Who pays gas fees?
 
@@ -428,13 +428,13 @@ Use QuickPay when the merchant has enabled it. Agents can discover the merchant'
 - `POST /quickpay/v1/x402/sessions`
 - `GET /quickpay/v1/x402/sessions/:session_id`
 
-The `goatx402-quickpay` CLI supports `inspect`,
+The `goatflow-quickpay` CLI supports `inspect`,
 `pay-x402 --amount --token-contract --chain`,
 `pay-product --product --token-contract --chain`, and `pay-mpp --route`.
 
 #### What is the fastest browser checkout integration?
 
-Use `goatx402-checkout`. A QuickPay-enabled DIRECT merchant can open a fixed,
+Use `goatflow-checkout`. A QuickPay-enabled DIRECT merchant can open a fixed,
 server-priced product with `open({ merchant, productKey })` and no merchant
 backend. Dynamic DIRECT checkout and all DELEGATE checkout use the server SDK's
 `createCheckoutSession(...)`, then pass the opaque `checkoutId` to

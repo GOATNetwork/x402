@@ -1,30 +1,30 @@
-# goatx402-quickpay
+# goatflow-quickpay
 
-Public payer/agent library and CLI for **GoatX402 QuickPay**. It is generic,
+Public payer/agent library and CLI for **GOAT Flow QuickPay**. It is generic,
 stateless, and manifest-driven: it does not know any specific merchant — the
 merchant identity comes entirely from the link a merchant shares.
 
 ```bash
 # show available commands
-npx goatx402-quickpay --help
+npx goatflow-quickpay --help
 
 # inspect a merchant's payment capabilities (machine-readable JSON)
-npx goatx402-quickpay inspect https://pay.goat.network/quickpay/acme/agent.md --json
+npx goatflow-quickpay inspect https://pay.goat.network/quickpay/acme/agent.md --json
 
 # Provide the payer key WITHOUT writing the secret into a command (shell history and
 # agent transcripts leak it): set QUICKPAY_PRIVATE_KEY in your environment out-of-band
 # (e.g. from a secret manager), or pass --wallet-file <path> (a chmod 600 key file).
 
 # pay a custom amount via x402
-npx goatx402-quickpay pay-x402 https://pay.goat.network/quickpay/acme/agent.md \
+npx goatflow-quickpay pay-x402 https://pay.goat.network/quickpay/acme/agent.md \
   --amount 12.50 --token-contract 0xToken --chain 4217
 
 # buy a fixed-price product (the merchant prices it; you only pick the token + chain)
-npx goatx402-quickpay pay-product https://pay.goat.network/quickpay/acme/agent.md \
+npx goatflow-quickpay pay-product https://pay.goat.network/quickpay/acme/agent.md \
   --product mug --token-contract 0xToken --chain 4217
 
 # pay a fixed MPP route
-npx goatx402-quickpay pay-mpp https://pay.goat.network/quickpay/acme/agent.md \
+npx goatflow-quickpay pay-mpp https://pay.goat.network/quickpay/acme/agent.md \
   --route GET:api:data
 ```
 
@@ -37,7 +37,7 @@ server can never charge more than the manifest-advertised price.
 Library usage:
 
 ```ts
-import { QuickPayClient } from 'goatx402-quickpay'
+import { QuickPayClient } from 'goatflow-quickpay'
 
 const client = new QuickPayClient('https://pay.goat.network/quickpay/acme/agent.md')
 const manifest = await client.loadManifest()
@@ -92,7 +92,7 @@ Share only links on a host you trust (e.g. `pay.goat.network`).
   The on-chain step is behind an injectable backend so the orchestration is unit
   tested without a chain.
 - `backend-ethers.ts` — real ERC20 transfer for `pay-x402` (ethers v6).
-- `backend-mpp-sdk.ts` — `pay-mpp` delegates to `goatx402-sdk`'s `MPPClient`
+- `backend-mpp-sdk.ts` — `pay-mpp` delegates to `goatflow-sdk`'s `MPPClient`
   (an **optional** dependency loaded at runtime).
 
 > The live on-chain flows (the actual ERC20 transfer / MPP settlement) require a

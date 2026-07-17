@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 - Unreleased
+
+- Renamed the package and CLI `goatx402-quickpay` to `goatflow-quickpay` for
+  the GOAT Flow rebrand. The executable is now `npx goatflow-quickpay`, and the
+  optional MPP dependency is `goatflow-sdk ^0.2.0`.
+- Until the first `goatflow-sdk` release is eligible under the supply-chain
+  policy, a temporary workspace link keeps frozen installs reproducible. The
+  link must be removed and the lockfile refreshed before this package is
+  tagged or published.
+
 ## 0.2.3 - 2026-07-12
 
 - Fix `-h` being swallowed as a preceding flag's value (e.g. `inspect <url>

@@ -1,6 +1,6 @@
-# GOAT x402 Merchant Onboarding Guide
+# GOAT Flow Merchant Onboarding Guide
 
-> This guide walks merchants through registering, configuring, and operating a GOAT x402 payment integration.
+> This guide walks merchants through registering, configuring, and operating a GOAT Flow payment integration.
 
 ---
 
@@ -25,7 +25,7 @@
 
 ## 1. Overview
 
-The GOAT x402 Merchant Portal is your management dashboard for:
+The GOAT Flow Merchant Portal is your management dashboard for:
 
 - Registering and managing your merchant identity
 - Configuring receiving addresses, callback contracts, and supported chains/tokens
@@ -36,7 +36,7 @@ The GOAT x402 Merchant Portal is your management dashboard for:
 **Access URLs:**
 
 - Merchant Portal: `https://x402-merchant.goat.network`
-- Production API: `https://api.x402.goat.network`
+- Production API: `https://flow-api.goat.network`
 
 ---
 
@@ -137,7 +137,7 @@ After submission, the system displays a pending-approval state. Self-registratio
 
 ### 4.1 Admin Approval
 
-After registration, a GOAT x402 administrator reviews the application. Approval enables the merchant; rejection records a reason for the applicant.
+After registration, a GOAT Flow administrator reviews the application. Approval enables the merchant; rejection records a reason for the applicant.
 
 ### 4.2 Login
 
@@ -188,7 +188,7 @@ Store recovery codes securely. They are meant for account recovery if the authen
 
 ### 4.6 Lost Password or Authenticator
 
-If you lose your password or 2FA authenticator and cannot recover with a one-time recovery code, contact the GoatX402 platform team to request a reset. A platform administrator can issue a one-time temporary password (which forces a password change on your next login) or reset your 2FA. This is an admin-assisted operation; the administrator procedure lives in the operator runbook (`ONBOARDING.md`).
+If you lose your password or 2FA authenticator and cannot recover with a one-time recovery code, contact the GOAT Flow platform team to request a reset. A platform administrator can issue a one-time temporary password (which forces a password change on your next login) or reset your 2FA. This is an admin-assisted operation; the administrator procedure lives in the operator runbook (`ONBOARDING.md`).
 
 ---
 
@@ -257,7 +257,7 @@ Merchant self-service endpoints:
 | Cancel pending submission | `DELETE /merchant/v1/callback-contracts/submissions/:submission_id` | Path parameter |
 | Remove active contract | `DELETE /merchant/v1/callback-contracts/:chain_id` | Path parameter; blocked while in-flight orders exist on that chain |
 
-After you submit a callback contract it enters review and becomes active only after a platform administrator approves it. Contact the GoatX402 team to request review. (The administrator review procedure lives in the operator runbook, `ONBOARDING.md`.)
+After you submit a callback contract it enters review and becomes active only after a platform administrator approves it. Contact the GOAT Flow team to request review. (The administrator review procedure lives in the operator runbook, `ONBOARDING.md`.)
 
 The callback contract must be on the same chain as the DELEGATE merchant's receiving addresses. Metis and Tempo are DIRECT-only in the matrix above.
 
@@ -309,7 +309,7 @@ After clicking **Rotate API Keys**, the system generates a new API Key and API S
 Use API keys only from your backend:
 
 ```bash
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://flow-api.goat.network
 GOATX402_API_KEY=your_API_Key
 GOATX402_API_SECRET=your_API_Secret
 ```
@@ -449,7 +449,7 @@ DELEGATE merchants cannot publish QuickPay sessions.
 
 ### 12.1 Configure QuickPay
 
-QuickPay must first be enabled for your merchant account by a platform administrator — contact the GoatX402 team to enable it. Once enabled, you manage the configuration yourself:
+QuickPay must first be enabled for your merchant account by a platform administrator — contact the GOAT Flow team to enable it. Once enabled, you manage the configuration yourself:
 
 | Action | API path | Notes |
 | --- | --- | --- |
@@ -502,17 +502,17 @@ For custom amounts, `POST /quickpay/v1/x402/sessions` accepts `merchant_id`, `pa
 For product sessions, send `product_key` with `merchant_id`, `payer_addr`, `chain_id`, `token_contract`, and optional `idempotency_key`.
 
 Browser merchants can open these fixed-price products with
-`goatx402-checkout` and no merchant secret in the page. Dynamic DIRECT carts and
+`goatflow-checkout` and no merchant secret in the page. Dynamic DIRECT carts and
 all DELEGATE hosted checkout use an HMAC-created Checkout Session instead; see
 [Hosted Checkout](x402-checkout.md).
 
 Agent/CLI entry points:
 
 ```bash
-npx goatx402-quickpay inspect https://api.x402.goat.network/quickpay/<merchant_id>/agent.md
-npx goatx402-quickpay pay-x402 https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatflow-quickpay inspect https://flow-api.goat.network/quickpay/<merchant_id>/agent.md
+npx goatflow-quickpay pay-x402 https://flow-api.goat.network/quickpay/<merchant_id>/agent.md \
   --amount <amount> --token-contract <token_contract> --chain <chain_id>
-npx goatx402-quickpay pay-product https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatflow-quickpay pay-product https://flow-api.goat.network/quickpay/<merchant_id>/agent.md \
   --product <product_key> --token-contract <token_contract> --chain <chain_id>
 ```
 
@@ -617,10 +617,10 @@ Complete the following steps to start accepting payments:
 
 ```bash
 # Install SDKs
-npm install goatx402-sdk goatx402-sdk-server
+npm install goatflow-sdk goatflow-sdk-server
 
 # Backend configuration
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://flow-api.goat.network
 GOATX402_API_KEY=your_API_Key
 GOATX402_API_SECRET=your_API_Secret
 ```

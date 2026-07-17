@@ -1,6 +1,6 @@
-# GOAT x402 API Reference
+# GOAT Flow API Reference
 
-> A practical API overview and implementation reference for developers integrating GOAT x402.  
+> A practical API overview and implementation reference for developers integrating GOAT Flow.
 > This document is intended to explain the core endpoints, authentication model, order lifecycle, and integration boundaries. For field-level details, use it together with the official repository and SDK sources.
 
 ---
@@ -41,7 +41,7 @@ Before calling the x402 API, confirm that you already have:
 Use the following environment variable naming consistently:
 
 ```bash
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://flow-api.goat.network
 GOATX402_API_KEY=your_api_key
 GOATX402_API_SECRET=your_api_secret
 GOATX402_MERCHANT_ID=your_merchant_id
@@ -49,7 +49,7 @@ GOATX402_MERCHANT_ID=your_merchant_id
 
 Notes:
 
-- **Production base URL**: `https://api.x402.goat.network`
+- **Production base URL**: `https://flow-api.goat.network`
 - Common local Core URL: `http://localhost:8180`
 - Docker-mapped Core URL: `http://localhost:8286`
 - Demo app URL: `http://localhost:3000`
@@ -189,7 +189,7 @@ QuickPay public endpoints:
 
 QuickPay client package:
 
-- npm package / CLI: `goatx402-quickpay`
+- npm package / CLI: `goatflow-quickpay`
 - CLI commands: `inspect`, `pay-x402`, `pay-product`, `pay-mpp`
 - library exports include `QuickPayClient`, `inspect`, `payX402`, `payProduct`,
   `payMpp`, `loadManifest`, and `EthersPaymentBackend`
@@ -261,7 +261,7 @@ Content-Type: application/json
 {
   "x402Version": 2,
   "resource": {
-    "url": "https://api.x402.goat.network/api/v1/orders/{order_id}",
+    "url": "https://flow-api.goat.network/api/v1/orders/{order_id}",
     "description": "Payment: 10000000 USDC",
     "mimeType": "application/json"
   },

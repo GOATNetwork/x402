@@ -81,7 +81,7 @@ export function defaultBrowserEnv(): BrowserEnv {
         return Array.from(buf, (b: number) => b.toString(16).padStart(2, '0')).join('')
       }
       // No secure RNG: refuse rather than emit a guessable channel nonce.
-      throw new Error('goatx402-checkout: a secure crypto RNG is required (window.crypto.getRandomValues)')
+      throw new Error('goatflow-checkout: a secure crypto RNG is required (window.crypto.getRandomValues)')
     },
   }
 }

@@ -131,9 +131,9 @@ This makes x402 well-suited to serve as:
 
 ---
 
-## The Two Main GOAT x402 Modes
+## The Two Main GOAT Flow Modes
 
-The current GOAT x402 implementation mainly supports two modes:
+The current GOAT Flow implementation mainly supports two modes:
 
 ### 1. DIRECT
 The user pays directly to the merchant address.
@@ -231,7 +231,7 @@ Recommended companion documents:
 - **Merchant Guide**
 - **Developer Quick Start**
 - **DIRECT vs DELEGATE**
-- **QuickPay agent surface:** `GET /quickpay/:merchant_id/agent.md`, `GET /quickpay/:merchant_id/manifest.json`, and the `goatx402-quickpay` CLI
+- **QuickPay agent surface:** `GET /quickpay/:merchant_id/agent.md`, `GET /quickpay/:merchant_id/manifest.json`, and the `goatflow-quickpay` CLI
 - **x402 FAQ**
 
 ---

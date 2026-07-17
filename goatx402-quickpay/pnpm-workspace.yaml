@@ -1,3 +1,16 @@
+# TEMPORARY (GOAT Flow rebrand bootstrap): resolve the optional goatflow-sdk
+# dependency to the sibling monorepo package until goatflow-sdk is published
+# to npm, so `pnpm install --frozen-lockfile` stays reproducible. Not part of
+# the published package (`files: ["dist"]`). Remove after the first
+# goatflow-sdk release and refresh pnpm-lock.yaml to a registry resolution;
+# follow RELEASING.md's "First GOAT Flow release bootstrap" section.
+packages:
+  - .
+  - ../goatx402-sdk
+
+linkWorkspacePackages: true
+sharedWorkspaceLockfile: false
+
 allowBuilds:
   esbuild: true
 onlyBuiltDependencies:

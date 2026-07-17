@@ -1,6 +1,6 @@
 # DIRECT vs DELEGATE
 
-> A guide to the two payment modes currently supported by GOAT x402.
+> A guide to the two payment modes currently supported by GOAT Flow.
 
 ---
 
@@ -11,7 +11,7 @@ Different business scenarios require different kinds of payment flows.
 Some scenarios only need to **collect payment**.
 Others require the system to **continue executing on-chain logic after payment succeeds**.
 
-That is why GOAT x402 supports two modes:
+That is why GOAT Flow supports two modes:
 
 - **DIRECT**
 - **DELEGATE**
@@ -127,7 +127,7 @@ live TSS/token configuration and are not implied by this static matrix.
 
 ## Pricing Model
 
-GOAT x402 currently uses:
+GOAT Flow currently uses:
 
 > **a fixed fee per order**
 

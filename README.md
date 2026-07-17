@@ -1,13 +1,15 @@
-# GOAT Network x402
+# GOAT Flow (`goat-x402`)
 
-This repository is a reference integration project for **x402** in GOAT Network.
+This repository is the public integration reference for **GOAT Flow**, GOAT
+Network's x402 payment platform.
 
 ## What x402 Is Used For
 
 x402 is a payment standard for crypto-native applications.  
 It allows an app or API to request token payment in a structured way, so users can complete payment from their wallet and the service can verify settlement.
 
-In short, GOAT Network x402 is used to make blockchain payments a standard part of application access, checkout, and service flows.
+In short, GOAT Flow makes blockchain payments a standard part of application
+access, checkout, and service flows.
 
 ## What This Project Provides
 
@@ -23,10 +25,10 @@ This project demonstrates how to integrate x402 in practice, including:
 
 | Need | Start here |
 | --- | --- |
-| Hosted browser checkout | [`docs/x402-checkout.md`](docs/x402-checkout.md) and `goatx402-checkout` |
-| Custom wallet/order UI | `goatx402-sdk` + `goatx402-sdk-server-ts` or `goatx402-sdk-server-go` |
-| Agent or CLI payment | `goatx402-quickpay` |
-| Verify MPP receipts in an API | `goatx402-mpp-middleware-ts` or `goatx402-mpp-middleware-go` |
+| Hosted browser checkout | [`docs/x402-checkout.md`](docs/x402-checkout.md) and `goatflow-checkout` |
+| Custom wallet/order UI | `goatflow-sdk` + `goatflow-sdk-server` (TypeScript or Go) |
+| Agent or CLI payment | `goatflow-quickpay` |
+| Verify MPP receipts in an API | `@goatnetwork/mpp-middleware` or `github.com/goatnetwork/goatflow-mpp-middleware-go` |
 | Callback contracts | `goatx402-contract` |
 
 Hosted Checkout has two server-authoritative forms under one Checkout Sessions
@@ -36,21 +38,23 @@ DIRECT QuickPay products can also be opened without a merchant backend.
 
 ## Public Modules
 
-| Module | Purpose |
-| --- | --- |
-| `goatx402-checkout` | Framework-free popup/tab/redirect browser SDK |
-| `goatx402-sdk` | Low-level EVM wallet payment and MPP client primitives |
-| `goatx402-sdk-server-ts` | HMAC-authenticated TypeScript server SDK |
-| `goatx402-sdk-server-go` | HMAC-authenticated Go server SDK |
-| `goatx402-quickpay` | Manifest-driven payer/agent library and CLI |
-| `goatx402-mpp-middleware-ts` | Express/Fastify MPP receipt verification |
-| `goatx402-mpp-middleware-go` | Go HTTP MPP receipt verification |
-| `goatx402-contract` | MerchantCallback, TopupCallback, and test tokens |
-| `goatx402-demo` | Hosted Checkout plus advanced Classic/MPP examples |
+| Package / module | Source | Purpose |
+| --- | --- | --- |
+| `goatflow-checkout` | [`goatx402-checkout`](goatx402-checkout) | Framework-free popup/tab/redirect browser SDK |
+| `goatflow-sdk` | [`goatx402-sdk`](goatx402-sdk) | Low-level EVM wallet payment and MPP client primitives |
+| `goatflow-sdk-server` | [`goatx402-sdk-server-ts`](goatx402-sdk-server-ts) | HMAC-authenticated TypeScript server SDK |
+| `github.com/goatnetwork/goatflow-sdk-server` | [`goatx402-sdk-server-go`](goatx402-sdk-server-go) | HMAC-authenticated Go server SDK |
+| `goatflow-quickpay` | [`goatx402-quickpay`](goatx402-quickpay) | Manifest-driven payer/agent library and CLI |
+| `@goatnetwork/mpp-middleware` | [`goatx402-mpp-middleware-ts`](goatx402-mpp-middleware-ts) | Express/Fastify MPP receipt verification |
+| `github.com/goatnetwork/goatflow-mpp-middleware-go` | [`goatx402-mpp-middleware-go`](goatx402-mpp-middleware-go) | Go HTTP MPP receipt verification |
+| Contracts | [`goatx402-contract`](goatx402-contract) | MerchantCallback, TopupCallback, and test tokens |
+| Demo | [`goatx402-demo`](goatx402-demo) | Hosted Checkout plus advanced Classic/MPP examples |
 
 ## Chain Support
 
-GOAT x402 supports configured **EVM mainnet** chains. Each merchant still needs per-chain token, fee, receiving-address, and callback-contract configuration before taking payments on a chain.
+GOAT Flow supports configured **EVM mainnet** chains. Each merchant still needs
+per-chain token, fee, receiving-address, and callback-contract configuration
+before taking payments on a chain.
 
 | Chain | Chain ID | DIRECT | DELEGATE |
 | --- | ---: | --- | --- |
@@ -83,13 +87,13 @@ Quick references:
 - `docs/x402-checkout.md` - hosted Checkout Sessions and browser SDK.
 - `docs/README.md` - structured public docs index, including QuickPay, Checkout, MPP, and agent integration paths.
 
-Production API base URL: `https://api.x402.goat.network`.
+Production API base URL: `https://flow-api.goat.network`.
 
 ## License
 
 No license has been declared for this repository as a whole. Unless and until
 one is added, all rights are reserved by the project owners (GOAT Network);
 contact them before any external use or redistribution. Exception: the four
-published npm packages — `goatx402-sdk/`, `goatx402-sdk-server-ts/`,
-`goatx402-quickpay/`, and `goatx402-checkout/` — are each MIT-licensed (see the
-`LICENSE` file inside each package directory).
+npm packages — `goatflow-sdk`, `goatflow-sdk-server`,
+`goatflow-quickpay`, and `goatflow-checkout` — are each MIT-licensed (see the
+`LICENSE` file inside their source directories).

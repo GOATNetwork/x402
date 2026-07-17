@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { createHmac } from 'node:crypto'
-import { GoatX402Client } from '../src/client.js'
+import { GoatFlowClient } from '../src/client.js'
 
 const API_KEY = 'test-key'
 const API_SECRET = 'test-secret'
@@ -34,7 +34,7 @@ function mockFetch(responseBody: unknown) {
 }
 
 function client() {
-  return new GoatX402Client({ baseUrl: BASE_URL, apiKey: API_KEY, apiSecret: API_SECRET })
+  return new GoatFlowClient({ baseUrl: BASE_URL, apiKey: API_KEY, apiSecret: API_SECRET })
 }
 
 // Every signed param must be a top-level scalar (the HMAC scheme cannot sign nested

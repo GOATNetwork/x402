@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.2.1 - 2026-07-12
+## goatflow-sdk 0.2.1 - Unreleased
+
+- Renamed the package `goatx402-sdk` to `goatflow-sdk` for the GOAT Flow
+  rebrand. This is the first release under the new npm package name; the old
+  package is superseded.
+
+## goatx402-sdk 0.2.1 - 2026-07-12
 
 - Verify approvals actually take effect instead of trusting the receipt alone.
   A non-compliant ERC20 that signals a rejected `approve` by returning `false`

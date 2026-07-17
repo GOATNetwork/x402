@@ -1,10 +1,10 @@
 **Overview**
-This document summarizes the GoatX402 Core APIs invoked by `goatx402-sdk-server`, in a Swagger-like format. It focuses on request/response shapes, auth requirements, and how each SDK method maps to Core endpoints.
+This document summarizes the GOAT Flow Core APIs invoked by `goatflow-sdk-server`, in a Swagger-like format. It focuses on request/response shapes, auth requirements, and how each SDK method maps to Core endpoints.
 
 **Base Url**
-Production: `https://api.x402.goat.network`.
+Production: `https://flow-api.goat.network`.
 
-SDKs accept `{baseUrl}` in `GoatX402Client`; paths below are appended to it.
+SDKs accept `{baseUrl}` in `GoatFlowClient`; paths below are appended to it.
 
 **Auth (HMAC-SHA256)**
 Protected endpoints require these headers:
@@ -72,16 +72,16 @@ Common HTTP statuses:
 - `cannot cancel order in status <status>, only CHECKOUT_VERIFIED orders can be cancelled`
 
 **Endpoint Summary (SDK Mapping)**
-| SDK Method (`goatx402-sdk-server`) | Core Endpoint | Auth |
+| SDK Method (`goatflow-sdk-server`) | Core Endpoint | Auth |
 | --- | --- | --- |
-| `GoatX402Client.createOrder` | `POST /api/v1/orders` | Yes |
-| `GoatX402Client.createOrderRaw` | `POST /api/v1/orders` | Yes |
-| `GoatX402Client.createCheckoutSession` | `POST /api/v1/checkout/sessions` | Yes |
-| `GoatX402Client.getOrderStatus` | `GET /api/v1/orders/{order_id}` | Yes |
-| `GoatX402Client.getOrderProof` | `GET /api/v1/orders/{order_id}/proof` | Yes |
-| `GoatX402Client.submitCalldataSignature` | `POST /api/v1/orders/{order_id}/calldata-signature` | Yes |
-| `GoatX402Client.cancelOrder` | `POST /api/v1/orders/{order_id}/cancel` | Yes |
-| `GoatX402Client.getMerchant` | `GET /merchants/{merchant_id}` | No |
+| `GoatFlowClient.createOrder` | `POST /api/v1/orders` | Yes |
+| `GoatFlowClient.createOrderRaw` | `POST /api/v1/orders` | Yes |
+| `GoatFlowClient.createCheckoutSession` | `POST /api/v1/checkout/sessions` | Yes |
+| `GoatFlowClient.getOrderStatus` | `GET /api/v1/orders/{order_id}` | Yes |
+| `GoatFlowClient.getOrderProof` | `GET /api/v1/orders/{order_id}/proof` | Yes |
+| `GoatFlowClient.submitCalldataSignature` | `POST /api/v1/orders/{order_id}/calldata-signature` | Yes |
+| `GoatFlowClient.cancelOrder` | `POST /api/v1/orders/{order_id}/cancel` | Yes |
+| `GoatFlowClient.getMerchant` | `GET /merchants/{merchant_id}` | No |
 
 **POST /api/v1/orders**
 | Item | Value |

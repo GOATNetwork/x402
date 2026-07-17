@@ -1,15 +1,15 @@
 /**
- * GoatX402 Server SDK
+ * GOAT Flow Server SDK
  *
- * TypeScript SDK for server-side GoatX402 payment integration.
+ * TypeScript SDK for server-side GOAT Flow payment integration.
  * This SDK handles API authentication securely - never expose credentials to the frontend!
  *
  * @example
  * ```typescript
- * import { GoatX402Client } from 'goatx402-sdk-server'
+ * import { GoatFlowClient } from 'goatflow-sdk-server'
  *
- * const client = new GoatX402Client({
- *   baseUrl: 'https://api.goatx402.io',
+ * const client = new GoatFlowClient({
+ *   baseUrl: 'https://flow-api.goat.network',
  *   apiKey: process.env.GOATX402_API_KEY!,
  *   apiSecret: process.env.GOATX402_API_SECRET!,
  * })
@@ -29,14 +29,14 @@
  * ```
  */
 
-export { GoatX402Client } from './client.js'
+export { GoatFlowClient } from './client.js'
 export { calculateSignature, signRequest } from './signature.js'
 
 // x402 helper functions
 export { toCAIP2, fromCAIP2, parseX402Header } from './types.js'
 
 export type {
-  GoatX402Config,
+  GoatFlowConfig,
   CreateOrderParams,
   CreateCheckoutSessionParams,
   CheckoutSession,
@@ -52,7 +52,7 @@ export type {
   CalldataSignRequest,
   EIP712Domain,
   EIP712Type,
-  GoatX402Error,
+  GoatFlowError,
   // x402 types
   X402PaymentRequired,
   X402PaymentOption,

@@ -1,13 +1,48 @@
 # Releasing the npm packages
 
-This repo publishes four npm packages: `goatx402-sdk` (from `goatx402-sdk/`),
-`goatx402-sdk-server` (from `goatx402-sdk-server-ts/`),
-`goatx402-quickpay` (from `goatx402-quickpay/`), and `goatx402-checkout`
-(from `goatx402-checkout/`). The automated publish workflow was removed for
-security reasons (unrestricted trigger, unpinned actions); until a hardened
-workflow replaces it, releases follow this manual runbook. Every step is
-required — ad-hoc publishes drifting from git is the root cause this process
-exists to prevent.
+This repo publishes four npm packages: `goatflow-sdk` (from `goatx402-sdk/`),
+`goatflow-sdk-server` (from `goatx402-sdk-server-ts/`),
+`goatflow-quickpay` (from `goatx402-quickpay/`), and `goatflow-checkout`
+(from `goatx402-checkout/`). They are the GOAT Flow-branded successors of the
+corresponding `goatx402-*` packages and begin as fresh npm package names. The
+automated publish workflow was removed for security reasons (unrestricted
+trigger, unpinned actions); until a hardened workflow replaces it, releases
+follow this manual runbook. Every step is required — ad-hoc publishes drifting
+from git is the root cause this process exists to prevent.
+
+## First GOAT Flow release bootstrap
+
+`goatflow-quickpay` declares `goatflow-sdk ^0.2.0` as an optional dependency.
+Until `goatflow-sdk` exists on npm and satisfies pnpm's `minimumReleaseAge`,
+`goatx402-quickpay/pnpm-workspace.yaml` temporarily links the sibling
+`goatx402-sdk/` directory and the lockfile records
+`goatflow-sdk: link:../goatx402-sdk`. This keeps the preparation branch's
+frozen install reproducible, but it is not a valid final release state for
+QuickPay because it tests against local source rather than the registry.
+
+The first branded release therefore uses two separate release cycles:
+
+1. **Cycle A — `goatflow-sdk@0.2.1` only.** Merge its complete release state,
+   run all gates from a clean checkout of the merge commit, tag, publish, and
+   complete the registry smoke test.
+2. **Lockfile-refresh PR.** Wait until `goatflow-sdk@0.2.1` satisfies
+   `minimumReleaseAge` (currently 24 hours). Keep the persistent
+   `allowBuilds`/`onlyBuiltDependencies` policy in
+   `goatx402-quickpay/pnpm-workspace.yaml`, but remove the temporary `packages`,
+   `linkWorkspacePackages`, and `sharedWorkspaceLockfile` entries and their
+   bootstrap comment. Run `pnpm update goatflow-sdk --lockfile-only` from
+   `goatx402-quickpay/`, verify `package.json` still contains the intended
+   `^0.2.0` range, assert `! grep -q 'link:' pnpm-lock.yaml`, and pass frozen
+   install plus every QuickPay gate. Merge this as a separate PR.
+3. **Cycle B — `goatflow-quickpay@0.3.0`,
+   `goatflow-sdk-server@0.3.0`, and `goatflow-checkout@0.1.0`.** Validate and
+   release these packages from the post-refresh `main` merge commit. The
+   QuickPay tag and publish must never use the temporary workspace-link state.
+
+Deprecating an old `goatx402-*` npm package is a separate, explicit release
+action. Do it only after all corresponding `goatflow-*` packages have passed
+post-publish verification and the user has authorized the deprecation message
+and scope.
 
 ## Publish repository — GOATNetwork/x402
 
@@ -128,10 +163,10 @@ Read the remote tag back with `git ls-remote --tags` and confirm its peeled
 
 Preserve this relative order for whichever packages are in the release:
 
-1. `goatx402-sdk`
-2. `goatx402-quickpay`
-3. `goatx402-sdk-server`
-4. `goatx402-checkout`
+1. `goatflow-sdk`
+2. `goatflow-quickpay`
+3. `goatflow-sdk-server`
+4. `goatflow-checkout`
 
 QuickPay advertises the SDK 0.2.x line as an optional dependency, so the SDK
 must be visible on npm before QuickPay is published. From each package's
@@ -182,19 +217,21 @@ Import every released package from Node ESM and require non-empty exports. Run
 QuickPay's installed CLI, including:
 
 ```bash
-npx --no-install goatx402-quickpay --help
+npx --no-install goatflow-quickpay --help
 ```
 
-Run Checkout's installed browser IIFE as well. When QuickPay and the SDK are
-released together, use `npm ls goatx402-quickpay goatx402-sdk --depth=1` to
-confirm QuickPay actually resolves the intended SDK version.
+Run Checkout's installed browser IIFE as well. For Cycle B, use
+`npm ls goatflow-quickpay goatflow-sdk --depth=1` to confirm QuickPay actually
+resolves the intended published SDK version.
 
 ### 9. Refresh QuickPay's SDK lock resolution
 
 After publishing an SDK version accepted by QuickPay's optional dependency
-range, refresh `goatx402-quickpay/pnpm-lock.yaml` so it resolves that version.
-This is a separate post-release repository change and must pass the normal PR
-flow.
+range, refresh `goatx402-quickpay/pnpm-lock.yaml` so it resolves that registry
+version. This is a separate post-release repository change and must pass the
+normal PR flow. For the first GOAT Flow release, follow the bootstrap procedure
+above and retain the persistent workspace build policy while removing only the
+temporary sibling-package link.
 
 The active pnpm supply-chain policy may reject a package until it satisfies
 `minimumReleaseAge` (currently a 24-hour window). This is expected:

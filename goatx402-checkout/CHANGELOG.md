@@ -1,6 +1,11 @@
 # Changelog
 
-## 0.1.0 - 2026-07-12
+## goatflow-checkout 0.1.0 - Unreleased
+
+- Renamed the package `goatx402-checkout` to `goatflow-checkout` for the GOAT
+  Flow rebrand. This is the first release under the new npm package name.
+
+## goatx402-checkout 0.1.0 - 2026-07-12
 
 - Add the framework-free hosted Checkout SDK for popup, tab, and redirect flows.
 - Support fixed DIRECT QuickPay products and unified DIRECT/DELEGATE Checkout

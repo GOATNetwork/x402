@@ -1,12 +1,12 @@
 /**
- * GoatX402 Server SDK Type Definitions
+ * GOAT Flow Server SDK Type Definitions
  */
 
 // ============================================================================
 // Configuration Types
 // ============================================================================
 
-export interface GoatX402Config {
+export interface GoatFlowConfig {
   /** API base URL */
   baseUrl: string
   /** Merchant API Key */
@@ -42,7 +42,7 @@ export interface CreateOrderParams {
 }
 
 export interface Order {
-  /** Order ID from GoatX402 */
+  /** Order ID from GOAT Flow */
   orderId: string
   /** Payment flow type */
   flow: PaymentFlow
@@ -80,7 +80,7 @@ export type OrderStatus =
 
 /**
  * Parameters for creating a server-authoritative unified hosted-checkout session
- * via {@link GoatX402Client.createCheckoutSession}. One subsystem covers both
+ * via {@link GoatFlowClient.createCheckoutSession}. One subsystem covers both
  * DIRECT and DELEGATE merchants — the buyer picks ONLY a token on the hosted page;
  * the amount is always pinned server-side (never from the browser).
  *
@@ -152,7 +152,7 @@ export interface CheckoutSession {
 /**
  * @deprecated Use {@link CreateCheckoutSessionParams} with `checkoutType: 'DELEGATE'`.
  *
- * Parameters for the deprecated {@link GoatX402Client.createDelegateCheckoutSession}
+ * Parameters for the deprecated {@link GoatFlowClient.createDelegateCheckoutSession}
  * wrapper, kept for one version. It now forwards to the unified
  * `POST /api/v1/checkout/sessions` endpoint. The single `tokenContract` is wrapped
  * into `acceptableTokens: [tokenContract]` (unless `acceptableTokens` is given
@@ -285,13 +285,13 @@ export interface MerchantToken {
 // Error Types
 // ============================================================================
 
-export class GoatX402Error extends Error {
+export class GoatFlowError extends Error {
   code?: string
   status?: number
 
   constructor(message: string, code?: string, status?: number) {
     super(message)
-    this.name = 'GoatX402Error'
+    this.name = 'GoatFlowError'
     this.code = code
     this.status = status
   }
@@ -335,7 +335,7 @@ export interface X402PaymentOption {
   }
 }
 
-/** GoatX402-specific extension in x402 response */
+/** GOAT Flow-specific extension in x402 response */
 export interface X402GoatExtension {
   /** Destination chain in CAIP-2 format */
   destinationChain: string
