@@ -7,6 +7,8 @@
 - Renamed the exported `GoatX402Client`, `GoatX402Config`, and `GoatX402Error`
   APIs to `GoatFlowClient`, `GoatFlowConfig`, and `GoatFlowError`. Consumers
   must update imports and class references.
+- Export `GoatFlowError` as a runtime class and throw real instances from API
+  failures, preserving `code`, `status`, and authenticated response-body details.
 
 ## 0.2.1 - 2026-07-12
 

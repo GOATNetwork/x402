@@ -149,8 +149,13 @@ wrapper; new integrations should use `createCheckoutSession`.
 
 ### Go
 
+The Go server SDK is source-only. First [clone this repository and configure a
+local `replace`](../goatx402-sdk-server-go/README.md).
+
 ```go
-session, err := client.CreateCheckoutSession(ctx, goatx402.CreateCheckoutSessionParams{
+import goatflow "github.com/goatnetwork/goatflow-sdk-server"
+
+session, err := client.CreateCheckoutSession(ctx, goatflow.CreateCheckoutSessionParams{
     CheckoutType:     "DIRECT",
     Price:            "19.95",
     ClientReferenceID: "cart_9f31",

@@ -1,9 +1,10 @@
 module github.com/goatnetwork/goatflow-mpp-middleware-go
 
+// Source-only module: this path is not published as a standalone repository.
+// Consumers must clone GOATNetwork/x402 and use a local replace directive; see README.md.
+
 go 1.22
 
-// Round-17 codex P2: this module is self-contained and standard-
-// library-only so downstream merchants can `go get` it without a
-// local `replace` directive. The receiptspec subpackage is a vendored
-// mirror of github.com/goatnetwork/goatflow-mpp-receipt-spec — see
-// receiptspec/doc.go for the drift-prevention contract.
+// The module is self-contained and standard-library-only. The receiptspec
+// subpackage carries the stable receipt contract used by the middleware; see
+// receiptspec/doc.go for its drift-prevention rules.

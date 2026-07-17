@@ -58,6 +58,10 @@ res.json(order)
 Helpers: `calculateSignature` / `signRequest` (request signing),
 `toCAIP2` / `fromCAIP2` / `parseX402Header` (x402 header and chain-id utilities).
 
+API failures throw the runtime-exported `GoatFlowError` class. Its `code` and
+`status` fields carry structured server details when available; authenticated
+request failures also retain the raw `responseBody` for diagnostics.
+
 ## Requirements
 
 Node.js >= 18.

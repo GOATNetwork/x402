@@ -31,8 +31,8 @@
 //
 // # Module Boundary
 //
-// This module depends ONLY on the Go standard library and the
-// receipt-spec module. It deliberately does NOT import any
+// This module depends ONLY on the Go standard library and its bundled
+// receiptspec package. It deliberately does NOT import any
 // goatx402-core internal package — merchant servers must be able to
 // vendor this middleware without pulling in platform-internal
 // dependencies.

@@ -20,24 +20,31 @@ Until `goatflow-sdk` exists on npm and satisfies pnpm's `minimumReleaseAge`,
 frozen install reproducible, but it is not a valid final release state for
 QuickPay because it tests against local source rather than the registry.
 
-The first branded release therefore uses two separate release cycles:
+The first branded release therefore uses two separate release cycles. Do not
+merge the broad branding/docs PR before Cycle A: doing so would advertise fresh
+package names before they exist on npm.
 
-1. **Cycle A — `goatflow-sdk@0.2.1` only.** Merge its complete release state,
-   run all gates from a clean checkout of the merge commit, tag, publish, and
-   complete the registry smoke test.
-2. **Lockfile-refresh PR.** Wait until `goatflow-sdk@0.2.1` satisfies
-   `minimumReleaseAge` (currently 24 hours). Keep the persistent
-   `allowBuilds`/`onlyBuiltDependencies` policy in
+1. **Cycle A — `goatflow-sdk@0.2.1` only.** Prepare a separate SDK-only release
+   PR from current `main`, including the SDK's complete branded release state.
+   Merge it, run all gates from a clean checkout of the merge commit, tag,
+   publish, and complete the registry smoke test.
+2. **Refresh QuickPay on the still-unmerged broad branding branch.** Wait until
+   `goatflow-sdk@0.2.1` satisfies `minimumReleaseAge` (currently 24 hours). Keep
+   the persistent `allowBuilds`/`onlyBuiltDependencies` policy in
    `goatx402-quickpay/pnpm-workspace.yaml`, but remove the temporary `packages`,
    `linkWorkspacePackages`, and `sharedWorkspaceLockfile` entries and their
    bootstrap comment. Run `pnpm update goatflow-sdk --lockfile-only` from
    `goatx402-quickpay/`, verify `package.json` still contains the intended
    `^0.2.0` range, assert `! grep -q 'link:' pnpm-lock.yaml`, and pass frozen
-   install plus every QuickPay gate. Merge this as a separate PR.
+   install plus every QuickPay gate. Update the branch on the Cycle A `main`
+   before its final review.
 3. **Cycle B — `goatflow-quickpay@0.3.0`,
-   `goatflow-sdk-server@0.3.0`, and `goatflow-checkout@0.1.0`.** Validate and
-   release these packages from the post-refresh `main` merge commit. The
-   QuickPay tag and publish must never use the temporary workspace-link state.
+   `goatflow-sdk-server@0.3.0`, and `goatflow-checkout@0.1.0`.** Stamp their
+   changelogs only after the registry-backed QuickPay lockfile passes. Merge the
+   broad branding/docs PR only when all three packages are release-ready, then
+   immediately validate and release them from that exact `main` merge commit.
+   The QuickPay tag and publish must never use the temporary workspace-link
+   state.
 
 Deprecating an old `goatx402-*` npm package is a separate, explicit release
 action. Do it only after all corresponding `goatflow-*` packages have passed
@@ -228,10 +235,11 @@ resolves the intended published SDK version.
 
 After publishing an SDK version accepted by QuickPay's optional dependency
 range, refresh `goatx402-quickpay/pnpm-lock.yaml` so it resolves that registry
-version. This is a separate post-release repository change and must pass the
-normal PR flow. For the first GOAT Flow release, follow the bootstrap procedure
-above and retain the persistent workspace build policy while removing only the
-temporary sibling-package link.
+version. This change must pass the normal PR flow. For the first GOAT Flow
+release, make the refresh on the still-unmerged broad branding branch described
+above; for later SDK releases, use a separate post-release PR. Retain the
+persistent workspace build policy while removing only the temporary
+sibling-package link.
 
 The active pnpm supply-chain policy may reject a package until it satisfies
 `minimumReleaseAge` (currently a 24-hour window). This is expected:

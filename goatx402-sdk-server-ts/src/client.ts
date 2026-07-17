@@ -17,12 +17,11 @@ import type {
   OrderProof,
   OrderProofResponse,
   MerchantInfo,
-  GoatFlowError,
   PaymentFlow,
   OrderStatus,
   X402PaymentRequired,
 } from './types.js'
-import { fromCAIP2 } from './types.js'
+import { fromCAIP2, GoatFlowError } from './types.js'
 
 export class GoatFlowClient {
   private baseUrl: string
@@ -379,12 +378,12 @@ export class GoatFlowClient {
         (Object.keys(data).length > 0 ? JSON.stringify(data) : null) ||
         responseText ||
         `HTTP ${response.status}`
-      const error = new Error(errorMessage) as GoatFlowError
-      error.name = 'GoatFlowError'
-      error.code = data.code as string | undefined
-      error.status = response.status
-      ;(error as unknown as Record<string, unknown>).responseBody = responseText
-      throw error
+      throw new GoatFlowError(
+        errorMessage,
+        data.code as string | undefined,
+        response.status,
+        responseText
+      )
     }
 
     return data as T
@@ -406,11 +405,11 @@ export class GoatFlowClient {
     const data = (await response.json().catch(() => ({}))) as Record<string, unknown>
 
     if (!response.ok) {
-      const error = new Error((data.error as string) || `HTTP ${response.status}`) as GoatFlowError
-      error.name = 'GoatFlowError'
-      error.code = data.code as string | undefined
-      error.status = response.status
-      throw error
+      throw new GoatFlowError(
+        (data.error as string) || `HTTP ${response.status}`,
+        data.code as string | undefined,
+        response.status
+      )
     }
 
     return data as T

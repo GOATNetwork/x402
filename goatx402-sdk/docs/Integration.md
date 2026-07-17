@@ -31,7 +31,7 @@ GOAT Flow is a comprehensive EVM cryptocurrency payment processing platform. It 
 |-----|---------|---------|
 | **goatflow-sdk** | Frontend client SDK | `npm install goatflow-sdk` |
 | **goatflow-sdk-server** | TypeScript backend SDK | `npm install goatflow-sdk-server` |
-| **goatflow-sdk-server** (Go) | Go backend SDK | `go get github.com/goatnetwork/goatflow-sdk-server` |
+| **goatflow-sdk-server** (Go) | Go backend SDK (source-only) | [Clone this repo and use a local `replace`](../../goatx402-sdk-server-go/README.md) |
 | **goatflow-checkout** | Drop-in hosted browser checkout | `npm install goatflow-checkout` |
 | **goatflow-quickpay** | QuickPay public payer / agent library and CLI | `npm install goatflow-quickpay` |
 

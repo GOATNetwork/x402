@@ -13,7 +13,7 @@ A minimal integration guide for merchants, covering:
 
 ## 2. Integration Boundaries
 - Frontend (`goatflow-sdk`): wallet signing and token transfer only (EVM).
-- Backend (TS package `goatflow-sdk-server` / Go module `github.com/goatnetwork/goatflow-sdk-server`): call GOAT Flow Core APIs (HMAC authenticated).
+- Backend (TS package `goatflow-sdk-server` / [Go source module](goatx402-sdk-server-go/README.md)): call GOAT Flow Core APIs (HMAC authenticated). The Go module currently requires a local `replace`.
 - Core: auth verification, order creation, fee charge, on-chain payment watching, state transition, proof issuance.
 
 **Security baseline:** `API_KEY` / `API_SECRET` must only exist on backend, never in frontend.
@@ -181,22 +181,37 @@ await client.cancelOrder(order.orderId) // only cancellable in CHECKOUT_VERIFIED
 ---
 
 ## 7. Server SDK (Go)
-Install:
+
+The Go SDK is source-only and is not available from a standalone module
+repository. Clone the public repository next to your application:
 
 ```bash
-go get github.com/goatnetwork/goatflow-sdk-server
+git clone https://github.com/GOATNetwork/x402.git
 ```
+
+Add this to your application's `go.mod`, adjusting the relative path if needed:
+
+```go
+require github.com/goatnetwork/goatflow-sdk-server v0.0.0
+
+replace github.com/goatnetwork/goatflow-sdk-server => ../x402/goatx402-sdk-server-go
+```
+
+Run `go mod tidy`. See the [Go SDK source instructions](goatx402-sdk-server-go/README.md)
+for details.
 
 Example:
 
 ```go
-client := goatx402.NewClient(goatx402.Config{
+import goatflow "github.com/goatnetwork/goatflow-sdk-server"
+
+client := goatflow.NewClient(goatflow.Config{
   BaseURL:   os.Getenv("GOATX402_API_URL"),
   APIKey:    os.Getenv("GOATX402_API_KEY"),
   APISecret: os.Getenv("GOATX402_API_SECRET"),
 })
 
-order, err := client.CreateOrder(ctx, goatx402.CreateOrderParams{
+order, err := client.CreateOrder(ctx, goatflow.CreateOrderParams{
   DappOrderID: "order_123",
   ChainID: 137,
   TokenSymbol: "USDC",
@@ -205,7 +220,7 @@ order, err := client.CreateOrder(ctx, goatx402.CreateOrderParams{
   AmountWei: "1000000",
 })
 if err != nil {
-  if apiErr, ok := err.(*goatx402.APIError); ok {
+  if apiErr, ok := err.(*goatflow.APIError); ok {
     log.Printf("status=%d message=%s", apiErr.Status, apiErr.Message)
   }
 }

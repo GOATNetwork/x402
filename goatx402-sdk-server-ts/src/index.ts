@@ -33,7 +33,7 @@ export { GoatFlowClient } from './client.js'
 export { calculateSignature, signRequest } from './signature.js'
 
 // x402 helper functions
-export { toCAIP2, fromCAIP2, parseX402Header } from './types.js'
+export { toCAIP2, fromCAIP2, parseX402Header, GoatFlowError } from './types.js'
 
 export type {
   GoatFlowConfig,
@@ -52,7 +52,6 @@ export type {
   CalldataSignRequest,
   EIP712Domain,
   EIP712Type,
-  GoatFlowError,
   // x402 types
   X402PaymentRequired,
   X402PaymentOption,

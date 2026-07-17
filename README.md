@@ -26,9 +26,9 @@ This project demonstrates how to integrate x402 in practice, including:
 | Need | Start here |
 | --- | --- |
 | Hosted browser checkout | [`docs/x402-checkout.md`](docs/x402-checkout.md) and `goatflow-checkout` |
-| Custom wallet/order UI | `goatflow-sdk` + `goatflow-sdk-server` (TypeScript or Go) |
+| Custom wallet/order UI | `goatflow-sdk` + `goatflow-sdk-server` (TypeScript package or [Go source](goatx402-sdk-server-go/README.md)) |
 | Agent or CLI payment | `goatflow-quickpay` |
-| Verify MPP receipts in an API | `@goatnetwork/mpp-middleware` or `github.com/goatnetwork/goatflow-mpp-middleware-go` |
+| Verify MPP receipts in an API | `@goatnetwork/mpp-middleware` or [Go source](goatx402-mpp-middleware-go/README.md) |
 | Callback contracts | `goatx402-contract` |
 
 Hosted Checkout has two server-authoritative forms under one Checkout Sessions
@@ -43,10 +43,10 @@ DIRECT QuickPay products can also be opened without a merchant backend.
 | `goatflow-checkout` | [`goatx402-checkout`](goatx402-checkout) | Framework-free popup/tab/redirect browser SDK |
 | `goatflow-sdk` | [`goatx402-sdk`](goatx402-sdk) | Low-level EVM wallet payment and MPP client primitives |
 | `goatflow-sdk-server` | [`goatx402-sdk-server-ts`](goatx402-sdk-server-ts) | HMAC-authenticated TypeScript server SDK |
-| `github.com/goatnetwork/goatflow-sdk-server` | [`goatx402-sdk-server-go`](goatx402-sdk-server-go) | HMAC-authenticated Go server SDK |
+| Go server SDK (source-only) | [`goatx402-sdk-server-go`](goatx402-sdk-server-go/README.md) | HMAC-authenticated Go SDK; clone this repo and use a local `replace` |
 | `goatflow-quickpay` | [`goatx402-quickpay`](goatx402-quickpay) | Manifest-driven payer/agent library and CLI |
 | `@goatnetwork/mpp-middleware` | [`goatx402-mpp-middleware-ts`](goatx402-mpp-middleware-ts) | Express/Fastify MPP receipt verification |
-| `github.com/goatnetwork/goatflow-mpp-middleware-go` | [`goatx402-mpp-middleware-go`](goatx402-mpp-middleware-go) | Go HTTP MPP receipt verification |
+| Go MPP middleware (source-only) | [`goatx402-mpp-middleware-go`](goatx402-mpp-middleware-go/README.md) | Go HTTP receipt verification; clone this repo and use a local `replace` |
 | Contracts | [`goatx402-contract`](goatx402-contract) | MerchantCallback, TopupCallback, and test tokens |
 | Demo | [`goatx402-demo`](goatx402-demo) | Hosted Checkout plus advanced Classic/MPP examples |
 

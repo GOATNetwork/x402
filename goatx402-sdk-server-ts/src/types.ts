@@ -288,12 +288,14 @@ export interface MerchantToken {
 export class GoatFlowError extends Error {
   code?: string
   status?: number
+  responseBody?: string
 
-  constructor(message: string, code?: string, status?: number) {
+  constructor(message: string, code?: string, status?: number, responseBody?: string) {
     super(message)
     this.name = 'GoatFlowError'
     this.code = code
     this.status = status
+    this.responseBody = responseBody
   }
 }
 
