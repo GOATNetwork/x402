@@ -163,7 +163,7 @@ type X402PaymentOption struct {
 type X402GoatExtension struct {
 	DestinationChain  string `json:"destinationChain"`            // CAIP-2 format
 	ExpiresAt         int64  `json:"expiresAt"`                   // Unix timestamp
-	SignatureEndpoint string `json:"signatureEndpoint,omitempty"` // Only present for EIP-3009 flow
+	SignatureEndpoint string `json:"signatureEndpoint,omitempty"` // Present when a calldata signature must be submitted
 	PaymentMethod     string `json:"paymentMethod"`               // "transfer" or "eip3009-signature"
 	ReceiveType       string `json:"receiveType,omitempty"`       // "DIRECT", "DELEGATE", or "VERIFY"
 }
@@ -306,17 +306,19 @@ type OrderStatus struct {
 
 // OrderProofPayload contains the proof payload data
 type OrderProofPayload struct {
-	OrderID   string `json:"order_id"`
-	TxHash    string `json:"tx_hash"`
-	LogIndex  int    `json:"log_index"`
-	FromAddr  string `json:"from_addr"`
-	ToAddr    string `json:"to_addr"`
-	AmountWei string `json:"amount_wei"`
-	ChainID   int    `json:"chain_id"`
-	Flow      string `json:"flow"`
+	OrderID     string `json:"order_id"`
+	TxHash      string `json:"tx_hash"`
+	LogIndex    int    `json:"log_index"`
+	FromAddr    string `json:"from_addr"`
+	ToAddr      string `json:"to_addr"`
+	AmountWei   string `json:"amount_wei"`
+	FromChainID int    `json:"from_chain_id"`
+	Status      string `json:"status"`
 }
 
-// OrderProofResponse contains the cryptographic proof for on-chain verification
+// OrderProofResponse is the server-issued payment record for a completed order.
+// Signature is an unsigned Keccak256 content hash of the public payload, not a
+// cryptographic attestation.
 type OrderProofResponse struct {
 	Payload   OrderProofPayload `json:"payload"`
 	Signature string            `json:"signature"`

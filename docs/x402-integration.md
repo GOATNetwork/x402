@@ -505,7 +505,7 @@ Content-Type: application/json
       "amount": "10000000",
       "asset": "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
       "payTo": "0xMerchantOrTssAddress",
-      "maxTimeoutSeconds": 600,
+      "maxTimeoutSeconds": 585,
       "extra": {
         "flow": "ERC20_DIRECT",
         "tokenSymbol": "USDC"
@@ -526,7 +526,9 @@ Content-Type: application/json
 }
 ```
 
-For `ERC20_3009`, `accepts[0].scheme` is `exact-eip3009` and `extensions.goatx402.signatureEndpoint` points to `POST /api/v1/orders/{order_id}/calldata-signature`.
+`maxTimeoutSeconds` is the order's remaining lifetime when the challenge is generated (clamped to at least 1 second), not a fixed 600-second window.
+
+For `ERC20_3009`, `accepts[0].scheme` is `exact-eip3009`. Whenever the order carries a `calldata_sign_request`—including Permit2-style DELEGATE callbacks—`extensions.goatx402.signatureEndpoint` points to `POST /api/v1/orders/{order_id}/calldata-signature`.
 
 ### 6.4 Query Order Status
 
@@ -555,7 +557,8 @@ await client.submitCalldataSignature(orderId, '0x...')
 // Get proof after payment completion
 const proof = await client.getOrderProof(orderId)
 
-// proof contains on-chain tx hash and GOAT Flow signature proof
+// proof contains the on-chain tx hash plus an unsigned content checksum.
+// Verify proof.payload.tx_hash on-chain when independent proof is required.
 ```
 
 ---

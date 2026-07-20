@@ -49,7 +49,7 @@ res.json(order)
 | `createCheckoutSession(params)` | Create a hosted checkout session (DIRECT and DELEGATE flows) |
 | `createDelegateCheckoutSession(params)` | Deprecated DELEGATE-only wrapper, kept for compatibility |
 | `getOrderStatus(orderId)` | Fetch current order status and details |
-| `getOrderProof(orderId)` | Fetch the signed order proof |
+| `getOrderProof(orderId)` | Fetch the payment record; `signature` is an unsigned content hash, not an attestation |
 | `submitCalldataSignature(orderId, signature)` | Submit the buyer's EIP-712 calldata signature |
 | `cancelOrder(orderId)` | Cancel an order |
 | `getMerchant(merchantId)` | Fetch public merchant info (tokens, receiving config) |
@@ -61,6 +61,10 @@ Helpers: `calculateSignature` / `signRequest` (request signing),
 API failures throw the runtime-exported `GoatFlowError` class. Its `code` and
 `status` fields carry structured server details when available; authenticated
 request failures also retain the raw `responseBody` for diagnostics.
+
+All requests have a 30-second hard deadline. `waitForConfirmation` additionally
+honors its overall timeout, retries transient failures, and immediately surfaces
+deterministic 4xx errors other than `408` and `429`.
 
 ## Requirements
 

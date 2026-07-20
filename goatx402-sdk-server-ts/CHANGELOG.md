@@ -9,6 +9,10 @@
   must update imports and class references.
 - Export `GoatFlowError` as a runtime class and throw real instances from API
   failures, preserving `code`, `status`, and authenticated response-body details.
+- Add 30-second request deadlines, scope HTTP 402 success handling to order
+  creation, make confirmation polling retry transient failures within its
+  overall deadline, and correct the payment-record payload types and security
+  description.
 
 ## 0.2.1 - 2026-07-12
 

@@ -69,7 +69,7 @@ func (c *Client) CreateOrderRaw(ctx context.Context, params CreateOrderParams) (
 	}
 
 	var x402Response X402PaymentRequired
-	err := c.request(ctx, "POST", "/api/v1/orders", body, &x402Response)
+	err := c.requestExpectPaymentRequired(ctx, "POST", "/api/v1/orders", body, &x402Response)
 	if err != nil {
 		return nil, err
 	}
@@ -263,8 +263,12 @@ func (c *Client) GetOrderStatus(ctx context.Context, orderID string) (*OrderStat
 	return &status, nil
 }
 
-// GetOrderProof retrieves the cryptographic proof for on-chain verification
-// Only available after payment is confirmed
+// GetOrderProof retrieves the server-issued payment record for a completed
+// order. Only available after payment is confirmed.
+//
+// NOTE: the returned Signature is an unsigned Keccak256 content hash, not a
+// cryptographic attestation. Verify Payload.TxHash on-chain when independent
+// verification is required.
 func (c *Client) GetOrderProof(ctx context.Context, orderID string) (*OrderProofResponse, error) {
 	var proof OrderProofResponse
 	err := c.request(ctx, "GET", "/api/v1/orders/"+orderID+"/proof", nil, &proof)
@@ -305,6 +309,16 @@ func (c *Client) GetMerchant(ctx context.Context, merchantID string) (*MerchantI
 
 // request makes an authenticated API request
 func (c *Client) request(ctx context.Context, method, path string, body map[string]any, result any) error {
+	return c.requestWithOptions(ctx, method, path, body, result, false)
+}
+
+// requestExpectPaymentRequired is used only by order creation, where HTTP 402
+// carries the expected x402 payment terms.
+func (c *Client) requestExpectPaymentRequired(ctx context.Context, method, path string, body map[string]any, result any) error {
+	return c.requestWithOptions(ctx, method, path, body, result, true)
+}
+
+func (c *Client) requestWithOptions(ctx context.Context, method, path string, body map[string]any, result any, expectPaymentRequired bool) error {
 	// Build URL
 	url := c.config.BaseURL + path
 
@@ -362,8 +376,10 @@ func (c *Client) request(ctx context.Context, method, path string, body map[stri
 		return fmt.Errorf("failed to read response: %w", err)
 	}
 
-	// Check for errors (402 is expected for order creation)
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPaymentRequired {
+	// HTTP 402 is successful only for the explicitly marked order-create request.
+	ok := resp.StatusCode == http.StatusOK ||
+		(expectPaymentRequired && resp.StatusCode == http.StatusPaymentRequired)
+	if !ok {
 		// Try to parse error response - Fiber uses "message", standard APIs use "error"
 		var errResp struct {
 			Error   string `json:"error"`

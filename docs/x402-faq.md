@@ -15,7 +15,7 @@ This document summarizes common questions about GOAT Flow, including architectur
 x402 brings the HTTP 402 **Payment Required** standard to Web3. Unlike payment widgets or checkout redirects, x402 works as a protocol layer that:
 
 - returns a standard HTTP 402 response with payment details
-- uses on-chain settlement with cryptographic proof
+- uses on-chain settlement with a retrievable payment record
 - supports programmable callbacks for atomic payment + action flows
 - enables multi-chain support through a single integration
 
@@ -28,8 +28,10 @@ Payments are verified on-chain through event monitoring:
 3. The system matches the transfer to a pending order.
 4. For DELEGATE orders, TSS-assisted callback / settlement execution is completed
    on the merchant's configured callback chain.
-5. A payment proof is generated and cryptographically bound to the order.
-6. Merchants can verify the proof through the API or directly on-chain.
+5. A payment record is generated with the matched transaction details and an unsigned Keccak256 content checksum.
+6. Merchants retrieve the record through the API and verify the referenced transaction directly on-chain when independent proof is required.
+
+The legacy `/proof` response field named `signature` is not a signature or attestation: no private key is involved, and anyone with the public payload can recompute it.
 
 #### What if a payment was sent but not detected?
 

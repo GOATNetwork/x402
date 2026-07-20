@@ -9,6 +9,9 @@
   policy, a temporary workspace link keeps frozen installs reproducible. The
   link must be removed and the lockfile refreshed before this package is
   tagged or published.
+- Give an `EXPIRED` session with a known transaction hash bounded grace polls,
+  warn callers not to pay again when it remains expired, and fail closed when a
+  recovered confirmed session has no server transaction hash.
 
 ## 0.2.3 - 2026-07-12
 

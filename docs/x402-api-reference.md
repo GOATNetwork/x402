@@ -272,7 +272,7 @@ Content-Type: application/json
       "amount": "10000000",
       "asset": "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
       "payTo": "0xMerchantOrTssAddress",
-      "maxTimeoutSeconds": 600,
+      "maxTimeoutSeconds": 585,
       "extra": {
         "flow": "ERC20_DIRECT",
         "tokenSymbol": "USDC"
@@ -293,7 +293,9 @@ Content-Type: application/json
 }
 ```
 
-For `ERC20_3009`, `accepts[0].scheme` is `exact-eip3009` and `extensions.goatx402.signatureEndpoint` points to `POST /api/v1/orders/{order_id}/calldata-signature`.
+`maxTimeoutSeconds` is the order's remaining lifetime when the challenge is generated (clamped to at least 1 second), not a fixed 600-second window.
+
+For `ERC20_3009`, `accepts[0].scheme` is `exact-eip3009`. Whenever the order carries a `calldata_sign_request`—including Permit2-style DELEGATE callbacks—`extensions.goatx402.signatureEndpoint` points to `POST /api/v1/orders/{order_id}/calldata-signature`.
 
 ---
 
@@ -335,7 +337,7 @@ GET /api/v1/orders/{order_id}/proof
 
 **Purpose**
 
-Retrieves the payment proof, useful for:
+Retrieves the server-issued payment record, useful for:
 
 - reconciliation
 - audit trails
@@ -351,9 +353,11 @@ Retrieves the payment proof, useful for:
   - `from_addr`
   - `to_addr`
   - `amount_wei`
-  - `chain_id`
-  - `flow`
+  - `from_chain_id`
+  - `status`
 - `signature`
+
+Despite its legacy field name, `signature` is an unsigned Keccak256 content hash of the public payload. It is an integrity checksum, not a cryptographic attestation; independently verify `payload.tx_hash` on-chain before relying on it as proof of payment.
 
 ---
 

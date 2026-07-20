@@ -53,7 +53,7 @@ User or agent payments go directly to your receiving wallet on the same chain as
 - Best for: Tips, donations, simple checkout, QuickPay links, agent payments
 - Requirements: A receiving address for each chain/token you accept
 - Contract callback: Not used
-- Proof: Confirmed orders can expose payment proof for audit and reconciliation
+- Payment record: Confirmed orders expose transaction details for audit and reconciliation; verify the transaction on-chain for independent proof
 
 **Example:** A content platform has a GOAT mainnet USDC receiving address. A buyer pays USDC on GOAT mainnet to that same-chain merchant address. The watcher matches the transfer to the order; no TSS settlement or callback contract is involved.
 
@@ -68,7 +68,7 @@ settlement chain; an eligible buyer source chain may differ.
 - Best for: In-game purchases, per-call API billing, NFT minting, and other post-payment execution
 - Requirements: One EVM callback chain per merchant, receiving token configuration on that chain, and an admin-approved callback contract on the same chain
 - Cross-chain checkout: decimal-price Hosted Checkout may offer source-chain/token candidates derived from live TSS and token configuration
-- Proof: Confirmed orders can expose verifiable proof
+- Payment record: Confirmed orders expose transaction details and an unsigned content checksum; verify the transaction on-chain for independent proof
 
 **Example:** A game operates on GOAT mainnet. The player authorizes a USDC payment on GOAT mainnet; Core verifies the order and the TSS-backed settlement path calls the game's approved GOAT callback contract. The player receives the item without any bridge or chain switch.
 
@@ -80,7 +80,7 @@ settlement chain; an eligible buyer source chain may differ.
 | Chain scope | Selected payment/receiving chain | One merchant callback chain; eligible source chain may differ |
 | Contract callback | No | Yes, via admin-approved callback contract |
 | Gas sponsorship for callback/settlement | No callback path | TSS-submitted settlement/callback path |
-| Settlement proof | Yes, after confirmation | Yes, after confirmation |
+| Payment record | Yes, after confirmation | Yes, after confirmation |
 | Public QuickPay product/link | Yes | No |
 | Server-created Hosted Checkout | Yes | Yes |
 | Integration difficulty | Simplest | Requires callback contract review |
@@ -432,7 +432,7 @@ Go to the **Orders** page to view all orders.
 | Status | Order status |
 | Created | Creation time |
 
-Click **View** to see order details, including payment and payout transaction data. For confirmed orders, use proof retrieval for audit, reconciliation, and downstream fulfillment evidence.
+Click **View** to see order details, including payment and payout transaction data. For confirmed orders, use proof retrieval for audit, reconciliation, and downstream fulfillment evidence. The response's `signature` field is an unsigned content checksum, not a cryptographic attestation; verify its `tx_hash` on-chain when independent proof is required.
 
 ---
 
@@ -457,6 +457,8 @@ QuickPay must first be enabled for your merchant account by a platform administr
 | Update config | `PUT /merchant/v1/quickpay` | Owner-only |
 
 Config fields include `quickpay_enabled`, `display_name`, `description`, `logo_url`, `memo_required`, `max_amount_wei`, `max_open_sessions`, `daily_session_limit`, and `max_open_sessions_merchant_wide`.
+
+The response also distinguishes MPP configuration from live availability: `mpp_enabled` is the persisted toggle gated by whether the MPP runtime is mounted, while `mpp_effective` is true only when the merchant is currently enabled and DIRECT and has at least one eligible route. Use `mpp_effective` for “payable now” UI and automation.
 
 ### 12.2 QuickPay Products
 
@@ -533,6 +535,8 @@ Fee Balance is your prepaid platform fee balance. Creating x402 orders or QuickP
 ### 13.2 Self-Service Topup
 
 Use the **Topup** page after approval to create and track fee-balance top-ups. The Topup service creates an x402 order for the requested top-up, tracks the payment, and credits your merchant fee balance through an internal verified callback after the top-up order is invoiced.
+
+Top-ups accept only the service's configured USD-pegged stablecoins because conversion assumes `1 token = 1 USD` and does not use a price oracle. `amount_usd` may have at most six fractional digits and may not be finer than the selected token's decimals. If a symbol maps to multiple token contracts on the selected chain, include `token_contract` to disambiguate it (the portal does this automatically).
 
 | Action | API path |
 | --- | --- |

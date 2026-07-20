@@ -113,13 +113,13 @@ x402 solves a **payment protocol layer**, not just a token transfer.
 
 Within GOAT Network, x402 is more than a payment button. It acts as a broader:
 
-> **payment + settlement + verifiable delivery layer**
+> **payment + settlement + reconciliation layer**
 
 In the GOAT implementation, x402 helps merchants and developers:
 
 - support EVM mainnet payments across Ethereum, Polygon, BSC, Arbitrum, Optimism, Avalanche, Base, Berachain, X Layer, GOAT, Metis, and Tempo
 - integrate through a unified SDK
-- obtain proof after payment completes
+- obtain a payment record after payment completes and verify its transaction on-chain
 - support callback / execution in more advanced scenarios
 - provide more standardized payment capability for merchants, apps, and agents
 

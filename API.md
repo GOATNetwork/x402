@@ -110,7 +110,7 @@ Success Response (x402 PaymentRequired, HTTP 402):
 | `x402Version` | number | x402 protocol version |
 | `resource` | object | x402 resource info |
 | `accepts` | array | Payment options (scheme, network, amount, asset, payTo, extra) |
-| `extensions.goatx402` | object | `destinationChain`, `expiresAt`, `paymentMethod`, `receiveType`; `signatureEndpoint` is included only for `ERC20_3009` |
+| `extensions.goatx402` | object | `destinationChain`, `expiresAt`, `paymentMethod`, `receiveType`; `signatureEndpoint` is included for `ERC20_3009` or whenever `calldata_sign_request` must be submitted (including Permit2 callbacks) |
 | `order_id` | string | Core order id |
 | `flow` | string | Payment flow (`ERC20_DIRECT`, `ERC20_3009`, `ERC20_APPROVE_XFER`) |
 | `token_symbol` | string | Token symbol |
@@ -149,7 +149,7 @@ Response Body:
 **GET /api/v1/orders/{order_id}/proof**
 | Item | Value |
 | --- | --- |
-| Summary | Get order proof for on-chain verification |
+| Summary | Get the server-issued payment record for reconciliation and on-chain verification |
 | Auth | Required |
 | SDK | `getOrderProof` |
 | Success Status | `200 OK` |
@@ -157,8 +157,10 @@ Response Body:
 Response Body:
 | Field | Type | Description |
 | --- | --- | --- |
-| `payload` | object | Proof payload (order_id, tx_hash, log_index, from_addr, to_addr, amount_wei, chain_id, flow) |
-| `signature` | string | Proof signature |
+| `payload` | object | Payment-record payload (`order_id`, `tx_hash`, `log_index`, `from_addr`, `to_addr`, `amount_wei`, `from_chain_id`, `status`) |
+| `signature` | string | Unsigned Keccak256 content hash of `payload`; it is an integrity checksum, not a cryptographic attestation |
+
+Verify `payload.tx_hash` and its transfer on-chain when independent proof of payment is required.
 
 **POST /api/v1/orders/{order_id}/calldata-signature**
 | Item | Value |

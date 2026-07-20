@@ -66,12 +66,18 @@ Share only links on a host you trust (e.g. `pay.goat.network`).
 
 - The broadcast `tx_hash` is always returned (even if confirmation polling fails),
   so you can resume by polling rather than re-sending.
+- If a broadcast payment is reported `EXPIRED`, the client performs bounded
+  grace polls because a pre-expiry transfer can still confirm late. If it remains
+  expired, reconcile by `session_id` and `tx_hash`; **do not pay again**.
 - A **reused** session (same payment intent) is **not auto-paid** — the CLI
   resumes/polls it. Only pass `--force` to `pay-x402`/`pay-product` to broadcast on
   a reused session, and only when you are certain no payment was sent (e.g. the
   wallet rejected the first attempt).
 - If `pay-mpp` fails after broadcasting, the JSON output preserves the `tx_hash`
   and `challenge` so you can resume verification instead of paying again.
+- A `503 receipt_unavailable` from MPP verification is retryable and may require
+  operator reconciliation; preserve the existing transaction and never
+  rebroadcast merely because the receipt response is temporarily unavailable.
 
 ## Configuration
 

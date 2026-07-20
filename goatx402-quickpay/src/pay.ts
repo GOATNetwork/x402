@@ -257,6 +257,11 @@ async function runX402Session(intent: SessionIntent): Promise<PayX402Result> {
     // outcome without a single successful snapshot would be a guess — callers use this
     // to fail closed instead.
     let gotSnapshot = false
+    // EXPIRED is terminal when no payment evidence exists. With a known tx hash,
+    // however, a pre-expiry transfer may still bind late and revive the order to
+    // PAYMENT_CONFIRMED. Re-poll a bounded number of times before accepting
+    // EXPIRED so callers are not encouraged to pay twice.
+    let expiredGracePolls = 5
     const deadline = now() + intent.pollTimeoutMs
     while (now() < deadline) {
       let s: any
@@ -281,7 +286,14 @@ async function runX402Session(intent: SessionIntent): Promise<PayX402Result> {
       // neither the product (substantiation) nor custom (drift) reporting path can ever
       // surface a non-integer amount instead of the client's authoritative quote.
       if (typeof s.amount_wei === 'string' && /^\d+$/.test(s.amount_wei)) serverAmountWei = s.amount_wei
-      if (TERMINAL_STATUSES.has(status)) break
+      if (TERMINAL_STATUSES.has(status)) {
+        if (status === 'EXPIRED' && txHash && expiredGracePolls > 0) {
+          expiredGracePolls--
+          await sleep(intent.pollIntervalMs)
+          continue
+        }
+        break
+      }
       await sleep(intent.pollIntervalMs)
     }
     return { status, txHash, serverAmountWei, gotSnapshot }
@@ -329,7 +341,18 @@ async function runX402Session(intent: SessionIntent): Promise<PayX402Result> {
     gotSnapshot: boolean,
     baseNote?: string,
   ): PayX402Result => {
-    const withDrift = (extra: string): string | undefined => (baseNote ? `${baseNote} ${extra}` : extra)
+    const recoveryNote =
+      status === 'EXPIRED' && txHash
+        ? [
+            baseNote,
+            'A transaction is already associated with this expired session. Do NOT pay again; ' +
+              'reconcile via this session_id and tx_hash because it can still confirm late.',
+          ]
+            .filter(Boolean)
+            .join(' ')
+        : baseNote
+    const withDrift = (extra: string): string | undefined =>
+      recoveryNote ? `${recoveryNote} ${extra}` : extra
     if (intent.productKey) {
       if (!gotSnapshot || !/^\d+$/.test(serverAmountWei)) {
         throw new Error(
@@ -352,19 +375,25 @@ async function runX402Session(intent: SessionIntent): Promise<PayX402Result> {
               `the existing session's amount (${serverAmountWei}) differs from the current quote ` +
                 `(${expectedAmountWei}); the product may have been repriced since this session was created`,
             )
-          : baseNote
+          : recoveryNote
       return result(status, txHash, { amountWei: serverAmountWei, note })
     }
     // Custom-amount: the reuse tuple keys on the amount, so expectedAmountWei IS the
     // authoritative amount. ALWAYS report it (restoring payX402's original behavior) —
     // never substitute a server value. If the server somehow reports a different
     // (sanitized) amount, surface a drift note but keep the authoritative figure.
+    if (status === 'PAYMENT_CONFIRMED' && !txHash) {
+      throw new Error(
+        `recovered a CONFIRMED session (session_id ${sessionId}) but the server did not return its ` +
+          'transaction hash; reconcile via this session_id before retrying',
+      )
+    }
     if (serverAmountWei && expectedAmountWei && serverAmountWei !== expectedAmountWei) {
       return result(status, txHash, {
         note: withDrift(`the server reported amount ${serverAmountWei} but this payment's amount is ${expectedAmountWei}`),
       })
     }
-    return result(status, txHash, { note: baseNote })
+    return result(status, txHash, { note: recoveryNote })
   }
 
   // Case 1: the session is already past the fresh-unpaid state (possibly
@@ -451,6 +480,13 @@ async function runX402Session(intent: SessionIntent): Promise<PayX402Result> {
   // fee-bumped this payment into a replacement; a forced reuse keeps its local
   // hash so a prior server-reported tx cannot overwrite what we just sent.
   const { status, txHash: finalTx } = await pollUntilTerminal(initialStatus, txHash, !reused)
+  if (status === 'EXPIRED') {
+    return result(status, finalTx || txHash, {
+      note:
+        'A payment WAS broadcast for this session but it expired before the payment was observed. ' +
+        'Do NOT pay again — a pre-expiry payment can still confirm late; reconcile via this session_id and tx_hash.',
+    })
+  }
   return result(status, finalTx || txHash)
 }
 

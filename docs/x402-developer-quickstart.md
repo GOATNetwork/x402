@@ -228,6 +228,8 @@ At minimum, your implementation should handle:
 
 If your business logic requires payment proof, retrieve it after payment is completed.
 
+Treat the response as a payment record: its `signature` field is an unsigned Keccak256 content checksum, not a cryptographic attestation. Verify `payload.tx_hash` on-chain when independent proof is required.
+
 Typical proof use cases include:
 
 - reconciliation

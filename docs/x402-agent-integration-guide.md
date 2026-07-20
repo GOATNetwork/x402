@@ -247,7 +247,7 @@ When the HMAC-protected order API creates a payable order, `HTTP 402 Payment Req
       "amount": "<atomic_amount>",
       "asset": "0x<token_contract>",
       "payTo": "0x<payment_target>",
-      "maxTimeoutSeconds": 600,
+      "maxTimeoutSeconds": 585,
       "extra": {
         "flow": "ERC20_DIRECT",
         "tokenSymbol": "USDC"
@@ -268,7 +268,9 @@ When the HMAC-protected order API creates a payable order, `HTTP 402 Payment Req
 }
 ```
 
-For `ERC20_3009`, `scheme` is `exact-eip3009` and `extensions.goatx402.signatureEndpoint` points to `POST /api/v1/orders/{order_id}/calldata-signature`. For Permit2-style DELEGATE orders, use the returned `calldata_sign_request` when present and submit the wallet signature through the same signature endpoint.
+`maxTimeoutSeconds` is the order's remaining lifetime when the challenge is generated (clamped to at least 1 second), not a fixed 600-second window.
+
+For `ERC20_3009`, `scheme` is `exact-eip3009`. Whenever `calldata_sign_request` is present—including Permit2-style DELEGATE callbacks—submit the wallet signature to the advertised `extensions.goatx402.signatureEndpoint` (`POST /api/v1/orders/{order_id}/calldata-signature`).
 
 ### 8.5 QuickPay agent-native surface
 
@@ -355,6 +357,7 @@ Both the frontend state machine and the backend fulfillment logic should cover t
 - After payment confirmation, the backend should retrieve and persist proof
 - Proof is useful for reconciliation, auditability, fulfillment evidence, and dispute handling
 - If your DApp triggers downstream fulfillment, store proof in backend records
+- The response's `signature` field is only an unsigned Keccak256 content checksum; verify `payload.tx_hash` on-chain for independent proof of payment
 
 ---
 

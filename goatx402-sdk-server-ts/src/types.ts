@@ -253,6 +253,13 @@ export interface OrderProof {
   confirmedAt?: string
 }
 
+/**
+ * Server-issued payment record for a completed order.
+ *
+ * `signature` is an unsigned Keccak256 content hash of the public payload, not
+ * a cryptographic attestation. Verify `payload.tx_hash` on-chain when
+ * independent verification is required.
+ */
 export interface OrderProofResponse {
   payload: {
     order_id: string
@@ -261,8 +268,8 @@ export interface OrderProofResponse {
     from_addr: string
     to_addr: string
     amount_wei: string
-    chain_id: number
-    flow: string
+    from_chain_id: number
+    status: string
   }
   signature: string
 }
@@ -343,7 +350,7 @@ export interface X402GoatExtension {
   destinationChain: string
   /** Expiration timestamp (unix seconds) */
   expiresAt: number
-  /** Endpoint to submit signature (only present for EIP-3009 flow) */
+  /** Endpoint to submit a required calldata signature (EIP-3009 or Permit2 callback) */
   signatureEndpoint?: string
   /** Payment method: "transfer" for direct transfer, "eip3009-signature" for gasless */
   paymentMethod: 'transfer' | 'eip3009-signature'

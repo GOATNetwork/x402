@@ -23,6 +23,9 @@ import type {
 } from './types.js'
 import { fromCAIP2, GoatFlowError } from './types.js'
 
+// Hard per-request deadline applied to every fetch.
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000
+
 export class GoatFlowClient {
   private baseUrl: string
   private apiKey: string
@@ -66,7 +69,9 @@ export class GoatFlowClient {
       body.callback_calldata = params.callbackCalldata
     }
 
-    return this.request<X402PaymentRequired>('POST', '/api/v1/orders', body)
+    // Order creation is the only endpoint where HTTP 402 is the expected x402
+    // success shape.
+    return this.request<X402PaymentRequired>('POST', '/api/v1/orders', body, { expect402: true })
   }
 
   /**
@@ -203,7 +208,7 @@ export class GoatFlowClient {
   /**
    * Get order status and details (for polling)
    */
-  async getOrderStatus(orderId: string): Promise<OrderProof> {
+  async getOrderStatus(orderId: string, opts?: { timeoutMs?: number }): Promise<OrderProof> {
     const data = await this.request<{
       order_id: string
       merchant_id: string
@@ -216,7 +221,7 @@ export class GoatFlowClient {
       status: string
       tx_hash?: string
       confirmed_at?: string
-    }>('GET', `/api/v1/orders/${orderId}`)
+    }>('GET', `/api/v1/orders/${orderId}`, undefined, { timeoutMs: opts?.timeoutMs })
 
     return {
       orderId: data.order_id,
@@ -234,8 +239,12 @@ export class GoatFlowClient {
   }
 
   /**
-   * Get order proof for on-chain verification
-   * Only available after payment is confirmed
+   * Get the server-issued payment record for a completed order.
+   * Only available after payment is confirmed.
+   *
+   * The returned `signature` is an unsigned Keccak256 content hash, not a
+   * cryptographic attestation. Verify `payload.tx_hash` on-chain when
+   * independent verification is required.
    */
   async getOrderProof(orderId: string): Promise<OrderProofResponse> {
     return this.request('GET', `/api/v1/orders/${orderId}/proof`)
@@ -311,9 +320,29 @@ export class GoatFlowClient {
     const startTime = Date.now()
 
     let lastStatus = ''
+    let lastError: unknown
 
     while (Date.now() - startTime < timeout) {
-      const order = await this.getOrderStatus(orderId)
+      const remaining = timeout - (Date.now() - startTime)
+      let order: OrderProof
+      try {
+        order = await this.getOrderStatus(orderId, {
+          timeoutMs: Math.max(1, Math.min(DEFAULT_REQUEST_TIMEOUT_MS, remaining)),
+        })
+      } catch (error) {
+        // Retry request timeouts, network failures, 408/429, and server errors.
+        // Other 4xx responses are deterministic caller/configuration errors.
+        const status = error instanceof GoatFlowError ? error.status : undefined
+        if (typeof status === 'number' && status >= 400 && status < 500 && status !== 408 && status !== 429) {
+          throw error
+        }
+        lastError = error
+        const remainingAfterPoll = timeout - (Date.now() - startTime)
+        if (remainingAfterPoll <= 0) break
+        const sleepMs = Math.min(Math.max(0, interval), remainingAfterPoll)
+        await new Promise((resolve) => setTimeout(resolve, sleepMs))
+        continue
+      }
 
       if (order.status !== lastStatus) {
         lastStatus = order.status
@@ -330,11 +359,15 @@ export class GoatFlowClient {
         return order
       }
 
-      // Wait before next poll
-      await new Promise((resolve) => setTimeout(resolve, interval))
+      const remainingAfterPoll = timeout - (Date.now() - startTime)
+      if (remainingAfterPoll <= 0) break
+      const sleepMs = Math.min(Math.max(0, interval), remainingAfterPoll)
+      await new Promise((resolve) => setTimeout(resolve, sleepMs))
     }
 
-    throw new Error(`Timeout waiting for order ${orderId} confirmation`)
+    const lastErrorNote =
+      lastError instanceof Error ? ` (last poll error: ${lastError.message})` : ''
+    throw new Error(`Timeout waiting for order ${orderId} confirmation${lastErrorNote}`)
   }
 
   /**
@@ -343,7 +376,8 @@ export class GoatFlowClient {
   private async request<T>(
     method: 'GET' | 'POST' | 'PUT' | 'DELETE',
     path: string,
-    body?: Record<string, unknown>
+    body?: Record<string, unknown>,
+    opts?: { expect402?: boolean; timeoutMs?: number }
   ): Promise<T> {
     const url = `${this.baseUrl}${path}`
 
@@ -357,6 +391,7 @@ export class GoatFlowClient {
         ...authHeaders,
       },
       body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(opts?.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS),
     })
 
     // Read response as text first, then try to parse as JSON
@@ -368,8 +403,10 @@ export class GoatFlowClient {
       // Response is not JSON, keep as text
     }
 
-    // Handle errors - 402 is expected for order creation
-    if (!response.ok && response.status !== 402) {
+    // HTTP 402 is a success shape only for the explicitly marked order-create
+    // request; every other endpoint must treat it as an error.
+    const ok = response.ok || (response.status === 402 && opts?.expect402 === true)
+    if (!ok) {
       // Fiber returns 'message', standard APIs return 'error'
       // Include full response body for debugging
       const errorMessage =
@@ -400,6 +437,7 @@ export class GoatFlowClient {
       headers: {
         'Content-Type': 'application/json',
       },
+      signal: AbortSignal.timeout(DEFAULT_REQUEST_TIMEOUT_MS),
     })
 
     const data = (await response.json().catch(() => ({}))) as Record<string, unknown>
