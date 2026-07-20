@@ -1,15 +1,15 @@
 /**
- * GoatX402 Client SDK
+ * GOAT Flow Client SDK
  *
- * TypeScript SDK for frontend wallet interactions in GoatX402 payments.
+ * TypeScript SDK for frontend wallet interactions in GOAT Flow payments.
  * This SDK handles ERC20 operations, EIP-712 signing, and payment execution.
  *
  * IMPORTANT: This SDK does NOT handle API authentication.
- * Use goatx402-sdk-server on your backend to create orders securely.
+ * Use goatflow-sdk-server on your backend to create orders securely.
  *
  * @example
  * ```typescript
- * import { PaymentHelper, formatUnits } from 'goatx402-sdk'
+ * import { PaymentHelper, formatUnits } from 'goatflow-sdk'
  * import { ethers } from 'ethers'
  *
  * // Connect wallet

@@ -1,8 +1,8 @@
 /**
- * GoatX402 Client SDK Type Definitions
+ * GOAT Flow Client SDK Type Definitions
  *
  * These types are used for frontend wallet interactions.
- * Order data is received from your backend (which uses goatx402-sdk-server).
+ * Order data is received from your backend (which uses goatflow-sdk-server).
  */
 
 import type { TransactionResponse } from 'ethers'
@@ -12,7 +12,7 @@ import type { TransactionResponse } from 'ethers'
 // ============================================================================
 
 /**
- * Payment flow types returned by GoatX402 API.
+ * Payment flow types returned by GOAT Flow API.
  *
  * All flows require the user to directly transfer tokens to payToAddress.
  * The flow type indicates the receiving mode:
@@ -25,7 +25,7 @@ export type PaymentFlow =
   | 'ERC20_APPROVE_XFER'  // To TSS (token doesn't support EIP-3009)
 
 export interface Order {
-  /** Order ID from GoatX402 */
+  /** Order ID from GOAT Flow */
   orderId: string
   /** Payment flow type */
   flow: PaymentFlow
