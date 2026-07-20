@@ -357,7 +357,7 @@ Retrieves the server-issued payment record, useful for:
   - `status`
 - `signature`
 
-Despite its legacy field name, `signature` is an unsigned Keccak256 content hash of the public payload. It is an integrity checksum, not a cryptographic attestation; independently verify `payload.tx_hash` on-chain before relying on it as proof of payment.
+Despite its legacy field name, `signature` is an unsigned Keccak256 hash of seven payload fields concatenated without separators, in this exact order: `order_id`, `tx_hash`, `log_index`, `from_addr`, `to_addr`, `amount_wei`, `from_chain_id`. It does NOT cover `status` (or anything outside that list), so it is an integrity checksum of those fields only — not of the whole record, and not a cryptographic attestation; independently verify `payload.tx_hash` on-chain before relying on it as proof of payment.
 
 ---
 

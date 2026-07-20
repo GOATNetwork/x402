@@ -158,7 +158,7 @@ Response Body:
 | Field | Type | Description |
 | --- | --- | --- |
 | `payload` | object | Payment-record payload (`order_id`, `tx_hash`, `log_index`, `from_addr`, `to_addr`, `amount_wei`, `from_chain_id`, `status`) |
-| `signature` | string | Unsigned Keccak256 content hash of `payload`; it is an integrity checksum, not a cryptographic attestation |
+| `signature` | string | Unsigned Keccak256 hash of seven payload fields concatenated without separators, in this exact order: `order_id`, `tx_hash`, `log_index`, `from_addr`, `to_addr`, `amount_wei`, `from_chain_id` (`status` is NOT covered). An integrity checksum of those fields only, not a cryptographic attestation |
 
 Verify `payload.tx_hash` and its transfer on-chain when independent proof of payment is required.
 

@@ -102,6 +102,19 @@ describe('waitForConfirmation', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  it('treats INVOICED as a successful terminal state', async () => {
+    // Core flips DIRECT orders PAYMENT_CONFIRMED → INVOICED inside one watcher
+    // transaction, so a poller may only ever observe INVOICED. Without this
+    // terminal, every DIRECT wait would run to timeout.
+    const fetchMock = vi.fn(async () => jsonResponse(orderStatus('INVOICED')))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await client().waitForConfirmation('order_1', { timeout: 1000, interval: 0 })
+
+    expect(result.status).toBe('INVOICED')
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
   it('immediately rethrows deterministic client errors', async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({ error: 'order not found', code: 'ORDER_NOT_FOUND' }, 404)

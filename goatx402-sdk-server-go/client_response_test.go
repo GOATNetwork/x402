@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func testClient(server *httptest.Server) *Client {
@@ -69,5 +70,24 @@ func TestGetOrderProofDecodesCurrentWireShape(t *testing.T) {
 	}
 	if proof.Payload.FromChainID != 137 || proof.Payload.Status != "INVOICED" || proof.Signature != "0xhash" {
 		t.Fatalf("proof = %+v", proof)
+	}
+}
+
+func TestWaitForConfirmationTreatsInvoicedAsTerminal(t *testing.T) {
+	// Core flips DIRECT orders PAYMENT_CONFIRMED -> INVOICED inside one watcher
+	// transaction, so a poller may only ever observe INVOICED. Without this
+	// terminal, every DIRECT wait would run to timeout.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"order_id":"order_1","merchant_id":"merchant_1","dapp_order_id":"dapp_1","chain_id":137,"token_contract":"0xToken","token_symbol":"USDC","from_address":"0xPayer","amount_wei":"1000000","status":"INVOICED"}`))
+	}))
+	defer server.Close()
+
+	status, err := testClient(server).WaitForConfirmation(context.Background(), "order_1", 2*time.Second, 10*time.Millisecond)
+	if err != nil {
+		t.Fatalf("WaitForConfirmation returned error: %v", err)
+	}
+	if status.Status != "INVOICED" {
+		t.Fatalf("Status = %q, want INVOICED", status.Status)
 	}
 }

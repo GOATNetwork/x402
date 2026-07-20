@@ -130,6 +130,41 @@ In decimal-price DELEGATE mode, Core derives:
 The buyer may therefore pay on an eligible source chain while settlement remains on
 the merchant's callback chain.
 
+If `publicMetadata.callback_template` is set, the hosted page uses it to
+ABI-encode an optional per-buyer `callback_calldata` at bind time. The template
+must have this exact shape (`publicMetadata` is an unstructured object, so the
+compiler cannot check it for you):
+
+```ts
+publicMetadata: {
+  callback_template: {
+    // Solidity function signature (a leading "function " prefix is optional)
+    signature: 'testCallback(address payer, uint256 value, string message)',
+    // STATIC ABI parameters, encoded as-is — there is no runtime substitution,
+    // so e.g. a fixed uint256 amount bakes in ONE token-decimals assumption
+    args: ['0x0000000000000000000000000000000000000000', '3500000', 'Cotton T-Shirt'],
+  },
+},
+```
+
+A malformed template (missing `signature`, un-encodable `args`) makes the hosted
+page throw at encode time and blocks the bind — deliberately, so the buyer is
+never silently downgraded to a plain payment the merchant did not intend.
+
+Understand the trust model before relying on it:
+
+- `callback_template` is only an encoding hint for the hosted UI — it is NOT a
+  server-enforced constraint.
+- Bind-time calldata is buyer-controlled input: the buyer can omit it (the order
+  then settles via the plain no-calldata callback method) or substitute different
+  bytes, and Core does not re-validate it against the template.
+- The callback contract is the on-chain authority: it must validate selectors,
+  parameters, and permissions itself, and treat every callable function as
+  buyer-reachable.
+- If you need server-authoritative calldata (fulfillment that must run exactly as
+  pinned), use the legacy fixed-wei form's create-time `callbackCalldata`; price
+  mode cannot provide that guarantee.
+
 ### TypeScript: legacy fixed-wei DELEGATE checkout
 
 ```ts

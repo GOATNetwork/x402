@@ -49,11 +49,11 @@ res.json(order)
 | `createCheckoutSession(params)` | Create a hosted checkout session (DIRECT and DELEGATE flows) |
 | `createDelegateCheckoutSession(params)` | Deprecated DELEGATE-only wrapper, kept for compatibility |
 | `getOrderStatus(orderId)` | Fetch current order status and details |
-| `getOrderProof(orderId)` | Fetch the payment record; `signature` is an unsigned content hash, not an attestation |
+| `getOrderProof(orderId)` | Fetch the payment record; `signature` is an unsigned hash of a subset of payload fields, not an attestation |
 | `submitCalldataSignature(orderId, signature)` | Submit the buyer's EIP-712 calldata signature |
 | `cancelOrder(orderId)` | Cancel an order |
 | `getMerchant(merchantId)` | Fetch public merchant info (tokens, receiving config) |
-| `waitForConfirmation(orderId, ...)` | Poll until the order reaches a terminal state (confirmed, failed, expired, or cancelled) or polling times out |
+| `waitForConfirmation(orderId, ...)` | Poll until the order reaches a terminal state (confirmed or invoiced on success; failed, expired, or cancelled otherwise) or polling times out |
 
 Helpers: `calculateSignature` / `signRequest` (request signing),
 `toCAIP2` / `fromCAIP2` / `parseX402Header` (x402 header and chain-id utilities).

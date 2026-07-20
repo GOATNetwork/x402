@@ -242,9 +242,10 @@ export class GoatFlowClient {
    * Get the server-issued payment record for a completed order.
    * Only available after payment is confirmed.
    *
-   * The returned `signature` is an unsigned Keccak256 content hash, not a
-   * cryptographic attestation. Verify `payload.tx_hash` on-chain when
-   * independent verification is required.
+   * NOTE: the returned `signature` is an unsigned Keccak256 hash covering only
+   * a subset of the payload fields, not a cryptographic attestation (see
+   * {@link OrderProofResponse} for the exact field list); verify
+   * `payload.tx_hash` on-chain if you need independent verification.
    */
   async getOrderProof(orderId: string): Promise<OrderProofResponse> {
     return this.request('GET', `/api/v1/orders/${orderId}/proof`)
@@ -349,9 +350,13 @@ export class GoatFlowClient {
         options.onStatusChange?.(order.status)
       }
 
-      // Check for terminal states
+      // Check for terminal states. INVOICED is a SUCCESS terminal: Core flips
+      // DIRECT orders PAYMENT_CONFIRMED → INVOICED inside one watcher
+      // transaction, so a poller may never observe PAYMENT_CONFIRMED at all —
+      // without INVOICED here every DIRECT wait would run to timeout.
       if (
         order.status === 'PAYMENT_CONFIRMED' ||
+        order.status === 'INVOICED' ||
         order.status === 'FAILED' ||
         order.status === 'EXPIRED' ||
         order.status === 'CANCELLED'

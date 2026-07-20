@@ -107,9 +107,21 @@ export interface CreateCheckoutSessionParams {
   price?: string
   /** Legacy fixed-wei DELEGATE only — pinned source EVM chain ID. Omit for cross-chain price mode. */
   chainId?: number
-  /** DELEGATE only — pinned payment amount in wei (string for big numbers) — body field `fixed_amount_wei`. */
+  /** Legacy fixed-wei DELEGATE only — pinned payment amount in wei (string for big numbers) — body field `fixed_amount_wei`. */
   fixedAmountWei?: string
-  /** DELEGATE only — non-empty hex calldata (with or without 0x) for the merchant callback contract — body field `callback_calldata`. */
+  /**
+   * Legacy fixed-wei DELEGATE only — optional hex calldata (with or without 0x)
+   * for the merchant callback contract — body field `callback_calldata`. A
+   * create-time calldata is server-authoritative and is the ONLY way to
+   * guarantee specific callback bytes. Cross-chain price mode REJECTS
+   * create-time calldata (the buyer's source chain/token is unknown yet);
+   * there the hosted page MAY submit per-buyer calldata at bind, ABI-encoded
+   * from `publicMetadata.callback_template` — but the template is only a UI
+   * encoding hint, NOT a server-enforced constraint. Bind calldata is
+   * BUYER-CONTROLLED input: it can be omitted or replaced and is not
+   * re-validated against the template, so the callback contract must itself
+   * gate selectors, parameters, and permissions.
+   */
   callbackCalldata?: string
   /**
    * Legacy fixed-wei DELEGATE only — token contracts accepted for the fixed
@@ -256,9 +268,13 @@ export interface OrderProof {
 /**
  * Server-issued payment record for a completed order.
  *
- * `signature` is an unsigned Keccak256 content hash of the public payload, not
- * a cryptographic attestation. Verify `payload.tx_hash` on-chain when
- * independent verification is required.
+ * NOTE: `signature` is NOT signed by anyone — it is a bare Keccak256 hash of
+ * seven payload fields concatenated without separators, in this exact order:
+ * `order_id`, `tx_hash`, `log_index`, `from_addr`, `to_addr`, `amount_wei`,
+ * `from_chain_id`. It does NOT cover `status` (or any field outside that
+ * list), so it is an integrity checksum of those fields only — recomputable
+ * by anybody, not a cryptographic attestation and not a hash of the whole
+ * record. Verify `payload.tx_hash` on-chain if you need independent proof.
  */
 export interface OrderProofResponse {
   payload: {

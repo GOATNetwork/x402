@@ -138,6 +138,41 @@ describe('payX402', () => {
     expect(out.note).toMatch(/Do NOT pay again/i)
   })
 
+  it('clamps every poll sleep (including EXPIRED grace) to the pollTimeoutMs deadline', async () => {
+    // Status stays EXPIRED while a broadcast tx hash is known, so the
+    // EXPIRED-grace path keeps re-polling. With a poll interval far larger than
+    // the overall deadline, an unclamped grace sleep would overshoot
+    // pollTimeoutMs by up to a full pollIntervalMs.
+    const session = { session_id: 's-grace', order_id: 'o-grace', status: 'ORDER_CREATED', x402: { accepts: [{ scheme: 'exact', network: 'eip155:4217', payTo: '0xP', asset: '0xToken', amount: '1000000' }] } }
+    const { fetch, calls } = routeFetch(session, [{ status: 'EXPIRED', tx_hash: '0xTx' }])
+    const backend: PaymentBackend = { getAddress: async () => '0xPayer', transferErc20: async () => '0xTx' }
+    let clock = 0
+    const sleeps: number[] = []
+    const out = await payX402({
+      input: 'https://pay.goat.network/quickpay/acme',
+      amount: '1',
+      tokenSymbol: 'USDC',
+      chainId: 4217,
+      backend,
+      fetchImpl: fetch,
+      pollIntervalMs: 10_000,
+      pollTimeoutMs: 100,
+      now: () => clock,
+      sleep: async (ms) => {
+        sleeps.push(ms)
+        clock += Math.max(1, ms)
+      },
+    })
+    expect(out.status).toBe('EXPIRED')
+    expect(sleeps.length).toBeGreaterThan(0)
+    expect(Math.max(...sleeps)).toBeLessThanOrEqual(100)
+    // A hung status request must not outlive the deadline either: every status
+    // fetch carries an abort signal bounded by the remaining time.
+    const statusCalls = calls.filter((c) => c.url.includes('/quickpay/v1/x402/sessions/'))
+    expect(statusCalls.length).toBeGreaterThan(0)
+    for (const c of statusCalls) expect(c.init?.signal).toBeInstanceOf(AbortSignal)
+  })
+
   it('grace-polls EXPIRED with a known tx hash and reports a late confirmation', async () => {
     const session = { session_id: 's-late', status: 'ORDER_CREATED', x402: { accepts: [{ scheme: 'exact', network: 'eip155:4217', payTo: '0xP', asset: '0xToken', amount: '1000000' }] } }
     const { fetch } = routeFetch(session, [

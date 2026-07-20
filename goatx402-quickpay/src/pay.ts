@@ -58,8 +58,21 @@ async function postJSON(fetchImpl: typeof fetch, url: string, body: unknown): Pr
   return parsed
 }
 
-async function getJSON(fetchImpl: typeof fetch, url: string): Promise<any> {
-  const res = await fetchImpl(url, { headers: { accept: 'application/json' }, redirect: 'error' })
+async function getJSON(fetchImpl: typeof fetch, url: string, timeoutMs?: number): Promise<any> {
+  const res = await fetchImpl(url, {
+    headers: { accept: 'application/json' },
+    redirect: 'error',
+    // A hung request must not outlive the caller's polling deadline — without
+    // a signal the await blocks indefinitely and no sleep clamp can help.
+    // AbortSignal.timeout requires an INTEGER delay within the timer range
+    // (2^31-1 ms): a fractional clock like performance.now, an Infinity
+    // deadline, or a huge pollTimeoutMs would otherwise make it throw
+    // ERR_OUT_OF_RANGE synchronously on EVERY poll — silently disabling
+    // status fetches for the whole session.
+    ...(timeoutMs !== undefined
+      ? { signal: AbortSignal.timeout(Math.min(2 ** 31 - 1, Math.max(1, Math.ceil(timeoutMs)))) }
+      : {}),
+  })
   assertSameOrigin(res, url)
   if (!res.ok) {
     throw new Error(`GET ${url} failed (HTTP ${res.status})`)
@@ -263,12 +276,17 @@ async function runX402Session(intent: SessionIntent): Promise<PayX402Result> {
     // EXPIRED so callers are not encouraged to pay twice.
     let expiredGracePolls = 5
     const deadline = now() + intent.pollTimeoutMs
+    // Every sleep (normal poll, error retry, EXPIRED grace) is clamped to the
+    // remaining overall deadline so pollTimeoutMs is a hard cap — a full
+    // interval sleep near the end would otherwise overshoot it by up to one
+    // pollIntervalMs.
+    const boundedSleep = () => sleep(Math.min(intent.pollIntervalMs, Math.max(0, deadline - now())))
     while (now() < deadline) {
       let s: any
       try {
-        s = await getJSON(fetchImpl, ep.sessionStatus(sessionId))
+        s = await getJSON(fetchImpl, ep.sessionStatus(sessionId), deadline - now())
       } catch {
-        await sleep(intent.pollIntervalMs)
+        await boundedSleep()
         continue
       }
       gotSnapshot = true
@@ -289,12 +307,12 @@ async function runX402Session(intent: SessionIntent): Promise<PayX402Result> {
       if (TERMINAL_STATUSES.has(status)) {
         if (status === 'EXPIRED' && txHash && expiredGracePolls > 0) {
           expiredGracePolls--
-          await sleep(intent.pollIntervalMs)
+          await boundedSleep()
           continue
         }
         break
       }
-      await sleep(intent.pollIntervalMs)
+      await boundedSleep()
     }
     return { status, txHash, serverAmountWei, gotSnapshot }
   }

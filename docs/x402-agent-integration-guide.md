@@ -357,7 +357,7 @@ Both the frontend state machine and the backend fulfillment logic should cover t
 - After payment confirmation, the backend should retrieve and persist proof
 - Proof is useful for reconciliation, auditability, fulfillment evidence, and dispute handling
 - If your DApp triggers downstream fulfillment, store proof in backend records
-- The response's `signature` field is only an unsigned Keccak256 content checksum; verify `payload.tx_hash` on-chain for independent proof of payment
+- The response's `signature` field is only an unsigned Keccak256 checksum over a subset of the payload fields (see the API reference for the exact list); verify `payload.tx_hash` on-chain for independent proof of payment
 
 ---
 

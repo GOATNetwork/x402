@@ -68,7 +68,7 @@ settlement chain; an eligible buyer source chain may differ.
 - Best for: In-game purchases, per-call API billing, NFT minting, and other post-payment execution
 - Requirements: One EVM callback chain per merchant, receiving token configuration on that chain, and an admin-approved callback contract on the same chain
 - Cross-chain checkout: decimal-price Hosted Checkout may offer source-chain/token candidates derived from live TSS and token configuration
-- Payment record: Confirmed orders expose transaction details and an unsigned content checksum; verify the transaction on-chain for independent proof
+- Payment record: Confirmed orders expose transaction details and an unsigned checksum over a subset of the record's fields; verify the transaction on-chain for independent proof
 
 **Example:** A game operates on GOAT mainnet. The player authorizes a USDC payment on GOAT mainnet; Core verifies the order and the TSS-backed settlement path calls the game's approved GOAT callback contract. The player receives the item without any bridge or chain switch.
 
@@ -432,7 +432,7 @@ Go to the **Orders** page to view all orders.
 | Status | Order status |
 | Created | Creation time |
 
-Click **View** to see order details, including payment and payout transaction data. For confirmed orders, use proof retrieval for audit, reconciliation, and downstream fulfillment evidence. The response's `signature` field is an unsigned content checksum, not a cryptographic attestation; verify its `tx_hash` on-chain when independent proof is required.
+Click **View** to see order details, including payment and payout transaction data. For confirmed orders, use proof retrieval for audit, reconciliation, and downstream fulfillment evidence. The response's `signature` field is an unsigned checksum over a subset of the payload fields, not a cryptographic attestation; verify its `payload.tx_hash` on-chain when independent proof is required.
 
 ---
 

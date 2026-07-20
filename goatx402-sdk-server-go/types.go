@@ -55,9 +55,16 @@ type CreateCheckoutSessionParams struct {
 	Price string
 	// ChainID is the pinned source EVM chain for legacy fixed-wei DELEGATE checkout; omit it for cross-chain price mode.
 	ChainID int64
-	// FixedAmountWei is the DELEGATE-only pinned amount in wei (string for big numbers).
+	// FixedAmountWei is the legacy fixed-wei DELEGATE pinned amount in wei (string for big numbers).
 	FixedAmountWei string
-	// CallbackCalldata is the DELEGATE-only hex calldata (with or without 0x) for the merchant callback contract.
+	// CallbackCalldata is the legacy fixed-wei DELEGATE optional hex calldata (with or without
+	// 0x) for the merchant callback contract. A create-time calldata is server-authoritative
+	// and is the ONLY way to guarantee specific callback bytes. Cross-chain price mode REJECTS
+	// create-time calldata; there the hosted page MAY submit per-buyer calldata at bind,
+	// ABI-encoded from public_metadata.callback_template — but the template is only a UI
+	// encoding hint, NOT a server-enforced constraint. Bind calldata is BUYER-CONTROLLED
+	// input: it can be omitted or replaced and is not re-validated against the template, so
+	// the callback contract must itself gate selectors, parameters, and permissions.
 	CallbackCalldata string
 	// AcceptableTokens are the legacy fixed-wei DELEGATE token contracts (JSON-stringified for signing); price mode derives candidates server-side.
 	AcceptableTokens []string
@@ -316,9 +323,16 @@ type OrderProofPayload struct {
 	Status      string `json:"status"`
 }
 
-// OrderProofResponse is the server-issued payment record for a completed order.
-// Signature is an unsigned Keccak256 content hash of the public payload, not a
-// cryptographic attestation.
+// OrderProofResponse is the server-issued payment record for a completed
+// order.
+//
+// NOTE: Signature is NOT signed by anyone — it is a bare Keccak256 hash of
+// seven payload fields concatenated without separators, in this exact order:
+// order_id, tx_hash, log_index, from_addr, to_addr, amount_wei,
+// from_chain_id. It does NOT cover Status (or any field outside that list),
+// so it is an integrity checksum of those fields only — recomputable by
+// anybody, not a cryptographic attestation and not a hash of the whole
+// record. Verify Payload.TxHash on-chain if you need independent proof.
 type OrderProofResponse struct {
 	Payload   OrderProofPayload `json:"payload"`
 	Signature string            `json:"signature"`

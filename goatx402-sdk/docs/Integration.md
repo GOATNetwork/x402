@@ -565,7 +565,8 @@ await client.submitCalldataSignature(orderId, '0x...')
 // Get proof after payment completion
 const proof = await client.getOrderProof(orderId)
 
-// proof contains the on-chain tx hash plus an unsigned content checksum.
+// proof contains the on-chain tx hash plus an unsigned checksum over a
+// subset of the payload fields (not the whole record).
 // Verify proof.payload.tx_hash on-chain when independent proof is required.
 ```
 

@@ -28,7 +28,7 @@ Payments are verified on-chain through event monitoring:
 3. The system matches the transfer to a pending order.
 4. For DELEGATE orders, TSS-assisted callback / settlement execution is completed
    on the merchant's configured callback chain.
-5. A payment record is generated with the matched transaction details and an unsigned Keccak256 content checksum.
+5. A payment record is generated with the matched transaction details and an unsigned Keccak256 checksum over its key payment fields.
 6. Merchants retrieve the record through the API and verify the referenced transaction directly on-chain when independent proof is required.
 
 The legacy `/proof` response field named `signature` is not a signature or attestation: no private key is involved, and anyone with the public payload can recompute it.

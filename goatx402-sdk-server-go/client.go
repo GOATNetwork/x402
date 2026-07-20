@@ -266,9 +266,10 @@ func (c *Client) GetOrderStatus(ctx context.Context, orderID string) (*OrderStat
 // GetOrderProof retrieves the server-issued payment record for a completed
 // order. Only available after payment is confirmed.
 //
-// NOTE: the returned Signature is an unsigned Keccak256 content hash, not a
-// cryptographic attestation. Verify Payload.TxHash on-chain when independent
-// verification is required.
+// NOTE: the returned Signature is an unsigned Keccak256 hash covering only a
+// subset of the payload fields, not a cryptographic attestation (see
+// OrderProofResponse for the exact field list); verify Payload.TxHash
+// on-chain if you need independent verification.
 func (c *Client) GetOrderProof(ctx context.Context, orderID string) (*OrderProofResponse, error) {
 	var proof OrderProofResponse
 	err := c.request(ctx, "GET", "/api/v1/orders/"+orderID+"/proof", nil, &proof)
@@ -505,9 +506,13 @@ func (c *Client) WaitForConfirmation(ctx context.Context, orderID string, timeou
 				continue // Retry on error
 			}
 
-			// Check for terminal states
+			// Check for terminal states. INVOICED is a SUCCESS terminal: Core
+			// flips DIRECT orders PAYMENT_CONFIRMED -> INVOICED inside one
+			// watcher transaction, so a poller may never observe
+			// PAYMENT_CONFIRMED at all — without INVOICED here every DIRECT
+			// wait would run to timeout.
 			switch status.Status {
-			case "PAYMENT_CONFIRMED", "FAILED", "EXPIRED", "CANCELLED":
+			case "PAYMENT_CONFIRMED", "INVOICED", "FAILED", "EXPIRED", "CANCELLED":
 				return status, nil
 			}
 		}
