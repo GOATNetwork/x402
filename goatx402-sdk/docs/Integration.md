@@ -1,4 +1,4 @@
-# GoatX402 SDK Integration Guide
+# GOAT Flow SDK Integration Guide
 
 ## Table of Contents
 
@@ -21,19 +21,19 @@
 
 ## 1. Overview
 
-### 1.1 What is GoatX402
+### 1.1 What is GOAT Flow
 
-GoatX402 is a comprehensive EVM cryptocurrency payment processing platform. It provides two payment receiving modes to meet different merchant needs.
+GOAT Flow is a comprehensive EVM cryptocurrency payment processing platform. It provides two payment receiving modes to meet different merchant needs.
 
 ### 1.2 SDK Components
 
 | SDK | Purpose | Package |
 |-----|---------|---------|
-| **goatx402-sdk** | Frontend client SDK | `npm install goatx402-sdk` |
-| **goatx402-sdk-server** | TypeScript backend SDK | `npm install goatx402-sdk-server` |
-| **goatx402-sdk-server-go** | Go backend SDK | `go get github.com/goatnetwork/goatx402-sdk-server` |
-| **goatx402-checkout** | Drop-in hosted browser checkout | `npm install goatx402-checkout` |
-| **goatx402-quickpay** | QuickPay public payer / agent library and CLI | `npm install goatx402-quickpay` |
+| **goatflow-sdk** | Frontend client SDK | `npm install goatflow-sdk` |
+| **goatflow-sdk-server** | TypeScript backend SDK | `npm install goatflow-sdk-server` |
+| **goatflow-sdk-server** (Go) | Go backend SDK (source-only) | [Clone this repo and use a local `replace`](../../goatx402-sdk-server-go/README.md) |
+| **goatflow-checkout** | Drop-in hosted browser checkout | `npm install goatflow-checkout` |
+| **goatflow-quickpay** | QuickPay public payer / agent library and CLI | `npm install goatflow-quickpay` |
 
 ### 1.3 Two Payment Modes
 
@@ -67,7 +67,7 @@ GoatX402 is a comprehensive EVM cryptocurrency payment processing platform. It p
 
 ### 2.1 Prerequisites
 
-1. **Merchant Account**: Contact GoatX402 to obtain
+1. **Merchant Account**: Contact GOAT Flow to obtain
 2. **API Credentials**: `API_KEY` and `API_SECRET`
 3. **Fee Balance**: Ensure sufficient USD fee balance
 
@@ -75,28 +75,28 @@ GoatX402 is a comprehensive EVM cryptocurrency payment processing platform. It p
 
 ```bash
 # Backend SDK
-npm install goatx402-sdk-server
+npm install goatflow-sdk-server
 
 # Frontend SDK
-npm install goatx402-sdk ethers
+npm install goatflow-sdk ethers
 
 # QuickPay public payer / agent CLI
-npm install goatx402-quickpay
+npm install goatflow-quickpay
 
 # Drop-in hosted browser checkout
-npm install goatx402-checkout
+npm install goatflow-checkout
 ```
 
 ### 2.3 Backend: Create Order
 
 ```typescript
-import { GoatX402Client } from 'goatx402-sdk-server'
-import type { Order as ServerOrder } from 'goatx402-sdk-server'
-import type { Order as ClientOrder } from 'goatx402-sdk'
+import { GoatFlowClient } from 'goatflow-sdk-server'
+import type { Order as ServerOrder } from 'goatflow-sdk-server'
+import type { Order as ClientOrder } from 'goatflow-sdk'
 
 // Initialize client
-const client = new GoatX402Client({
-  baseUrl: 'https://api.x402.goat.network',
+const client = new GoatFlowClient({
+  baseUrl: 'https://flow-api.goat.network',
   apiKey: process.env.GOATX402_API_KEY,
   apiSecret: process.env.GOATX402_API_SECRET,
 })
@@ -125,7 +125,7 @@ async function createOrder(userAddress: string, amount: string) {
 ### 2.4 Frontend: Execute Payment
 
 ```typescript
-import { PaymentHelper, type Order as ClientOrder } from 'goatx402-sdk'
+import { PaymentHelper, type Order as ClientOrder } from 'goatflow-sdk'
 import { ethers } from 'ethers'
 
 async function executePayment(order: ClientOrder) {
@@ -177,7 +177,7 @@ const status = await client.getOrderStatus(orderId)
             │ HMAC Signature Auth        │ Wallet Interaction
             ▼                            ▼
 ┌───────────────────────────────────────────────────────────────────┐
-│                      GoatX402 Platform                             │
+│                      GOAT Flow Platform                             │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
 │  │  API Gateway │  │ Payment Eng │  │ TSS Gateway │              │
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
@@ -203,7 +203,7 @@ sequenceDiagram
     participant User as User
     participant MFE as Merchant Frontend
     participant MBE as Merchant Backend
-    participant API as GoatX402 API
+    participant API as GOAT Flow API
     participant Chain as Blockchain
 
     MBE->>API: 1. Create Order (Server SDK)
@@ -223,7 +223,7 @@ sequenceDiagram
 
 ### 4.1 Direct Mode (DIRECT)
 
-**Overview**: User directly transfers tokens to merchant's wallet address, without GoatX402 intermediation.
+**Overview**: User directly transfers tokens to merchant's wallet address, without GOAT Flow intermediation.
 
 **Features**:
 - Simplest payment method
@@ -239,7 +239,7 @@ sequenceDiagram
     participant SDK as Client SDK
     participant Token as Token Contract
     participant Merchant as Merchant Wallet
-    participant API as GoatX402 API
+    participant API as GOAT Flow API
 
     SDK->>Token: 1. Check balance
     Token-->>SDK: Balance sufficient
@@ -276,7 +276,7 @@ const order = await client.createOrder({
 ### 4.2 Delegate Mode (DELEGATE)
 
 **Overview**: The user transfers tokens to a TSS wallet on the selected source
-chain. GoatX402 then pays out and optionally executes the callback on the
+chain. GOAT Flow then pays out and optionally executes the callback on the
 merchant's configured callback/settlement chain, which may be the same chain.
 
 **Features**:
@@ -295,7 +295,7 @@ sequenceDiagram
     participant SDK as Client SDK
     participant Token as Token Contract
     participant TSS as TSS Wallet
-    participant API as GoatX402 API
+    participant API as GOAT Flow API
     participant Merchant as Merchant Wallet
 
     SDK->>Token: 1. Check balance
@@ -364,7 +364,7 @@ callback chain but may accept eligible cross-chain source payments. -->
 
 ### 5.1 Fee Structure
 
-GoatX402 uses a **fixed fee** model (not percentage), charged per order.
+GOAT Flow uses a **fixed fee** model (not percentage), charged per order.
 
 | Fee Type | Direct Mode | Delegate Mode | Description |
 |----------|-------------|---------------|-------------|
@@ -439,9 +439,9 @@ try {
 ### 6.1 Initialization
 
 ```typescript
-import { GoatX402Client } from 'goatx402-sdk-server'
+import { GoatFlowClient } from 'goatflow-sdk-server'
 
-const client = new GoatX402Client({
+const client = new GoatFlowClient({
   baseUrl: process.env.GOATX402_API_URL,    // API URL
   apiKey: process.env.GOATX402_API_KEY,      // API Key
   apiSecret: process.env.GOATX402_API_SECRET, // API Secret
@@ -475,7 +475,7 @@ const order = await client.createOrder({
 
 ```typescript
 interface OrderResponse {
-  orderId: string                  // GoatX402 order ID
+  orderId: string                  // GOAT Flow order ID
   flow: PaymentFlow                // Payment flow type
   payToAddress: string             // Receiving address
   expiresAt: number                // Expiration time (Unix timestamp)
@@ -500,7 +500,7 @@ Content-Type: application/json
 {
   "x402Version": 2,
   "resource": {
-    "url": "https://api.x402.goat.network/api/v1/orders/{order_id}",
+    "url": "https://flow-api.goat.network/api/v1/orders/{order_id}",
     "description": "Payment: 10000000 USDC",
     "mimeType": "application/json"
   },
@@ -511,7 +511,7 @@ Content-Type: application/json
       "amount": "10000000",
       "asset": "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
       "payTo": "0xMerchantOrTssAddress",
-      "maxTimeoutSeconds": 600,
+      "maxTimeoutSeconds": 585,
       "extra": {
         "flow": "ERC20_DIRECT",
         "tokenSymbol": "USDC"
@@ -532,7 +532,9 @@ Content-Type: application/json
 }
 ```
 
-For `ERC20_3009`, `accepts[0].scheme` is `exact-eip3009` and `extensions.goatx402.signatureEndpoint` points to `POST /api/v1/orders/{order_id}/calldata-signature`.
+`maxTimeoutSeconds` is the order's remaining lifetime when the challenge is generated (clamped to at least 1 second), not a fixed 600-second window.
+
+For `ERC20_3009`, `accepts[0].scheme` is `exact-eip3009`. Whenever the order carries a `calldata_sign_request`—including Permit2-style DELEGATE callbacks—`extensions.goatx402.signatureEndpoint` points to `POST /api/v1/orders/{order_id}/calldata-signature`.
 
 <!-- REVISION NOTE: Challenge fields are verified against internal/types/orders.go and handlers.go. The x402 body uses `payTo`, while SDK-normalized objects expose `payToAddress`. -->
 
@@ -563,7 +565,9 @@ await client.submitCalldataSignature(orderId, '0x...')
 // Get proof after payment completion
 const proof = await client.getOrderProof(orderId)
 
-// proof contains on-chain tx hash and GoatX402 signature proof
+// proof contains the on-chain tx hash plus an unsigned checksum over a
+// subset of the payload fields (not the whole record).
+// Verify proof.payload.tx_hash on-chain when independent proof is required.
 ```
 
 ---
@@ -579,7 +583,7 @@ import {
   parseUnits,
   formatUnits,
   type Order as ClientOrder,
-} from 'goatx402-sdk'
+} from 'goatflow-sdk'
 import { ethers } from 'ethers'
 
 // Connect wallet
@@ -594,7 +598,7 @@ const payment = new PaymentHelper(signer)
 The server SDK returns `fromChainId` and `payToChainId`. Before passing an order to the browser SDK, map `chainId` from `fromChainId` and include the payer address used at order creation.
 
 ```typescript
-import type { Order as ServerOrder } from 'goatx402-sdk-server'
+import type { Order as ServerOrder } from 'goatflow-sdk-server'
 
 function toClientOrder(serverOrder: ServerOrder, fromAddress: string): ClientOrder {
   return { ...serverOrder, fromAddress, chainId: serverOrder.fromChainId }
@@ -654,12 +658,12 @@ async function processPayment(order: ClientOrder) {
 ### 7.3 React Hook Example
 
 ```typescript
-// hooks/useGoatX402Payment.ts
+// hooks/useGoatFlowPayment.ts
 import { useState, useCallback } from 'react'
-import { PaymentHelper, type Order as ClientOrder, type PaymentResult } from 'goatx402-sdk'
+import { PaymentHelper, type Order as ClientOrder, type PaymentResult } from 'goatflow-sdk'
 import { ethers } from 'ethers'
 
-export function useGoatX402Payment() {
+export function useGoatFlowPayment() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -704,8 +708,8 @@ export function useGoatX402Payment() {
 
 ```tsx
 // components/PayButton.tsx
-import { useGoatX402Payment } from '../hooks/useGoatX402Payment'
-import type { Order as ClientOrder } from 'goatx402-sdk'
+import { useGoatFlowPayment } from '../hooks/useGoatFlowPayment'
+import type { Order as ClientOrder } from 'goatflow-sdk'
 
 interface PayButtonProps {
   order: ClientOrder
@@ -714,7 +718,7 @@ interface PayButtonProps {
 }
 
 export function PayButton({ order, onSuccess, onError }: PayButtonProps) {
-  const { pay, loading, error } = useGoatX402Payment()
+  const { pay, loading, error } = useGoatFlowPayment()
 
   const handleClick = async () => {
     const result = await pay(order)
@@ -773,7 +777,7 @@ const signature = await signer.signTypedData(
   order.calldataSignRequest.message
 )
 
-// order.calldataSignRequest.domain is returned by GoatX402 and must match
+// order.calldataSignRequest.domain is returned by GOAT Flow and must match
 // the deployed MerchantCallback EIP-712 domain. MerchantCallback.initialize()
 // defaults to name "GoatX402 Pay Callback" and version "1".
 ```
@@ -843,7 +847,7 @@ type Permit2CallbackData = Eip3009CallbackData & {
 
 ```typescript
 // Amount format conversion
-import { parseUnits, formatUnits } from 'goatx402-sdk'
+import { parseUnits, formatUnits } from 'goatflow-sdk'
 
 // Human readable → Wei
 const amountWei = parseUnits('100.5', 6) // 100500000n
@@ -887,12 +891,12 @@ and the selected token decimals.
 QuickPay package and CLI:
 
 ```bash
-npx goatx402-quickpay inspect https://api.x402.goat.network/quickpay/merchant_123/agent.md
-npx goatx402-quickpay pay-x402 https://api.x402.goat.network/quickpay/merchant_123/agent.md \
+npx goatflow-quickpay inspect https://flow-api.goat.network/quickpay/merchant_123/agent.md
+npx goatflow-quickpay pay-x402 https://flow-api.goat.network/quickpay/merchant_123/agent.md \
   --amount 10 --token-contract 0xToken --chain 137 --idempotency-key invoice-123
-npx goatx402-quickpay pay-product https://api.x402.goat.network/quickpay/merchant_123/agent.md \
+npx goatflow-quickpay pay-product https://flow-api.goat.network/quickpay/merchant_123/agent.md \
   --product mug --token-contract 0xToken --chain 137
-npx goatx402-quickpay pay-mpp https://api.x402.goat.network/quickpay/merchant_123/agent.md \
+npx goatflow-quickpay pay-mpp https://flow-api.goat.network/quickpay/merchant_123/agent.md \
   --route <route_canonical>
 ```
 
@@ -903,10 +907,10 @@ The library exports `QuickPayClient`, `inspect`, `payX402`, `payProduct`,
 
 ### 9.5 Hosted Checkout
 
-For a platform-hosted payment page, use `goatx402-checkout`:
+For a platform-hosted payment page, use `goatflow-checkout`:
 
 ```typescript
-import { GoatCheckout } from 'goatx402-checkout'
+import { GoatCheckout } from 'goatflow-checkout'
 
 const goat = GoatCheckout({ origin: 'https://pay.goat.network' })
 goat.open({ merchant: 'merchant_123', productKey: 'mug' })
@@ -1107,10 +1111,10 @@ Use package manifests as the version source of truth:
 
 | Package | Source |
 |---------|--------|
-| `goatx402-sdk` | `goatx402-sdk/package.json` |
-| `goatx402-sdk-server` | `goatx402-sdk-server-ts/package.json` |
-| `goatx402-checkout` | `goatx402-checkout/package.json` |
-| `goatx402-quickpay` | `goatx402-quickpay/package.json` |
+| `goatflow-sdk` | `goatx402-sdk/package.json` |
+| `goatflow-sdk-server` | `goatx402-sdk-server-ts/package.json` |
+| `goatflow-checkout` | `goatx402-checkout/package.json` |
+| `goatflow-quickpay` | `goatx402-quickpay/package.json` |
 
 ### 11.2 Dependency Versions
 
@@ -1137,7 +1141,7 @@ Use package manifests as the version source of truth:
 
 ```typescript
 // ✅ Use environment variables
-const client = new GoatX402Client({
+const client = new GoatFlowClient({
   baseUrl: process.env.GOATX402_API_URL,
   apiKey: process.env.GOATX402_API_KEY,
   apiSecret: process.env.GOATX402_API_SECRET,
@@ -1240,7 +1244,7 @@ my-payment-app/
 │   │   ├── routes/
 │   │   │   └── orders.ts       # Order API
 │   │   ├── services/
-│   │   │   └── goatx402.ts      # GoatX402 service
+│   │   │   └── goatx402.ts      # GOAT Flow service
 │   │   └── index.ts
 │   └── package.json
 ├── frontend/

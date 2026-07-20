@@ -1,7 +1,7 @@
 {
-  "name": "goatx402-sdk",
+  "name": "goatflow-sdk",
   "version": "0.2.1",
-  "description": "TypeScript SDK for GoatX402 payment integration",
+  "description": "TypeScript SDK for GOAT Flow payment integration",
   "type": "module",
   "engines": {
     "node": ">=18"
@@ -45,6 +45,7 @@
     "vitest": "^1.0.0"
   },
   "keywords": [
+    "goatflow",
     "goatx402",
     "payment",
     "evm",
