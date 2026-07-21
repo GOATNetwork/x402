@@ -1,6 +1,6 @@
 # Changelog
 
-## goatflow-sdk 0.2.1 - Unreleased
+## goatflow-sdk 0.2.1 - 2026-07-20
 
 - Renamed the package `goatx402-sdk` to `goatflow-sdk` for the GOAT Flow
   rebrand. This is the first release under the new npm package name; the old
