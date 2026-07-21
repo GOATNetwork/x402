@@ -1,14 +1,12 @@
 # Changelog
 
-## 0.3.0 - Unreleased
+## 0.3.0 - 2026-07-21
 
 - Renamed the package and CLI `goatx402-quickpay` to `goatflow-quickpay` for
   the GOAT Flow rebrand. The executable is now `npx goatflow-quickpay`, and the
   optional MPP dependency is `goatflow-sdk ^0.2.0`.
-- Until the first `goatflow-sdk` release is eligible under the supply-chain
-  policy, a temporary workspace link keeps frozen installs reproducible. The
-  link must be removed and the lockfile refreshed before this package is
-  tagged or published.
+- Resolve the optional `goatflow-sdk ^0.2.0` dependency from the npm registry;
+  the release lockfile no longer uses the temporary bootstrap workspace link.
 - Give an `EXPIRED` session with a known transaction hash bounded grace polls,
   warn callers not to pay again when it remains expired, and fail closed when a
   recovered confirmed session has no server transaction hash.

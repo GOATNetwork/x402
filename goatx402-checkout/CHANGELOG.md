@@ -1,6 +1,6 @@
 # Changelog
 
-## goatflow-checkout 0.1.0 - Unreleased
+## goatflow-checkout 0.1.0 - 2026-07-21
 
 - Renamed the package `goatx402-checkout` to `goatflow-checkout` for the GOAT
   Flow rebrand. This is the first release under the new npm package name.

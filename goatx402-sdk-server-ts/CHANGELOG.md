@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 - Unreleased
+## 0.3.0 - 2026-07-21
 
 - Treat `INVOICED` as a successful terminal state in `waitForConfirmation`:
   Core flips DIRECT orders `PAYMENT_CONFIRMED` → `INVOICED` inside one
