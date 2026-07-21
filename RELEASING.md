@@ -1,55 +1,67 @@
 # Releasing the npm packages
 
-This repo publishes four npm packages: `goatflow-sdk` (from `goatx402-sdk/`),
-`goatflow-sdk-server` (from `goatx402-sdk-server-ts/`),
-`goatflow-quickpay` (from `goatx402-quickpay/`), and `goatflow-checkout`
-(from `goatx402-checkout/`). They are the GOAT Flow-branded successors of the
-corresponding `goatx402-*` packages and begin as fresh npm package names. The
-automated publish workflow was removed for security reasons (unrestricted
+This repo release-manages exactly four npm packages:
+
+| npm package | Directory | Required entry artifacts |
+| --- | --- | --- |
+| `goatflow-sdk` | `goatx402-sdk/` | `dist/index.js`, `dist/index.d.ts` |
+| `goatx402-sdk-server` | `goatx402-sdk-server-ts/` | `dist/index.js`, `dist/index.d.ts` |
+| `goatx402-quickpay` | `goatx402-quickpay/` | `dist/index.js`, `dist/index.d.ts`, `dist/cli.js` |
+| `goatx402-checkout` | `goatx402-checkout/` | `dist/index.js`, `dist/index.d.ts`, `dist/checkout.global.js` |
+
+The private demo, Foundry project, Go modules, and
+`goatx402-mpp-middleware-ts/` are outside this npm runbook. The presence of a
+`package.json`, package name, or `prepublishOnly` script is not authorization to
+publish a new package. Adding another release-managed package requires an
+explicit process change, license/repository metadata review, release gates, and
+approval before its first publication.
+
+The automated publish workflow was removed for security reasons (unrestricted
 trigger, unpinned actions); until a hardened workflow replaces it, releases
 follow this manual runbook. Every step is required — ad-hoc publishes drifting
 from git is the root cause this process exists to prevent.
 
-## First GOAT Flow release bootstrap
+## GOAT Flow package migration
 
-`goatflow-quickpay` declares `goatflow-sdk ^0.2.0` as an optional dependency.
-Until `goatflow-sdk` exists on npm and satisfies pnpm's `minimumReleaseAge`,
-`goatx402-quickpay/pnpm-workspace.yaml` temporarily links the sibling
-`goatx402-sdk/` directory and the lockfile records
-`goatflow-sdk: link:../goatx402-sdk`. This keeps the preparation branch's
-frozen install reproducible, but it is not a valid final release state for
-QuickPay because it tests against local source rather than the registry.
+`goatflow-sdk@0.2.1` is the released GOAT Flow-branded browser SDK. On this
+commit, the Server SDK, QuickPay, and Checkout manifests still use their
+`goatx402-*` npm names. Treat the corresponding `goatflow-*` names as future
+release identities until each package's complete code, metadata, lockfile,
+tests, and changelog state has merged and passed this runbook.
 
-The first branded release therefore uses two separate release cycles. Do not
-merge the broad branding/docs PR before Cycle A: doing so would advertise fresh
-package names before they exist on npm.
+Migrating or deprecating an existing `goatx402-*` package is a separate,
+explicit release action. Do not infer authorization from the SDK migration or
+from documentation changes.
 
-1. **Cycle A — `goatflow-sdk@0.2.1` only.** Prepare a separate SDK-only release
-   PR from current `main`, including the SDK's complete branded release state.
-   Merge it, run all gates from a clean checkout of the merge commit, tag,
-   publish, and complete the registry smoke test.
-2. **Refresh QuickPay on the still-unmerged broad branding branch.** Wait until
-   `goatflow-sdk@0.2.1` satisfies `minimumReleaseAge` (currently 24 hours). Keep
-   the persistent `allowBuilds`/`onlyBuiltDependencies` policy in
-   `goatx402-quickpay/pnpm-workspace.yaml`, but remove the temporary `packages`,
-   `linkWorkspacePackages`, and `sharedWorkspaceLockfile` entries and their
-   bootstrap comment. Run `pnpm update goatflow-sdk --lockfile-only` from
-   `goatx402-quickpay/`, verify `package.json` still contains the intended
-   `^0.2.0` range, assert `! grep -q 'link:' pnpm-lock.yaml`, and pass frozen
-   install plus every QuickPay gate. Update the branch on the Cycle A `main`
-   before its final review.
-3. **Cycle B — `goatflow-quickpay@0.3.0`,
-   `goatflow-sdk-server@0.3.0`, and `goatflow-checkout@0.1.0`.** Stamp their
-   changelogs only after the registry-backed QuickPay lockfile passes. Merge the
-   broad branding/docs PR only when all three packages are release-ready, then
-   immediately validate and release them from that exact `main` merge commit.
-   The QuickPay tag and publish must never use the temporary workspace-link
-   state.
+## Current Blockers And Known Issues
 
-Deprecating an old `goatx402-*` npm package is a separate, explicit release
-action. Do it only after all corresponding `goatflow-*` packages have passed
-post-publish verification and the user has authorized the deprecation message
-and scope.
+Do not tag or publish while any release blocker remains:
+
+- **Current blocker:** all four package-local `pnpm-workspace.yaml` files omit
+  `packages`. pnpm `9.15.9` rejects the required install and gate commands with
+  `packages field missing or empty`. Repair and merge the workspace files
+  through a normal PR, then rerun every package gate.
+- **Current blocker:** the repository does not pin pnpm with a root or
+  package-level `packageManager` field, Corepack contract, or equivalent
+  machine-enforced version. Record and enforce the reviewed pnpm version before
+  treating the workspace gate as reproducible.
+- **Current blocker:** generated declarations that ship in npm tarballs still
+  contain obsolete example origins. `goatx402-sdk-server-ts/dist/index.d.ts`
+  mentions `api.goatx402.io`, and `goatx402-checkout/dist/types.d.ts` mentions
+  `pay.goat.network`. Correct the source comments, rebuild `dist`, and verify the
+  tarballs contain only the active origins from `docs/README.md`.
+- **Per-release blocker:** the candidate must be the exact tip of canonical
+  `GOATNetwork/x402` `main`, validated from a clean checkout whose `origin`
+  points to that repository.
+- **Per-release blocker:** build one actual `.tgz` per package from that clean
+  commit, record its identity, and publish that exact file. A dry run or a
+  later rebuild is not the release artifact.
+
+Separately, the Foundry project is outside this npm runbook and currently
+installs `forge-std` without a pinned revision. That blocks reproducible
+contract build or deployment sign-off; see
+[`goatx402-contract/README.md`](goatx402-contract/README.md#prerequisites). It
+does not add the contract project to the npm release scope.
 
 ## Publish repository — GOATNetwork/x402
 
@@ -73,8 +85,10 @@ a commit that was not tested, and nothing from a dirty tree may ship.
 For every package being released:
 
 - set the intended version in `package.json`;
-- replace its `Unreleased` CHANGELOG heading with the release date (do not
-  rewrite dates for versions already published);
+- add a topmost `<version> - YYYY-MM-DD` entry to its `CHANGELOG.md`; if an
+  `Unreleased` section exists, rename that section, otherwise create the
+  version heading above the existing history;
+- do not rewrite, reorder, or otherwise clean up historical release entries;
 - confirm `repository.url` still points to `GOATNetwork/x402`; and
 - merge all code, metadata, tests, and CHANGELOG changes into canonical `main`
   through the normal PR flow.
@@ -88,14 +102,23 @@ working tree.
 Use a fresh clone or detached worktree at the exact merge commit. For example:
 
 ```bash
+canonical_url="$(git remote get-url origin)"
+case "$canonical_url" in
+  https://github.com/GOATNetwork/x402.git|git@github.com:GOATNetwork/x402.git) ;;
+  *) echo "origin is not canonical: $canonical_url" >&2; exit 1 ;;
+esac
+
 git fetch origin main
-git worktree add --detach /tmp/x402-release <release-commit>
+test "$(git rev-parse origin/main)" = "<release-commit>"
+git worktree add --detach /tmp/x402-release "<release-commit>"
 cd /tmp/x402-release
 test "$(git rev-parse HEAD)" = "<release-commit>"
 test -z "$(git status --porcelain=v1)"
 ```
 
-Do not reuse the feature-branch worktree that prepared the release.
+Do not reuse the feature-branch worktree that prepared the release. If
+canonical `main` moves before tagging, stop and decide through a new PR/release
+review whether the candidate must be rebuilt from the newer tip.
 
 ### 3. Run package gates
 
@@ -107,21 +130,46 @@ pnpm install --frozen-lockfile
 npm run typecheck --if-present
 npm run test:run
 npm run build
-npm pack --dry-run --json
+mkdir -p /tmp/x402-release-tarballs
+npm pack --json --pack-destination /tmp/x402-release-tarballs
 ```
 
-Review the pack JSON, including package name, version, included files, shasum,
-and integrity. Record the shasum for comparison after publication. The
-`prepublishOnly` hook repeats tests during `npm publish`, but is only a backstop
-and does not replace this gate.
+The package-local `pnpm-workspace.yaml` must be accepted by the pinned/approved
+pnpm version before any gate can count. If pnpm reports
+`packages field missing or empty`, stop the release and repair the workspace
+configuration through a normal PR. Do **not** use `--ignore-workspace` as a
+release workaround: it bypasses the workspace file that carries pnpm
+supply-chain/build policy.
+
+Review the pack JSON, including package name, version, filename, included
+files, shasum, and integrity. Record those values plus an independent checksum
+of the resulting `.tgz`, for example:
+
+```bash
+shasum -a 256 "/tmp/x402-release-tarballs/<filename>"
+```
+
+Run the tests explicitly as shown above; do not rely on lifecycle hooks as a
+substitute. If source, metadata, dependencies, or the release commit changes,
+discard the tarball and restart validation.
+
+`goatx402-quickpay` and `goatx402-checkout` currently define an explicit
+`typecheck` script. SDK and Server do not, so `--if-present` intentionally skips
+that command for those two packages; their `build` commands still run `tsc`
+against the shipping build configuration.
 
 Also run the package-specific smoke tests against the built output:
 
-- QuickPay: exercise `--help`, `-h`, `help`, and any argument-boundary case
-  changed by the release.
-- Checkout: verify the ESM entry and evaluate the shipped browser IIFE,
-  confirming it installs `window.GoatCheckout`.
-- SDK and Server: import their ESM entry points and inspect non-empty exports.
+- SDK: import `dist/index.js` from Node ESM and require non-empty exports.
+- Server: import `dist/index.js` from Node ESM and require non-empty exports.
+- QuickPay: import `dist/index.js`; exercise `dist/cli.js --help`, `-h`, `help`,
+  and any argument-boundary case changed by the release.
+- Checkout: import `dist/index.js` and evaluate `dist/checkout.global.js` in a
+  browser-like global, confirming it installs `window.GoatCheckout`.
+
+Do not treat a successful TypeScript compile as proof that the package tarball
+contains these files. The actual `npm pack --json` file list and `.tgz` are the
+authoritative pre-publish artifacts.
 
 ### 4. Check npm identity, versions, and tags
 
@@ -136,7 +184,7 @@ For each package/version, query npm immediately before tagging. The target
 version must not appear:
 
 ```bash
-npm view <package> versions --json --prefer-online
+npm view '<package>' versions --json --prefer-online
 ```
 
 The intended annotated tag must be absent both locally and remotely:
@@ -168,20 +216,27 @@ Read the remote tag back with `git ls-remote --tags` and confirm its peeled
 
 ### 6. Publish in dependency order
 
-Preserve this relative order for whichever packages are in the release:
+Preserve this order for whichever packages are in the release:
 
 1. `goatflow-sdk`
-2. `goatflow-quickpay`
-3. `goatflow-sdk-server`
-4. `goatflow-checkout`
+2. `goatx402-quickpay`
+3. `goatx402-sdk-server`
+4. `goatx402-checkout`
 
-QuickPay advertises the SDK 0.2.x line as an optional dependency, so the SDK
-must be visible on npm before QuickPay is published. From each package's
-directory in the tagged clean checkout, run:
+QuickPay currently advertises `goatx402-sdk` through
+`^0.1.2 || ^0.2.0` as an optional dependency, so a newly released SDK in that
+range must be visible on npm before QuickPay is published. Checkout and Server
+do not currently depend on the other release-managed packages, but retaining
+one deterministic order makes the evidence easier to audit.
+
+Publish the already validated tarball for each package:
 
 ```bash
-npm publish
+npm publish "/tmp/x402-release-tarballs/<filename>"
 ```
+
+npm must receive the exact `.tgz`; do not run bare `npm publish`, which repacks
+the package directory and creates a second, unverified artifact.
 
 npm may require a separate browser authorization for each publish. Keep the
 original command running until authorization returns. If a publish command is
@@ -203,9 +258,21 @@ npm view '<package>@<version>' \
 npm view '<package>' dist-tags --json --prefer-online
 ```
 
-The registry shasum must equal the `npm pack --dry-run --json` shasum, and the
-expected release must be the `latest` dist-tag unless the release deliberately
-uses another tag.
+The registry shasum and integrity must equal the values from the actual
+pre-publish pack. Download the registry artifact to a separate directory and
+compare bytes with the release tarball:
+
+```bash
+mkdir -p /tmp/x402-registry-tarballs
+npm pack '<package>@<version>' \
+  --json --pack-destination /tmp/x402-registry-tarballs
+cmp "/tmp/x402-release-tarballs/<filename>" \
+  "/tmp/x402-registry-tarballs/<filename>"
+```
+
+The expected release must be the `latest` dist-tag unless the release
+deliberately uses another tag. A checksum, integrity, or byte comparison
+mismatch is a failed release; do not republish the same version.
 
 ### 8. Run post-publish smoke tests
 
@@ -220,29 +287,32 @@ npm install --ignore-scripts --no-audit --no-fund --prefer-online \
   '<package>@<version>'
 ```
 
-Import every released package from Node ESM and require non-empty exports. Run
-QuickPay's installed CLI, including:
+Import every released package from Node ESM and require non-empty exports. For
+Checkout, also evaluate the installed `dist/checkout.global.js` and confirm
+`window.GoatCheckout` exists. Run QuickPay's installed CLI, including:
 
 ```bash
-npx --no-install goatflow-quickpay --help
+npx --no-install goatx402-quickpay --help
 ```
 
-Run Checkout's installed browser IIFE as well. For Cycle B, use
-`npm ls goatflow-quickpay goatflow-sdk --depth=1` to confirm QuickPay actually
-resolves the intended published SDK version.
+Run Checkout's installed browser IIFE as well. When QuickPay and the SDK are
+released together, use `npm ls goatx402-quickpay goatx402-sdk --depth=1` to
+confirm QuickPay actually resolves the intended SDK version.
+
+Inspect the installed package contents as well as the imports. A local workspace
+link, adjacent build output, or npm cache entry must not be allowed to satisfy
+the smoke test accidentally.
 
 ### 9. Refresh QuickPay's SDK lock resolution
 
 After publishing an SDK version accepted by QuickPay's optional dependency
-range, refresh `goatx402-quickpay/pnpm-lock.yaml` so it resolves that registry
-version. This change must pass the normal PR flow. For the first GOAT Flow
-release, make the refresh on the still-unmerged broad branding branch described
-above; for later SDK releases, use a separate post-release PR. Retain the
-persistent workspace build policy while removing only the temporary
-sibling-package link.
+range, refresh `goatx402-quickpay/pnpm-lock.yaml` so it resolves that version.
+This is a separate post-release repository change and must pass the normal PR
+flow.
 
-The active pnpm supply-chain policy may reject a package until it satisfies
-`minimumReleaseAge` (currently a 24-hour window). This is expected:
+A repository-external or user-level pnpm supply-chain policy may reject a newly
+published package until it satisfies `minimumReleaseAge`. Treat that rejection
+as an expected safety gate:
 
 - never add an exclusion or weaken the policy to make the refresh pass;
 - never commit a lockfile that fails `pnpm install --frozen-lockfile`;
@@ -260,7 +330,8 @@ be audited without reconstructing terminal history:
 - annotated tag names and peeled targets;
 - exact npm package names and versions;
 - test counts and package-specific smoke results;
-- dry-run and registry shasums (and integrity values when useful);
+- release tarball filenames, pack JSON, SHA-256 checksums, registry shasums and
+  integrity values, and registry byte-comparison results;
 - final dist-tags and resolved inter-package dependency versions; and
 - any deferred lockfile refresh with its eligibility time.
 

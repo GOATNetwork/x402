@@ -1,0 +1,4 @@
+interface:
+  display_name: "GOAT Flow DApp Integration"
+  short_description: "Integrate GOAT Flow into an existing DApp"
+  default_prompt: "Use the GOAT Flow DApp integration skill to add GOAT Flow payments to an existing DApp."

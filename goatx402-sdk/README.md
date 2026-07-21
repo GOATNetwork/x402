@@ -1,14 +1,16 @@
 # goatflow-sdk
 
-Frontend TypeScript SDK for **GOAT Flow** payment integration, built on
-[ethers v6](https://docs.ethers.org/v6/). It handles the wallet side of a
-payment: ERC20 operations, EIP-712 signing, payment execution, and the MPP
-(Machine Payments Protocol) buyer flow.
+Frontend TypeScript SDK for GOAT Flow, built on ethers v6. It provides:
 
-> **This SDK does NOT handle API authentication.** Order creation requires an
-> API key/secret that must never reach the browser — use
-> [`goatflow-sdk-server`](https://github.com/GOATNetwork/x402/tree/main/goatx402-sdk-server-ts)
-> on your backend to create orders, then hand the order to this SDK for payment.
+- `PaymentHelper` for buyer-authorized browser ERC-20 transfers
+- `ERC20Token` approval and transfer helpers
+- EIP-712 callback-signing utilities
+- `MPPClient` for challenge, buyer transfer, verification, and receipt recovery
+
+This package does not hold merchant API credentials or create authenticated
+orders. Use `goatx402-sdk-server` or the Go server SDK on your backend.
+Buyer-wallet transfers go directly to the instructed recipient; GOAT Flow and
+this SDK do not act as an intermediary for merchant customer funds.
 
 ## Install
 
@@ -16,80 +18,177 @@ payment: ERC20 operations, EIP-712 signing, payment execution, and the MPP
 npm install goatflow-sdk
 ```
 
-## Quick start
+The package declares Node.js >= 18 for non-browser use.
 
-```typescript
-import { PaymentHelper } from 'goatflow-sdk'
+## Pay a server-created order
+
+The server and browser SDK `Order` types are different. Your backend must map:
+
+- server `fromChainId` -> browser `chainId`
+- the create-order payer -> browser `fromAddress`
+
+```ts
+import { PaymentHelper, type Order } from 'goatflow-sdk'
 import { ethers } from 'ethers'
 
-// Connect wallet
+const order: Order = await fetch('/api/orders', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ productId: 'mug' }),
+}).then((response) => response.json())
+
 const provider = new ethers.BrowserProvider(window.ethereum)
 const signer = await provider.getSigner()
+
+const network = await provider.getNetwork()
+if (Number(network.chainId) !== order.chainId) {
+  throw new Error(`Switch wallet to chain ${order.chainId}`)
+}
+
+const payer = await signer.getAddress()
+if (payer.toLowerCase() !== order.fromAddress.toLowerCase()) {
+  throw new Error('Connected wallet does not match the order payer')
+}
+
+if (Math.floor(Date.now() / 1000) >= order.expiresAt) {
+  throw new Error('Order expired')
+}
+
 const payment = new PaymentHelper(signer)
 
-// Get an order from YOUR backend (created there with goatflow-sdk-server)
-const order = await fetch('/api/orders', {
-  method: 'POST',
-  body: JSON.stringify({ /* ... */ }),
-}).then((r) => r.json())
-
-// Execute the payment
-const result = await payment.pay(order)
-if (result.success) {
-  console.log('Payment successful:', result.txHash)
+if (order.calldataSignRequest) {
+  throw new Error(
+    'Use the operator-provisioned callback flow before paying this order',
+  )
 }
+
+const result = await payment.pay(order)
+if (!result.success) throw new Error(result.error ?? 'Payment failed')
 ```
 
-## MPP (Machine Payments Protocol)
+This basic example covers DIRECT. In an explicitly operator-provisioned callback
+environment, map `calldataSignRequest`, sign its exact EIP-712 payload on the
+returned domain chain, submit it through the merchant backend, and switch back
+to the transfer source chain before paying. See the
+[full integration guide](../docs/goat-flow-integration.md#51-typescript-client).
 
-```typescript
-import { MPPClient } from 'goatflow-sdk'
+`PaymentHelper.pay()` checks the token balance, sends
+`transfer(order.payToAddress, order.amountWei)`, waits for a successful receipt,
+and returns a `PaymentResult`. The connected buyer signer sends tokens directly
+to the instructed recipient; the SDK does not hold, route, or disburse merchant
+customer funds. It catches transfer errors and returns
+`{ success: false, error }`; it does not perform chain, payer, or expiry checks.
+It also does not classify `TRANSACTION_REPLACED`, so reconcile a wallet speed-up
+and backend order before retrying a result reported as failed.
 
-const mpp = new MPPClient({ coreUrl: 'https://core.example.com', signer })
-const result = await mpp.pay({
-  merchantId: 'acme',
-  routeCanonical: 'GET:api:data',
+All supported order flows still use a user-side ERC-20 transfer to
+`payToAddress`:
+
+- `ERC20_DIRECT`: merchant recipient
+- `ERC20_3009`: operator-provisioned compatibility recipient
+- `ERC20_APPROVE_XFER`: operator-provisioned compatibility recipient
+
+DIRECT is the standard/default public path. The other values are retained for
+explicitly provisioned environments and are not part of public onboarding.
+
+## MPP
+
+[Machine Payments Protocol (MPP)](https://mpp.dev/overview) is an independent
+open protocol. `MPPClient` implements GOAT Flow's current adapter, not the
+standard MPP HTTP Challenge/Credential/Receipt exchange. Its JSON
+challenge/verify endpoints and signed three-segment receipt are GOAT-specific,
+and this repository has no official-SDK interoperability test.
+
+```ts
+import { MPPClient, MPPError } from 'goatflow-sdk'
+
+const mpp = new MPPClient({
+  coreUrl: 'https://flow-api.goat.network', // must not end with "/"
+  signer,
+})
+
+async function payForRoute() {
+  try {
+    return await mpp.pay({
+      merchantId: 'merchant_123',
+      routeCanonical: 'GET:api:data',
+      onPhase: (phase) => console.log(phase),
+    })
+  } catch (error) {
+    if (error instanceof MPPError && error.recoverable) {
+      // The transfer was already broadcast. Resume verification; do not pay again.
+      return mpp.verifyChallenge(error.recoverable)
+    }
+    throw error
+  }
+}
+
+const result = await payForRoute()
+await fetch('/api/data', {
+  headers: { 'Payment-Receipt': result.receiptHeader },
 })
 ```
 
-The client runs the challenge → pay → verify flow, retries safely, and
-recovers from wallet fee-bump replacements. Failures carry an `MPPError` with
-a machine-readable code and, where possible, the transaction context needed to
-resume verification without paying twice.
+This is the standalone GOAT Flow MPP adapter, so `coreUrl` is the Core/API origin
+configured for the deployment. QuickPay `pay-mpp` derives its adapter origin
+from the trusted QuickPay link instead. The returned challenge is authoritative
+for amount, chain, token, recipient, expiry, MAC, and pricing version.
 
-## ERC20 approvals
+Behavior verified by tests:
 
-`PaymentHelper.approveToken` / `ERC20Token.setApproval` / `ERC20Token.ensureApproval`:
+- `POST /mpp/v1/challenge`: HTTP `402` is success
+- chain and challenge expiry are checked before broadcasting
+- payment returns the broadcast hash without waiting locally for mining
+- `POST /mpp/v1/verify`: `202`, `429`, network errors, and eligible `5xx`
+  responses are retried with bounded backoff
+- successful verification requires the GOAT Flow profile's three-segment
+  `Payment-Receipt` extension:
+  `base64url(JSON(receipt)).base64url(signature).algorithm`
+- matching fee-bump replacements are followed
+- post-broadcast failures include `MPPError.recoverable`
 
-- **Exact amounts by default.** Unlimited approval is an explicit opt-in via
-  `{ unlimited: true }` — a truthy non-boolean is rejected at runtime.
-- **No wasted transactions.** Nothing is sent when the allowance already
-  equals the requested value; `ensureApproval` leaves a sufficient allowance
-  untouched.
-- **USDT-style compatibility, probe-first.** Changing a non-zero allowance
-  first simulates the direct write with a free `eth_call`: standard ERC20s
-  get a single approval — no reset, no transient zero-allowance window. Only
-  tokens that reject non-zero → non-zero transitions (USDT-style, or
-  providers without simulation support) fall back to a confirmed `approve(0)`
-  reset first; if the final approval afterwards fails or is rejected in the
-  wallet, the allowance remains zero — re-run the call to re-submit.
-- **Fee-bump safe.** A wallet-repriced replacement of the same approve call is
-  followed and accepted; a cancellation or a same-nonce transaction with
-  different calldata stays a failure.
-- **Validated inputs.** Amounts must be non-negative `bigint`s within uint256
-  and options must be an object, checked before any transaction — so
-  plain-JavaScript callers can't zero an allowance and then fail to encode.
+Keep `onPhase` non-throwing or catch its errors locally; application callback
+errors can replace the SDK's expected `MPPError`.
 
-## Requirements
+For browser use, Core must allow the DApp origin and expose
+`Payment-Receipt`; the protected resource must allow that origin and the
+`Payment-Receipt` request header. Otherwise use a server-side buyer client.
 
-- Node.js >= 18 (when used outside a browser).
-- Browsers: Chrome 80+, Firefox 75+, Safari 14+, Edge 80+.
+## ERC-20 approvals
 
-## Documentation
+`PaymentHelper.approveToken`, `ERC20Token.setApproval`, and
+`ERC20Token.ensureApproval`:
 
-Full integration guide (Chinese + English), API tables, and flow diagrams:
-[`docs/Integration.md`](https://github.com/GOATNetwork/x402/blob/main/goatx402-sdk/docs/Integration.md).
-Release notes: [`CHANGELOG.md`](./CHANGELOG.md).
+- approve exact amounts by default; `{ unlimited: true }` is explicit
+- avoid a transaction when the existing allowance already satisfies the request
+- probe non-zero allowance replacement with `eth_call`
+- use confirmed `approve(0)` only for USDT-style/no-simulation fallback
+- follow matching wallet fee-bump replacements
+- validate bigint range and option types before submitting a transaction
+
+`setApproval()` returns `{ tx?, resetTx? }`.
+`PaymentHelper.approveToken()` returns only the final `tx` (or `undefined`).
+
+## Exports
+
+```ts
+import {
+  PaymentHelper,
+  MPPClient,
+  MPPError,
+  PaymentError,
+  ERC20Token,
+  parseUnits,
+  formatUnits,
+  signTypedData,
+  hashCalldata,
+  verifySignature,
+} from 'goatflow-sdk'
+```
+
+See [the package integration guide](./docs/Integration.md),
+[the repository integration guide](../docs/goat-flow-integration.md), and the
+[Changelog](./CHANGELOG.md).
 
 ## License
 
