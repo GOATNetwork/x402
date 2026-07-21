@@ -8,7 +8,7 @@
  * stable error vocabulary the SDK exposes (challenge_expired,
  * route_not_found, chain_mismatch, etc.).
  */
-import type { MPPPhase, MPPVerifyResult, MPPError } from 'goatx402-sdk'
+import type { MPPPhase, MPPVerifyResult, MPPError } from 'goatflow-sdk'
 import type { MPPConfig, MPPRouteOption } from '../hooks/useMPP'
 
 // Ordered for the step indicator. 'idle' / 'failed' / 'verify_pending'
@@ -129,7 +129,7 @@ export function MPPPanel(props: MPPPanelProps) {
         <h2 className="text-lg font-semibold text-gray-800">MPP Demo</h2>
         <p className="text-sm text-gray-600">
           One click = HTTP-402 challenge → on-chain transfer → receipt → protected-resource
-          fetch. Buyer-side flow uses <code>MPPClient</code> from <code>goatx402-sdk</code>.
+          fetch. Buyer-side flow uses <code>MPPClient</code> from <code>goatflow-sdk</code>.
         </p>
       </div>
 

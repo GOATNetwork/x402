@@ -1,4 +1,4 @@
-// Public types for the GoatX402 drop-in Checkout SDK (checkout.js).
+// Public types for the GOAT Flow drop-in Checkout SDK (checkout.js).
 //
 // The SDK is framework-free and opens the platform-hosted checkout page in a
 // TOP-LEVEL window (popup or full-page redirect) — never an iframe. It relays

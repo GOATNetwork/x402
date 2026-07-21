@@ -1,7 +1,7 @@
 {
-  "name": "goatx402-sdk-server",
-  "version": "0.2.1",
-  "description": "GoatX402 Server SDK for Node.js - handles API authentication securely on the backend",
+  "name": "goatflow-sdk-server",
+  "version": "0.3.0",
+  "description": "GOAT Flow Server SDK for Node.js - handles API authentication securely on the backend",
   "type": "module",
   "engines": {
     "node": ">=18"
@@ -42,6 +42,7 @@
     "vitest": "^1.0.0"
   },
   "keywords": [
+    "goatflow",
     "goatx402",
     "payment",
     "server",

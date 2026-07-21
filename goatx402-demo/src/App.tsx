@@ -1,8 +1,8 @@
 /**
- * GoatX402 Pay Demo Application.
+ * GOAT Flow Demo Application.
  *
  * Two integration paths:
- *  - "Checkout SDK (recommended)" — the Stripe-style drop-in (goatx402-checkout):
+ *  - "Checkout SDK (recommended)" — the Stripe-style drop-in (goatflow-checkout):
  *    pass product/display, the SDK opens the hosted checkout. No wallet/order code.
  *  - "Advanced (build your own)" — the original self-built flow (wallet + PaymentHelper
  *    + HMAC backend orders), keeping its Classic + MPP sub-tabs.
@@ -24,7 +24,7 @@ function App() {
       <div className="max-w-md mx-auto px-4 space-y-4">
         {/* Header */}
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">GoatX402 Pay</h1>
+          <h1 className="text-3xl font-bold text-gray-800">GOAT Flow</h1>
           <p className="text-gray-600 mt-2">Demo Payment Application</p>
         </div>
 
@@ -52,7 +52,7 @@ function App() {
 
         {/* Footer */}
         <div className="text-center text-sm text-gray-500 mt-8">
-          <p>Powered by GoatX402 SDK</p>
+          <p>Powered by GOAT Flow SDK</p>
         </div>
       </div>
     </div>

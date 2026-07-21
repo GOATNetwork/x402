@@ -12,7 +12,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ethers } from 'ethers'
-import { MPPClient, MPPError, type MPPPhase, type MPPVerifyResult } from 'goatx402-sdk'
+import { MPPClient, MPPError, type MPPPhase, type MPPVerifyResult } from 'goatflow-sdk'
 
 export interface MPPConfig {
   coreUrl: string

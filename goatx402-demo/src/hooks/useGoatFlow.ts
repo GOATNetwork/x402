@@ -1,5 +1,5 @@
 /**
- * GoatX402 Hook - Frontend payment integration
+ * GOAT Flow Hook - Frontend payment integration
  *
  * This hook communicates with the backend API for order creation
  * and uses the frontend SDK for wallet interactions.
@@ -13,8 +13,8 @@
 
 import { useState, useCallback, useMemo } from 'react'
 import { ethers } from 'ethers'
-import { PaymentHelper, formatUnits } from 'goatx402-sdk'
-import type { Order, PaymentResult } from 'goatx402-sdk'
+import { PaymentHelper, formatUnits } from 'goatflow-sdk'
+import type { Order, PaymentResult } from 'goatflow-sdk'
 import { config } from '../config'
 
 // Order response from backend
@@ -123,7 +123,7 @@ async function getFreshSigner(): Promise<ethers.Signer> {
   return provider.getSigner()
 }
 
-export function useGoatX402(signer: ethers.Signer | null) {
+export function useGoatFlow(signer: ethers.Signer | null) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [order, setOrder] = useState<Order | null>(null)

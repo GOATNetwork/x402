@@ -12,7 +12,7 @@ describe('loadMppSdk', () => {
         return fakeSdk
       })
     ).resolves.toBe(fakeSdk)
-    expect(requested).toEqual(['goatx402-sdk'])
+    expect(requested).toEqual(['goatflow-sdk'])
   })
 
   it('preserves the underlying import failure as the error cause', async () => {

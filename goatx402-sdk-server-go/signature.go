@@ -1,4 +1,4 @@
-package goatx402
+package goatflow
 
 import (
 	"crypto/hmac"

@@ -1,8 +1,8 @@
-# GOAT Network x402 FAQ
+# GOAT Flow FAQ
 
 ## Overview
 
-This document summarizes common questions about GOAT Network x402, including architecture, security, user experience, settlement, decentralization, wallet compatibility, and developer integration.
+This document summarizes common questions about GOAT Flow, including architecture, security, user experience, settlement, decentralization, wallet compatibility, and developer integration.
 
 ---
 
@@ -15,7 +15,7 @@ This document summarizes common questions about GOAT Network x402, including arc
 x402 brings the HTTP 402 **Payment Required** standard to Web3. Unlike payment widgets or checkout redirects, x402 works as a protocol layer that:
 
 - returns a standard HTTP 402 response with payment details
-- uses on-chain settlement with cryptographic proof
+- uses on-chain settlement with a retrievable payment record
 - supports programmable callbacks for atomic payment + action flows
 - enables multi-chain support through a single integration
 
@@ -28,8 +28,10 @@ Payments are verified on-chain through event monitoring:
 3. The system matches the transfer to a pending order.
 4. For DELEGATE orders, TSS-assisted callback / settlement execution is completed
    on the merchant's configured callback chain.
-5. A payment proof is generated and cryptographically bound to the order.
-6. Merchants can verify the proof through the API or directly on-chain.
+5. A payment record is generated with the matched transaction details and an unsigned Keccak256 checksum over its key payment fields.
+6. Merchants retrieve the record through the API and verify the referenced transaction directly on-chain when independent proof is required.
+
+The legacy `/proof` response field named `signature` is not a signature or attestation: no private key is involved, and anyone with the public payload can recompute it.
 
 #### What if a payment was sent but not detected?
 
@@ -212,7 +214,7 @@ The system matches exact amounts:
 
 #### How much does x402 charge merchants?
 
-GOAT x402 uses a **fixed fee model charged per order**, not a percentage-based fee. Fees are configured by mode and chain. In general, **DIRECT mode carries a lower fixed fee**, while **DELEGATE mode carries a higher fixed fee** because it includes additional settlement, payout gas, and execution overhead. Merchant fees are deducted from a **pre-funded USD fee balance** when orders are created.
+GOAT Flow uses a **fixed fee model charged per order**, not a percentage-based fee. Fees are configured by mode and chain. In general, **DIRECT mode carries a lower fixed fee**, while **DELEGATE mode carries a higher fixed fee** because it includes additional settlement, payout gas, and execution overhead. Merchant fees are deducted from a **pre-funded USD fee balance** when orders are created.
 
 #### Who pays gas fees?
 
@@ -428,13 +430,13 @@ Use QuickPay when the merchant has enabled it. Agents can discover the merchant'
 - `POST /quickpay/v1/x402/sessions`
 - `GET /quickpay/v1/x402/sessions/:session_id`
 
-The `goatx402-quickpay` CLI supports `inspect`,
+The `goatflow-quickpay` CLI supports `inspect`,
 `pay-x402 --amount --token-contract --chain`,
 `pay-product --product --token-contract --chain`, and `pay-mpp --route`.
 
 #### What is the fastest browser checkout integration?
 
-Use `goatx402-checkout`. A QuickPay-enabled DIRECT merchant can open a fixed,
+Use `goatflow-checkout`. A QuickPay-enabled DIRECT merchant can open a fixed,
 server-priced product with `open({ merchant, productKey })` and no merchant
 backend. Dynamic DIRECT checkout and all DELEGATE checkout use the server SDK's
 `createCheckoutSession(...)`, then pass the opaque `checkoutId` to

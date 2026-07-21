@@ -1,9 +1,9 @@
 /**
- * mppRecovery extracts the resume payload from a goatx402-sdk MPPError thrown
+ * mppRecovery extracts the resume payload from a goatflow-sdk MPPError thrown
  * AFTER the on-chain transfer was broadcast (i.e. a verify-polling failure).
  *
  * It is detected STRUCTURALLY (name + recoverable) so the CLI keeps no hard
- * dependency on the optional goatx402-sdk. Returns null for pre-broadcast errors
+ * dependency on the optional goatflow-sdk. Returns null for pre-broadcast errors
  * (which carry no recovery handle) so the caller falls back to the generic error
  * path. The returned object lets an agent RESUME verification with the same
  * challenge + tx hash instead of starting a fresh (double-)payment.

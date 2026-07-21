@@ -8,7 +8,7 @@ export interface ParsedArgs {
 
 export const HELP_TEXT =
   [
-    'Usage: goatx402-quickpay <command> [options]',
+    'Usage: goatflow-quickpay <command> [options]',
     '',
     'Commands:',
     '  inspect <agent_md_or_manifest_url>',

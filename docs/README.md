@@ -1,25 +1,25 @@
-# GOAT x402 Docs
+# GOAT Flow Docs
 
-This directory is the public documentation hub for **GOAT x402**. It is designed to help different readers quickly find the right material based on their role and use case.
+This directory is the public documentation hub for **GOAT Flow**. It is designed to help different readers quickly find the right material based on their role and use case.
 
 The documentation here is intended to support four major needs:
-- understanding what GOAT x402 is
+- understanding what GOAT Flow is
 - understanding why it matters
 - onboarding merchants and operators
 - integrating x402 into products, applications, and agent workflows
 
 ---
 
-## 1. If you are new to GOAT x402
+## 1. If you are new to GOAT Flow
 
-Start here if you are seeing GOAT x402 for the first time and want the fastest path to understanding the product.
+Start here if you are seeing GOAT Flow for the first time and want the fastest path to understanding the product.
 
 ### Recommended reading order
 1. `what-is-x402.md`
-   A high-level introduction to what x402 is, what problem it solves, and how GOAT x402 fits into the payment flow.
+   A high-level introduction to what x402 is, what problem it solves, and how GOAT Flow fits into the payment flow.
 
 2. `why-x402.md`
-   Explains the product value, adoption logic, and the business scenarios where GOAT x402 is most useful.
+   Explains the product value, adoption logic, and the business scenarios where GOAT Flow is most useful.
 
 3. `x402-direct-vs-delegate.md`
    Explains the two payment modes and when each one should be used.
@@ -31,7 +31,7 @@ Start here if you are seeing GOAT x402 for the first time and want the fastest p
 
 ## 2. For developers
 
-This section is for developers, technical PMs, integration engineers, and anyone implementing GOAT x402 in a product.
+This section is for developers, technical PMs, integration engineers, and anyone implementing GOAT Flow in a product.
 
 ### Recommended reading order
 1. `x402-developer-quickstart.md`
@@ -72,14 +72,14 @@ By reading the documents above, a developer should be able to understand:
 
 ## 3. For business, BD, and partnerships
 
-This section is for business-facing teammates who need to understand where GOAT x402 fits, how to explain it, and which scenarios it is best suited for.
+This section is for business-facing teammates who need to understand where GOAT Flow fits, how to explain it, and which scenarios it is best suited for.
 
 ### Recommended reading order
 1. `what-is-x402.md`
-   Use this to understand the concept clearly and explain GOAT x402 at a high level.
+   Use this to understand the concept clearly and explain GOAT Flow at a high level.
 
 2. `why-x402.md`
-   Use this to understand the business value, adoption logic, and why GOAT x402 matters in merchant and agent economy contexts.
+   Use this to understand the business value, adoption logic, and why GOAT Flow matters in merchant and agent economy contexts.
 
 3. `x402-direct-vs-delegate.md`
    Important for explaining the product model and why different merchants may choose different payment modes.
@@ -92,7 +92,7 @@ This section is for business-facing teammates who need to understand where GOAT 
 
 ### Business goal
 By reading the documents above, business-facing teammates should be able to understand:
-- what GOAT x402 is
+- what GOAT Flow is
 - how to position it clearly
 - which scenarios fit DIRECT vs DELEGATE
 - how merchant setup and usage look in practice
@@ -170,8 +170,8 @@ By reading the documents above, operations and support teammates should be able 
 
 | Document | Primary Audience | Main Purpose |
 | --- | --- | --- |
-| `what-is-x402.md` | Everyone | Explains what x402 is and what GOAT x402 does |
-| `why-x402.md` | Business, product, partnerships | Explains why GOAT x402 matters and where it creates value |
+| `what-is-x402.md` | Everyone | Explains what x402 is and what GOAT Flow does |
+| `why-x402.md` | Business, product, partnerships | Explains why GOAT Flow matters and where it creates value |
 | `x402-direct-vs-delegate.md` | Everyone | Explains the two payment modes and their differences |
 | `x402-onboarding-guide.md` | Operations, onboarding, merchants | Explains the onboarding flow and go-live steps |
 | `merchant-guide.md` | Merchants, operations, support | Practical merchant setup and usage guide with screenshots |

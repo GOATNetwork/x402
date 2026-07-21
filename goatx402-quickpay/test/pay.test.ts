@@ -134,6 +134,57 @@ describe('payX402', () => {
     const out = await payX402({ input: 'https://pay.goat.network/quickpay/acme', amount: '1', tokenSymbol: 'USDC', chainId: 4217, backend, fetchImpl: fetch, pollIntervalMs: 0, sleep: async () => {} })
     expect(out.ok).toBe(false)
     expect(out.status).toBe('EXPIRED')
+    expect(out.tx_hash).toBe('0xTx')
+    expect(out.note).toMatch(/Do NOT pay again/i)
+  })
+
+  it('clamps every poll sleep (including EXPIRED grace) to the pollTimeoutMs deadline', async () => {
+    // Status stays EXPIRED while a broadcast tx hash is known, so the
+    // EXPIRED-grace path keeps re-polling. With a poll interval far larger than
+    // the overall deadline, an unclamped grace sleep would overshoot
+    // pollTimeoutMs by up to a full pollIntervalMs.
+    const session = { session_id: 's-grace', order_id: 'o-grace', status: 'ORDER_CREATED', x402: { accepts: [{ scheme: 'exact', network: 'eip155:4217', payTo: '0xP', asset: '0xToken', amount: '1000000' }] } }
+    const { fetch, calls } = routeFetch(session, [{ status: 'EXPIRED', tx_hash: '0xTx' }])
+    const backend: PaymentBackend = { getAddress: async () => '0xPayer', transferErc20: async () => '0xTx' }
+    let clock = 0
+    const sleeps: number[] = []
+    const out = await payX402({
+      input: 'https://pay.goat.network/quickpay/acme',
+      amount: '1',
+      tokenSymbol: 'USDC',
+      chainId: 4217,
+      backend,
+      fetchImpl: fetch,
+      pollIntervalMs: 10_000,
+      pollTimeoutMs: 100,
+      now: () => clock,
+      sleep: async (ms) => {
+        sleeps.push(ms)
+        clock += Math.max(1, ms)
+      },
+    })
+    expect(out.status).toBe('EXPIRED')
+    expect(sleeps.length).toBeGreaterThan(0)
+    expect(Math.max(...sleeps)).toBeLessThanOrEqual(100)
+    // A hung status request must not outlive the deadline either: every status
+    // fetch carries an abort signal bounded by the remaining time.
+    const statusCalls = calls.filter((c) => c.url.includes('/quickpay/v1/x402/sessions/'))
+    expect(statusCalls.length).toBeGreaterThan(0)
+    for (const c of statusCalls) expect(c.init?.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('grace-polls EXPIRED with a known tx hash and reports a late confirmation', async () => {
+    const session = { session_id: 's-late', status: 'ORDER_CREATED', x402: { accepts: [{ scheme: 'exact', network: 'eip155:4217', payTo: '0xP', asset: '0xToken', amount: '1000000' }] } }
+    const { fetch } = routeFetch(session, [
+      'EXPIRED',
+      'EXPIRED',
+      { status: 'PAYMENT_CONFIRMED', tx_hash: '0xTx' },
+    ])
+    const backend: PaymentBackend = { getAddress: async () => '0xPayer', transferErc20: async () => '0xTx' }
+    const out = await payX402({ input: 'https://pay.goat.network/quickpay/acme', amount: '1', tokenSymbol: 'USDC', chainId: 4217, backend, fetchImpl: fetch, pollIntervalMs: 0, sleep: async () => {} })
+    expect(out.ok).toBe(true)
+    expect(out.status).toBe('PAYMENT_CONFIRMED')
+    expect(out.tx_hash).toBe('0xTx')
   })
 
   it('Case 1: reports the freshly fetched status for a terminal-on-create session (late revival)', async () => {
@@ -227,6 +278,18 @@ describe('payX402', () => {
     expect(transferErc20).not.toHaveBeenCalled()
   })
 
+  it('fails closed when a recovered confirmed custom session has no transaction hash', async () => {
+    const session = { session_id: 's-nohash', reused: true, status: 'PAYMENT_CONFIRMED' }
+    const { fetch } = routeFetch(session, [{ status: 'PAYMENT_CONFIRMED', amount_wei: '1000000' }])
+    const transferErc20 = vi.fn(async () => '0xTx')
+    const backend: PaymentBackend = { getAddress: async () => '0xPayer', transferErc20 }
+
+    await expect(
+      payX402({ input: 'https://pay.goat.network/quickpay/acme', amount: '1', tokenSymbol: 'USDC', chainId: 4217, backend, fetchImpl: fetch, pollIntervalMs: 0, sleep: async () => {} }),
+    ).rejects.toThrow(/transaction hash|reconcile/i)
+    expect(transferErc20).not.toHaveBeenCalled()
+  })
+
   it('forced reuse keeps THIS run\'s broadcast tx_hash even if status reports a different (prior) tx', async () => {
     // --force broadcasts a NEW tx on a reused session; meanwhile a prior in-flight tx
     // confirms and status reports IT. We must NOT lose the hash we just broadcast.
@@ -261,6 +324,20 @@ describe('payX402', () => {
     expect(out.ok).toBe(true)
     expect(out.reused).toBe(true)
     expect(out.tx_hash).toBe('0xExisting')
+    expect(transferErc20).not.toHaveBeenCalled()
+  })
+
+  it('warns not to re-pay a recovered expired session that already has a transaction', async () => {
+    const session = { session_id: 's-expired-existing', reused: true, status: 'ORDER_CREATED', x402: { accepts: [] } }
+    const { fetch } = routeFetch(session, [{ status: 'EXPIRED', tx_hash: '0xExisting', amount_wei: '1000000' }])
+    const transferErc20 = vi.fn(async () => '0xTx')
+    const backend: PaymentBackend = { getAddress: async () => '0xPayer', transferErc20 }
+
+    const out = await payX402({ input: 'https://pay.goat.network/quickpay/acme', amount: '1', tokenSymbol: 'USDC', chainId: 4217, backend, fetchImpl: fetch, pollIntervalMs: 0, sleep: async () => {} })
+
+    expect(out.status).toBe('EXPIRED')
+    expect(out.tx_hash).toBe('0xExisting')
+    expect(out.note).toMatch(/Do NOT pay again/i)
     expect(transferErc20).not.toHaveBeenCalled()
   })
 

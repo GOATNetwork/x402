@@ -1,4 +1,4 @@
-# GOAT x402 Developer Quick Start
+# GOAT Flow Developer Quick Start
 
 > A quick-start guide for developers.  
 > The goal is to help you complete a basic x402 integration and run your first payment flow in the shortest possible time.
@@ -74,7 +74,7 @@ From the repository, you can access:
 If your team uses an agent-assisted payment flow, start from the merchant's QuickPay agent document:
 
 ```text
-GET https://api.x402.goat.network/quickpay/{merchant_id}/agent.md
+GET https://flow-api.goat.network/quickpay/{merchant_id}/agent.md
 ```
 
 The agent document points to the matching `manifest.json` and public QuickPay session endpoints.
@@ -83,16 +83,16 @@ The agent document points to the matching `manifest.json` and public QuickPay se
 
 ```bash
 # Backend order creation and polling
-npm install goatx402-sdk-server
+npm install goatflow-sdk-server
 
 # Frontend wallet payment helper
-npm install goatx402-sdk ethers
+npm install goatflow-sdk ethers
 
 # Agent / CLI QuickPay payer
-npm install goatx402-quickpay
+npm install goatflow-quickpay
 
 # Hosted browser checkout
-npm install goatx402-checkout
+npm install goatflow-checkout
 ```
 
 ---
@@ -102,7 +102,7 @@ npm install goatx402-checkout
 For a fixed, server-priced DIRECT product:
 
 ```ts
-import { GoatCheckout } from 'goatx402-checkout'
+import { GoatCheckout } from 'goatflow-checkout'
 
 const goat = GoatCheckout({ origin: 'https://pay.goat.network' })
 
@@ -136,7 +136,7 @@ Configure the following values in your backend project:
 - API Secret
 
 ```bash
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://flow-api.goat.network
 GOATX402_API_KEY=your_api_key
 GOATX402_API_SECRET=your_api_secret
 ```
@@ -170,10 +170,10 @@ After order creation succeeds, the backend should return:
 Minimal TypeScript backend example:
 
 ```typescript
-import { GoatX402Client } from 'goatx402-sdk-server'
+import { GoatFlowClient } from 'goatflow-sdk-server'
 
-const client = new GoatX402Client({
-  baseUrl: process.env.GOATX402_API_URL ?? 'https://api.x402.goat.network',
+const client = new GoatFlowClient({
+  baseUrl: process.env.GOATX402_API_URL ?? 'https://flow-api.goat.network',
   apiKey: process.env.GOATX402_API_KEY!,
   apiSecret: process.env.GOATX402_API_SECRET!,
 })
@@ -228,6 +228,8 @@ At minimum, your implementation should handle:
 
 If your business logic requires payment proof, retrieve it after payment is completed.
 
+Treat the response as a payment record: its `signature` field is an unsigned Keccak256 checksum over a subset of the payload fields (see the API reference for the exact list), not a cryptographic attestation. Verify `payload.tx_hash` on-chain when independent proof is required.
+
 Typical proof use cases include:
 
 - reconciliation
@@ -257,14 +259,14 @@ Before going live, it is recommended to validate at least the following:
 | RPC | `https://rpc.testnet3.goat.network` | `https://rpc.goat.network` |
 | Explorer | `https://explorer.testnet3.goat.network` | `https://explorer.goat.network` |
 | Merchant Portal | operator-provided per deployment | `https://x402-merchant.goat.network` |
-| API base | operator-provided per deployment | `https://api.x402.goat.network` |
+| API base | operator-provided per deployment | `https://flow-api.goat.network` |
 
 GOAT Network is a Bitcoin L2, so native gas is BTC:
 
 - **Testnet3:** get BTC for gas from the [GOAT Testnet3 faucet](https://bridge.testnet3.goat.network/faucet); the minimum priority gas tip is `130000` wei.
 - **Mainnet:** there is no faucet — fund the payer/deployer wallet with production native gas.
 
-> The per-deployment Testnet3 API base and test token contracts are environment-specific — ask the GoatX402 team for your Testnet3 API base and test token addresses. Full operator detail (chains, tokens, RPC, deploy steps) is in `ONBOARDING.md`.
+> The per-deployment Testnet3 API base and test token contracts are environment-specific — ask the GOAT Flow team for your Testnet3 API base and test token addresses. Full operator detail (chains, tokens, RPC, deploy steps) is in `ONBOARDING.md`.
 
 ---
 

@@ -7,12 +7,12 @@ type ModuleImporter = (specifier: string) => Promise<any>
 export async function loadMppSdk(
   importer: ModuleImporter = (specifier) => import(specifier)
 ): Promise<any> {
-  const specifier = 'goatx402-sdk'
+  const specifier = 'goatflow-sdk'
   try {
     return await importer(specifier)
   } catch (cause) {
     throw new Error(
-      'pay-mpp could not load the optional dependency "goatx402-sdk"; ensure it is installed and importable alongside goatx402-quickpay',
+      'pay-mpp could not load the optional dependency "goatflow-sdk"; ensure it is installed and importable alongside goatflow-quickpay',
       { cause },
     )
   }
@@ -20,8 +20,8 @@ export async function loadMppSdk(
 
 /**
  * SdkMppBackend runs the MPP challenge→pay→verify flow by delegating to
- * goatx402-sdk's MPPClient (the canonical, already-tested MPP buyer client).
- * goatx402-sdk is an OPTIONAL dependency loaded at runtime — pay-mpp only works
+ * goatflow-sdk's MPPClient (the canonical, already-tested MPP buyer client).
+ * goatflow-sdk is an OPTIONAL dependency loaded at runtime — pay-mpp only works
  * when it is installed alongside this CLI.
  *
  * The coreUrl passed to MPPClient is the TRUSTED origin from the QuickPay link;

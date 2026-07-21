@@ -1,6 +1,6 @@
-# GOAT x402 API Reference
+# GOAT Flow API Reference
 
-> A practical API overview and implementation reference for developers integrating GOAT x402.  
+> A practical API overview and implementation reference for developers integrating GOAT Flow.
 > This document is intended to explain the core endpoints, authentication model, order lifecycle, and integration boundaries. For field-level details, use it together with the official repository and SDK sources.
 
 ---
@@ -41,7 +41,7 @@ Before calling the x402 API, confirm that you already have:
 Use the following environment variable naming consistently:
 
 ```bash
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://flow-api.goat.network
 GOATX402_API_KEY=your_api_key
 GOATX402_API_SECRET=your_api_secret
 GOATX402_MERCHANT_ID=your_merchant_id
@@ -49,7 +49,7 @@ GOATX402_MERCHANT_ID=your_merchant_id
 
 Notes:
 
-- **Production base URL**: `https://api.x402.goat.network`
+- **Production base URL**: `https://flow-api.goat.network`
 - Common local Core URL: `http://localhost:8180`
 - Docker-mapped Core URL: `http://localhost:8286`
 - Demo app URL: `http://localhost:3000`
@@ -189,7 +189,7 @@ QuickPay public endpoints:
 
 QuickPay client package:
 
-- npm package / CLI: `goatx402-quickpay`
+- npm package / CLI: `goatflow-quickpay`
 - CLI commands: `inspect`, `pay-x402`, `pay-product`, `pay-mpp`
 - library exports include `QuickPayClient`, `inspect`, `payX402`, `payProduct`,
   `payMpp`, `loadManifest`, and `EthersPaymentBackend`
@@ -261,7 +261,7 @@ Content-Type: application/json
 {
   "x402Version": 2,
   "resource": {
-    "url": "https://api.x402.goat.network/api/v1/orders/{order_id}",
+    "url": "https://flow-api.goat.network/api/v1/orders/{order_id}",
     "description": "Payment: 10000000 USDC",
     "mimeType": "application/json"
   },
@@ -272,7 +272,7 @@ Content-Type: application/json
       "amount": "10000000",
       "asset": "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
       "payTo": "0xMerchantOrTssAddress",
-      "maxTimeoutSeconds": 600,
+      "maxTimeoutSeconds": 585,
       "extra": {
         "flow": "ERC20_DIRECT",
         "tokenSymbol": "USDC"
@@ -293,7 +293,9 @@ Content-Type: application/json
 }
 ```
 
-For `ERC20_3009`, `accepts[0].scheme` is `exact-eip3009` and `extensions.goatx402.signatureEndpoint` points to `POST /api/v1/orders/{order_id}/calldata-signature`.
+`maxTimeoutSeconds` is the order's remaining lifetime when the challenge is generated (clamped to at least 1 second), not a fixed 600-second window.
+
+For `ERC20_3009`, `accepts[0].scheme` is `exact-eip3009`. Whenever the order carries a `calldata_sign_request`—including Permit2-style DELEGATE callbacks—`extensions.goatx402.signatureEndpoint` points to `POST /api/v1/orders/{order_id}/calldata-signature`.
 
 ---
 
@@ -335,7 +337,7 @@ GET /api/v1/orders/{order_id}/proof
 
 **Purpose**
 
-Retrieves the payment proof, useful for:
+Retrieves the server-issued payment record, useful for:
 
 - reconciliation
 - audit trails
@@ -351,9 +353,11 @@ Retrieves the payment proof, useful for:
   - `from_addr`
   - `to_addr`
   - `amount_wei`
-  - `chain_id`
-  - `flow`
+  - `from_chain_id`
+  - `status`
 - `signature`
+
+Despite its legacy field name, `signature` is an unsigned Keccak256 hash of seven payload fields concatenated without separators, in this exact order: `order_id`, `tx_hash`, `log_index`, `from_addr`, `to_addr`, `amount_wei`, `from_chain_id`. It does NOT cover `status` (or anything outside that list), so it is an integrity checksum of those fields only — not of the whole record, and not a cryptographic attestation; independently verify `payload.tx_hash` on-chain before relying on it as proof of payment.
 
 ---
 

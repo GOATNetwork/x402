@@ -113,13 +113,13 @@ x402 solves a **payment protocol layer**, not just a token transfer.
 
 Within GOAT Network, x402 is more than a payment button. It acts as a broader:
 
-> **payment + settlement + verifiable delivery layer**
+> **payment + settlement + reconciliation layer**
 
 In the GOAT implementation, x402 helps merchants and developers:
 
 - support EVM mainnet payments across Ethereum, Polygon, BSC, Arbitrum, Optimism, Avalanche, Base, Berachain, X Layer, GOAT, Metis, and Tempo
 - integrate through a unified SDK
-- obtain proof after payment completes
+- obtain a payment record after payment completes and verify its transaction on-chain
 - support callback / execution in more advanced scenarios
 - provide more standardized payment capability for merchants, apps, and agents
 
@@ -131,9 +131,9 @@ This makes x402 well-suited to serve as:
 
 ---
 
-## The Two Main GOAT x402 Modes
+## The Two Main GOAT Flow Modes
 
-The current GOAT x402 implementation mainly supports two modes:
+The current GOAT Flow implementation mainly supports two modes:
 
 ### 1. DIRECT
 The user pays directly to the merchant address.
@@ -231,7 +231,7 @@ Recommended companion documents:
 - **Merchant Guide**
 - **Developer Quick Start**
 - **DIRECT vs DELEGATE**
-- **QuickPay agent surface:** `GET /quickpay/:merchant_id/agent.md`, `GET /quickpay/:merchant_id/manifest.json`, and the `goatx402-quickpay` CLI
+- **QuickPay agent surface:** `GET /quickpay/:merchant_id/agent.md`, `GET /quickpay/:merchant_id/manifest.json`, and the `goatflow-quickpay` CLI
 - **x402 FAQ**
 
 ---

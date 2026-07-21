@@ -1,7 +1,7 @@
 {
-  "name": "goatx402-quickpay",
-  "version": "0.2.3",
-  "description": "GoatX402 QuickPay public payer/agent library and CLI",
+  "name": "goatflow-quickpay",
+  "version": "0.3.0",
+  "description": "GOAT Flow QuickPay public payer/agent library and CLI",
   "type": "module",
   "engines": {
     "node": ">=18"
@@ -15,7 +15,7 @@
     "directory": "goatx402-quickpay"
   },
   "bin": {
-    "goatx402-quickpay": "dist/cli.js"
+    "goatflow-quickpay": "dist/cli.js"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -42,7 +42,7 @@
     "ethers": "^6.9.0"
   },
   "optionalDependencies": {
-    "goatx402-sdk": "^0.1.2 || ^0.2.0"
+    "goatflow-sdk": "^0.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -50,6 +50,7 @@
     "vitest": "^1.6.0"
   },
   "keywords": [
+    "goatflow",
     "goatx402",
     "quickpay",
     "x402",

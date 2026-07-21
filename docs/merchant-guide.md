@@ -1,6 +1,6 @@
-# GOAT x402 Merchant Onboarding Guide
+# GOAT Flow Merchant Onboarding Guide
 
-> This guide walks merchants through registering, configuring, and operating a GOAT x402 payment integration.
+> This guide walks merchants through registering, configuring, and operating a GOAT Flow payment integration.
 
 ---
 
@@ -25,7 +25,7 @@
 
 ## 1. Overview
 
-The GOAT x402 Merchant Portal is your management dashboard for:
+The GOAT Flow Merchant Portal is your management dashboard for:
 
 - Registering and managing your merchant identity
 - Configuring receiving addresses, callback contracts, and supported chains/tokens
@@ -36,7 +36,7 @@ The GOAT x402 Merchant Portal is your management dashboard for:
 **Access URLs:**
 
 - Merchant Portal: `https://x402-merchant.goat.network`
-- Production API: `https://api.x402.goat.network`
+- Production API: `https://flow-api.goat.network`
 
 ---
 
@@ -53,7 +53,7 @@ User or agent payments go directly to your receiving wallet on the same chain as
 - Best for: Tips, donations, simple checkout, QuickPay links, agent payments
 - Requirements: A receiving address for each chain/token you accept
 - Contract callback: Not used
-- Proof: Confirmed orders can expose payment proof for audit and reconciliation
+- Payment record: Confirmed orders expose transaction details for audit and reconciliation; verify the transaction on-chain for independent proof
 
 **Example:** A content platform has a GOAT mainnet USDC receiving address. A buyer pays USDC on GOAT mainnet to that same-chain merchant address. The watcher matches the transfer to the order; no TSS settlement or callback contract is involved.
 
@@ -68,7 +68,7 @@ settlement chain; an eligible buyer source chain may differ.
 - Best for: In-game purchases, per-call API billing, NFT minting, and other post-payment execution
 - Requirements: One EVM callback chain per merchant, receiving token configuration on that chain, and an admin-approved callback contract on the same chain
 - Cross-chain checkout: decimal-price Hosted Checkout may offer source-chain/token candidates derived from live TSS and token configuration
-- Proof: Confirmed orders can expose verifiable proof
+- Payment record: Confirmed orders expose transaction details and an unsigned checksum over a subset of the record's fields; verify the transaction on-chain for independent proof
 
 **Example:** A game operates on GOAT mainnet. The player authorizes a USDC payment on GOAT mainnet; Core verifies the order and the TSS-backed settlement path calls the game's approved GOAT callback contract. The player receives the item without any bridge or chain switch.
 
@@ -80,7 +80,7 @@ settlement chain; an eligible buyer source chain may differ.
 | Chain scope | Selected payment/receiving chain | One merchant callback chain; eligible source chain may differ |
 | Contract callback | No | Yes, via admin-approved callback contract |
 | Gas sponsorship for callback/settlement | No callback path | TSS-submitted settlement/callback path |
-| Settlement proof | Yes, after confirmation | Yes, after confirmation |
+| Payment record | Yes, after confirmation | Yes, after confirmation |
 | Public QuickPay product/link | Yes | No |
 | Server-created Hosted Checkout | Yes | Yes |
 | Integration difficulty | Simplest | Requires callback contract review |
@@ -137,7 +137,7 @@ After submission, the system displays a pending-approval state. Self-registratio
 
 ### 4.1 Admin Approval
 
-After registration, a GOAT x402 administrator reviews the application. Approval enables the merchant; rejection records a reason for the applicant.
+After registration, a GOAT Flow administrator reviews the application. Approval enables the merchant; rejection records a reason for the applicant.
 
 ### 4.2 Login
 
@@ -188,7 +188,7 @@ Store recovery codes securely. They are meant for account recovery if the authen
 
 ### 4.6 Lost Password or Authenticator
 
-If you lose your password or 2FA authenticator and cannot recover with a one-time recovery code, contact the GoatX402 platform team to request a reset. A platform administrator can issue a one-time temporary password (which forces a password change on your next login) or reset your 2FA. This is an admin-assisted operation; the administrator procedure lives in the operator runbook (`ONBOARDING.md`).
+If you lose your password or 2FA authenticator and cannot recover with a one-time recovery code, contact the GOAT Flow platform team to request a reset. A platform administrator can issue a one-time temporary password (which forces a password change on your next login) or reset your 2FA. This is an admin-assisted operation; the administrator procedure lives in the operator runbook (`ONBOARDING.md`).
 
 ---
 
@@ -257,7 +257,7 @@ Merchant self-service endpoints:
 | Cancel pending submission | `DELETE /merchant/v1/callback-contracts/submissions/:submission_id` | Path parameter |
 | Remove active contract | `DELETE /merchant/v1/callback-contracts/:chain_id` | Path parameter; blocked while in-flight orders exist on that chain |
 
-After you submit a callback contract it enters review and becomes active only after a platform administrator approves it. Contact the GoatX402 team to request review. (The administrator review procedure lives in the operator runbook, `ONBOARDING.md`.)
+After you submit a callback contract it enters review and becomes active only after a platform administrator approves it. Contact the GOAT Flow team to request review. (The administrator review procedure lives in the operator runbook, `ONBOARDING.md`.)
 
 The callback contract must be on the same chain as the DELEGATE merchant's receiving addresses. Metis and Tempo are DIRECT-only in the matrix above.
 
@@ -309,7 +309,7 @@ After clicking **Rotate API Keys**, the system generates a new API Key and API S
 Use API keys only from your backend:
 
 ```bash
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://flow-api.goat.network
 GOATX402_API_KEY=your_API_Key
 GOATX402_API_SECRET=your_API_Secret
 ```
@@ -432,7 +432,7 @@ Go to the **Orders** page to view all orders.
 | Status | Order status |
 | Created | Creation time |
 
-Click **View** to see order details, including payment and payout transaction data. For confirmed orders, use proof retrieval for audit, reconciliation, and downstream fulfillment evidence.
+Click **View** to see order details, including payment and payout transaction data. For confirmed orders, use proof retrieval for audit, reconciliation, and downstream fulfillment evidence. The response's `signature` field is an unsigned checksum over a subset of the payload fields, not a cryptographic attestation; verify its `payload.tx_hash` on-chain when independent proof is required.
 
 ---
 
@@ -449,7 +449,7 @@ DELEGATE merchants cannot publish QuickPay sessions.
 
 ### 12.1 Configure QuickPay
 
-QuickPay must first be enabled for your merchant account by a platform administrator — contact the GoatX402 team to enable it. Once enabled, you manage the configuration yourself:
+QuickPay must first be enabled for your merchant account by a platform administrator — contact the GOAT Flow team to enable it. Once enabled, you manage the configuration yourself:
 
 | Action | API path | Notes |
 | --- | --- | --- |
@@ -457,6 +457,8 @@ QuickPay must first be enabled for your merchant account by a platform administr
 | Update config | `PUT /merchant/v1/quickpay` | Owner-only |
 
 Config fields include `quickpay_enabled`, `display_name`, `description`, `logo_url`, `memo_required`, `max_amount_wei`, `max_open_sessions`, `daily_session_limit`, and `max_open_sessions_merchant_wide`.
+
+The response also distinguishes MPP configuration from live availability: `mpp_enabled` is the persisted toggle gated by whether the MPP runtime is mounted, while `mpp_effective` is true only when the merchant is currently enabled and DIRECT and has at least one eligible route. Use `mpp_effective` for “payable now” UI and automation.
 
 ### 12.2 QuickPay Products
 
@@ -502,17 +504,17 @@ For custom amounts, `POST /quickpay/v1/x402/sessions` accepts `merchant_id`, `pa
 For product sessions, send `product_key` with `merchant_id`, `payer_addr`, `chain_id`, `token_contract`, and optional `idempotency_key`.
 
 Browser merchants can open these fixed-price products with
-`goatx402-checkout` and no merchant secret in the page. Dynamic DIRECT carts and
+`goatflow-checkout` and no merchant secret in the page. Dynamic DIRECT carts and
 all DELEGATE hosted checkout use an HMAC-created Checkout Session instead; see
 [Hosted Checkout](x402-checkout.md).
 
 Agent/CLI entry points:
 
 ```bash
-npx goatx402-quickpay inspect https://api.x402.goat.network/quickpay/<merchant_id>/agent.md
-npx goatx402-quickpay pay-x402 https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatflow-quickpay inspect https://flow-api.goat.network/quickpay/<merchant_id>/agent.md
+npx goatflow-quickpay pay-x402 https://flow-api.goat.network/quickpay/<merchant_id>/agent.md \
   --amount <amount> --token-contract <token_contract> --chain <chain_id>
-npx goatx402-quickpay pay-product https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatflow-quickpay pay-product https://flow-api.goat.network/quickpay/<merchant_id>/agent.md \
   --product <product_key> --token-contract <token_contract> --chain <chain_id>
 ```
 
@@ -533,6 +535,8 @@ Fee Balance is your prepaid platform fee balance. Creating x402 orders or QuickP
 ### 13.2 Self-Service Topup
 
 Use the **Topup** page after approval to create and track fee-balance top-ups. The Topup service creates an x402 order for the requested top-up, tracks the payment, and credits your merchant fee balance through an internal verified callback after the top-up order is invoiced.
+
+Top-ups accept only the service's configured USD-pegged stablecoins because conversion assumes `1 token = 1 USD` and does not use a price oracle. `amount_usd` may have at most six fractional digits and may not be finer than the selected token's decimals. If a symbol maps to multiple token contracts on the selected chain, include `token_contract` to disambiguate it (the portal does this automatically).
 
 | Action | API path |
 | --- | --- |
@@ -617,10 +621,10 @@ Complete the following steps to start accepting payments:
 
 ```bash
 # Install SDKs
-npm install goatx402-sdk goatx402-sdk-server
+npm install goatflow-sdk goatflow-sdk-server
 
 # Backend configuration
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://flow-api.goat.network
 GOATX402_API_KEY=your_API_Key
 GOATX402_API_SECRET=your_API_Secret
 ```

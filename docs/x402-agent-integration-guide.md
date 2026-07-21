@@ -119,7 +119,7 @@ Document:
 Use the following environment variable naming consistently:
 
 ```bash
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://flow-api.goat.network
 GOATX402_API_KEY=your_api_key
 GOATX402_API_SECRET=your_api_secret
 GOATX402_MERCHANT_ID=your_merchant_id
@@ -127,7 +127,7 @@ GOATX402_MERCHANT_ID=your_merchant_id
 
 Notes:
 
-- **Production base URL**: `https://api.x402.goat.network`
+- **Production base URL**: `https://flow-api.goat.network`
 - Local Core URL: `http://localhost:8180`; Docker-mapped Core URL: `http://localhost:8286`
 - Local demo app URL: `http://localhost:3000`
 - If older docs mention `GOATX402_BASE_URL`, migrate to `GOATX402_API_URL`
@@ -236,7 +236,7 @@ When the HMAC-protected order API creates a payable order, `HTTP 402 Payment Req
 {
   "x402Version": 2,
   "resource": {
-    "url": "https://api.x402.goat.network/api/v1/orders/<order_id>",
+    "url": "https://flow-api.goat.network/api/v1/orders/<order_id>",
     "description": "Payment: <amount> <token>",
     "mimeType": "application/json"
   },
@@ -247,7 +247,7 @@ When the HMAC-protected order API creates a payable order, `HTTP 402 Payment Req
       "amount": "<atomic_amount>",
       "asset": "0x<token_contract>",
       "payTo": "0x<payment_target>",
-      "maxTimeoutSeconds": 600,
+      "maxTimeoutSeconds": 585,
       "extra": {
         "flow": "ERC20_DIRECT",
         "tokenSymbol": "USDC"
@@ -268,7 +268,9 @@ When the HMAC-protected order API creates a payable order, `HTTP 402 Payment Req
 }
 ```
 
-For `ERC20_3009`, `scheme` is `exact-eip3009` and `extensions.goatx402.signatureEndpoint` points to `POST /api/v1/orders/{order_id}/calldata-signature`. For Permit2-style DELEGATE orders, use the returned `calldata_sign_request` when present and submit the wallet signature through the same signature endpoint.
+`maxTimeoutSeconds` is the order's remaining lifetime when the challenge is generated (clamped to at least 1 second), not a fixed 600-second window.
+
+For `ERC20_3009`, `scheme` is `exact-eip3009`. Whenever `calldata_sign_request` is present—including Permit2-style DELEGATE callbacks—submit the wallet signature to the advertised `extensions.goatx402.signatureEndpoint` (`POST /api/v1/orders/{order_id}/calldata-signature`).
 
 ### 8.5 QuickPay agent-native surface
 
@@ -287,10 +289,10 @@ QuickPay session creation returns normal `200` JSON with an `x402` object when t
 CLI examples:
 
 ```bash
-npx goatx402-quickpay inspect https://api.x402.goat.network/quickpay/<merchant_id>/agent.md
-npx goatx402-quickpay pay-x402 https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatflow-quickpay inspect https://flow-api.goat.network/quickpay/<merchant_id>/agent.md
+npx goatflow-quickpay pay-x402 https://flow-api.goat.network/quickpay/<merchant_id>/agent.md \
   --amount <amount> --token-contract <token_contract> --chain <chain_id>
-npx goatx402-quickpay pay-product https://api.x402.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatflow-quickpay pay-product https://flow-api.goat.network/quickpay/<merchant_id>/agent.md \
   --product <product_key> --token-contract <token_contract> --chain <chain_id>
 ```
 
@@ -355,6 +357,7 @@ Both the frontend state machine and the backend fulfillment logic should cover t
 - After payment confirmation, the backend should retrieve and persist proof
 - Proof is useful for reconciliation, auditability, fulfillment evidence, and dispute handling
 - If your DApp triggers downstream fulfillment, store proof in backend records
+- The response's `signature` field is only an unsigned Keccak256 checksum over a subset of the payload fields (see the API reference for the exact list); verify `payload.tx_hash` on-chain for independent proof of payment
 
 ---
 

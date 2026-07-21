@@ -1,5 +1,5 @@
 /**
- * HMAC-SHA256 signature utilities for GoatX402 API authentication
+ * HMAC-SHA256 signature utilities for GOAT Flow API authentication
  */
 
 import { createHmac, randomBytes, randomUUID } from 'crypto'

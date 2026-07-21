@@ -83,7 +83,7 @@ async function main(): Promise<void> {
   const url = positional[0]
 
   if (command === 'inspect') {
-    if (!url) fail('usage: goatx402-quickpay inspect <agent_md_or_manifest_url>')
+    if (!url) fail('usage: goatflow-quickpay inspect <agent_md_or_manifest_url>')
     const out = await inspect(url)
     process.stdout.write(JSON.stringify(out, null, flags.json ? 0 : 2) + '\n')
     return
@@ -92,7 +92,7 @@ async function main(): Promise<void> {
   if (command === 'pay-x402') {
     if (!url) {
       fail(
-        'usage: goatx402-quickpay pay-x402 <url> --amount <a> --token-contract <address> --chain <id> [--memo <m>] [--idempotency-key <k>]\n' +
+        'usage: goatflow-quickpay pay-x402 <url> --amount <a> --token-contract <address> --chain <id> [--memo <m>] [--idempotency-key <k>]\n' +
           '  wallet key: set QUICKPAY_PRIVATE_KEY (preferred) or pass --wallet-file <path> / --wallet <key>',
       )
     }
@@ -135,7 +135,7 @@ async function main(): Promise<void> {
   if (command === 'pay-product') {
     if (!url) {
       fail(
-        'usage: goatx402-quickpay pay-product <url> --product <key> --token-contract <address> --chain <id> [--idempotency-key <k>] [--force]\n' +
+        'usage: goatflow-quickpay pay-product <url> --product <key> --token-contract <address> --chain <id> [--idempotency-key <k>] [--force]\n' +
           '  the merchant prices the product; the buyer only picks the token + chain\n' +
           '  wallet key: set QUICKPAY_PRIVATE_KEY (preferred) or pass --wallet-file <path> / --wallet <key>',
       )
@@ -181,7 +181,7 @@ async function main(): Promise<void> {
   if (command === 'pay-mpp') {
     if (!url) {
       fail(
-        'usage: goatx402-quickpay pay-mpp <url> --route <route>\n' +
+        'usage: goatflow-quickpay pay-mpp <url> --route <route>\n' +
           '  wallet key: set QUICKPAY_PRIVATE_KEY (preferred) or pass --wallet-file <path> / --wallet <key>',
       )
     }

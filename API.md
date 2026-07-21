@@ -1,10 +1,10 @@
 **Overview**
-This document summarizes the GoatX402 Core APIs invoked by `goatx402-sdk-server`, in a Swagger-like format. It focuses on request/response shapes, auth requirements, and how each SDK method maps to Core endpoints.
+This document summarizes the GOAT Flow Core APIs invoked by `goatflow-sdk-server`, in a Swagger-like format. It focuses on request/response shapes, auth requirements, and how each SDK method maps to Core endpoints.
 
 **Base Url**
-Production: `https://api.x402.goat.network`.
+Production: `https://flow-api.goat.network`.
 
-SDKs accept `{baseUrl}` in `GoatX402Client`; paths below are appended to it.
+SDKs accept `{baseUrl}` in `GoatFlowClient`; paths below are appended to it.
 
 **Auth (HMAC-SHA256)**
 Protected endpoints require these headers:
@@ -72,16 +72,16 @@ Common HTTP statuses:
 - `cannot cancel order in status <status>, only CHECKOUT_VERIFIED orders can be cancelled`
 
 **Endpoint Summary (SDK Mapping)**
-| SDK Method (`goatx402-sdk-server`) | Core Endpoint | Auth |
+| SDK Method (`goatflow-sdk-server`) | Core Endpoint | Auth |
 | --- | --- | --- |
-| `GoatX402Client.createOrder` | `POST /api/v1/orders` | Yes |
-| `GoatX402Client.createOrderRaw` | `POST /api/v1/orders` | Yes |
-| `GoatX402Client.createCheckoutSession` | `POST /api/v1/checkout/sessions` | Yes |
-| `GoatX402Client.getOrderStatus` | `GET /api/v1/orders/{order_id}` | Yes |
-| `GoatX402Client.getOrderProof` | `GET /api/v1/orders/{order_id}/proof` | Yes |
-| `GoatX402Client.submitCalldataSignature` | `POST /api/v1/orders/{order_id}/calldata-signature` | Yes |
-| `GoatX402Client.cancelOrder` | `POST /api/v1/orders/{order_id}/cancel` | Yes |
-| `GoatX402Client.getMerchant` | `GET /merchants/{merchant_id}` | No |
+| `GoatFlowClient.createOrder` | `POST /api/v1/orders` | Yes |
+| `GoatFlowClient.createOrderRaw` | `POST /api/v1/orders` | Yes |
+| `GoatFlowClient.createCheckoutSession` | `POST /api/v1/checkout/sessions` | Yes |
+| `GoatFlowClient.getOrderStatus` | `GET /api/v1/orders/{order_id}` | Yes |
+| `GoatFlowClient.getOrderProof` | `GET /api/v1/orders/{order_id}/proof` | Yes |
+| `GoatFlowClient.submitCalldataSignature` | `POST /api/v1/orders/{order_id}/calldata-signature` | Yes |
+| `GoatFlowClient.cancelOrder` | `POST /api/v1/orders/{order_id}/cancel` | Yes |
+| `GoatFlowClient.getMerchant` | `GET /merchants/{merchant_id}` | No |
 
 **POST /api/v1/orders**
 | Item | Value |
@@ -110,7 +110,7 @@ Success Response (x402 PaymentRequired, HTTP 402):
 | `x402Version` | number | x402 protocol version |
 | `resource` | object | x402 resource info |
 | `accepts` | array | Payment options (scheme, network, amount, asset, payTo, extra) |
-| `extensions.goatx402` | object | `destinationChain`, `expiresAt`, `paymentMethod`, `receiveType`; `signatureEndpoint` is included only for `ERC20_3009` |
+| `extensions.goatx402` | object | `destinationChain`, `expiresAt`, `paymentMethod`, `receiveType`; `signatureEndpoint` is included for `ERC20_3009` or whenever `calldata_sign_request` must be submitted (including Permit2 callbacks) |
 | `order_id` | string | Core order id |
 | `flow` | string | Payment flow (`ERC20_DIRECT`, `ERC20_3009`, `ERC20_APPROVE_XFER`) |
 | `token_symbol` | string | Token symbol |
@@ -149,7 +149,7 @@ Response Body:
 **GET /api/v1/orders/{order_id}/proof**
 | Item | Value |
 | --- | --- |
-| Summary | Get order proof for on-chain verification |
+| Summary | Get the server-issued payment record for reconciliation and on-chain verification |
 | Auth | Required |
 | SDK | `getOrderProof` |
 | Success Status | `200 OK` |
@@ -157,8 +157,10 @@ Response Body:
 Response Body:
 | Field | Type | Description |
 | --- | --- | --- |
-| `payload` | object | Proof payload (order_id, tx_hash, log_index, from_addr, to_addr, amount_wei, chain_id, flow) |
-| `signature` | string | Proof signature |
+| `payload` | object | Payment-record payload (`order_id`, `tx_hash`, `log_index`, `from_addr`, `to_addr`, `amount_wei`, `from_chain_id`, `status`) |
+| `signature` | string | Unsigned Keccak256 hash of seven payload fields concatenated without separators, in this exact order: `order_id`, `tx_hash`, `log_index`, `from_addr`, `to_addr`, `amount_wei`, `from_chain_id` (`status` is NOT covered). An integrity checksum of those fields only, not a cryptographic attestation |
+
+Verify `payload.tx_hash` and its transfer on-chain when independent proof of payment is required.
 
 **POST /api/v1/orders/{order_id}/calldata-signature**
 | Item | Value |

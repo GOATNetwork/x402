@@ -2,7 +2,7 @@
 
 This is the admin/operator + developer runbook. Merchant-facing onboarding lives in docs/x402-onboarding-guide.md and docs/merchant-guide.md.
 
-A complete admin/operator and developer runbook for GoatX402 payments — covering **admin setup**, **developer integration**, and **end-to-end testing**. Includes both Dashboard and CLI workflows.
+A complete admin/operator and developer runbook for GOAT Flow payments — covering **admin setup**, **developer integration**, and **end-to-end testing**. Includes both Dashboard and CLI workflows.
 
 ---
 
@@ -26,7 +26,7 @@ A complete admin/operator and developer runbook for GoatX402 payments — coveri
 
 | Role | Responsibilities |
 |---|---|
-| **GoatX402 Admin** | Create merchant, configure chains/tokens, set up fee balance, register callback contracts |
+| **GOAT Flow Admin** | Create merchant, configure chains/tokens, set up fee balance, register callback contracts |
 | **Developer (Merchant)** | Integrate SDK, deploy callback contract, run backend server, handle order lifecycle |
 | **User (Payer)** | Connect wallet, approve payment, transfer tokens |
 
@@ -61,7 +61,7 @@ Non-onboarding admin routes require a fully authenticated session: `POST /admin/
 
 ```bash
 # Mainnet (production)
-export API_URL="https://api.x402.goat.network"
+export API_URL="https://flow-api.goat.network"
 
 # Testnet3 (development)
 # Use the operator-provided Testnet3/staging API base for that environment.
@@ -216,7 +216,7 @@ cd goatx402-demo
 pnpm install
 
 # Install server SDK (repo directory is goatx402-sdk-server-ts;
-# npm package name is goatx402-sdk-server)
+# npm package name is goatflow-sdk-server)
 cd ../goatx402-sdk-server-ts
 pnpm install
 
@@ -230,7 +230,7 @@ Create `goatx402-demo/.env` with the credentials from the admin:
 ```bash
 GOATX402_MERCHANT_ID=my_shop
 # Mainnet (production)
-GOATX402_API_URL=https://api.x402.goat.network
+GOATX402_API_URL=https://flow-api.goat.network
 # Testnet3 (development): use the operator-provided Testnet3/staging API base.
 # GOATX402_API_URL=<testnet3-api-base>
 GOATX402_API_KEY=your_api_key
@@ -396,7 +396,7 @@ This starts:
 
 **Getting tokens:**
 - **Testnet3 (development):** Native BTC for gas from the [GOAT Testnet3 faucet](https://bridge.testnet3.goat.network/faucet)
-- **Testnet3 (development):** Test USDT/USDC: ask the GoatX402 team, or use a faucet contract if available
+- **Testnet3 (development):** Test USDT/USDC: ask the GOAT Flow team, or use a faucet contract if available
 - **Mainnet (production):** Use production GOAT mainnet gas and the production token contracts configured in Admin Dashboard / `GET /admin/tokens?chain_id=2345`
 
 ---
@@ -628,7 +628,7 @@ $ curl -s -X POST http://localhost:3001/api/orders -H "Content-Type: application
 ```bash
 # Setup: run the session login + mandatory TOTP flow in "Prerequisites (CLI Session Auth)" first.
 # Mainnet (production)
-export API_URL="https://api.x402.goat.network"
+export API_URL="https://flow-api.goat.network"
 # Testnet3 (development): export API_URL="<testnet3-api-base>" instead.
 
 # Merchant CRUD
@@ -679,7 +679,7 @@ curl -s -b "$COOKIE_JAR" -c "$COOKIE_JAR" "$API_URL/admin/orders?merchant_id=my_
                                │ configures
                                ▼
 ┌──────────────┐     ┌──────────────┐     ┌──────────────────────┐
-│   Frontend   │────▶│   Backend    │────▶│   GoatX402 Core API  │
+│   Frontend   │────▶│   Backend    │────▶│   GOAT Flow Core API  │
 │  (User)      │     │  (Developer) │     │                      │
 │              │     │              │     │  • Order management   │
 │ • Connect    │     │ • HMAC auth  │     │  • Payment watching   │
@@ -706,7 +706,7 @@ curl -s -b "$COOKIE_JAR" -c "$COOKIE_JAR" "$API_URL/admin/orders?merchant_id=my_
 
 - [API Reference](API.md) — Full API docs with request/response schemas
 - [Developer Guide](DEVELOPER_FAST.md) — Technical integration deep dive
-- [goatx402-sdk](goatx402-sdk/) — Frontend SDK (EVM wallets)
-- [goatx402-sdk-server-ts](goatx402-sdk-server-ts/) — TypeScript server SDK repo directory; npm package name: `goatx402-sdk-server`
+- [goatflow-sdk](goatx402-sdk/) — Frontend SDK (EVM wallets)
+- [goatx402-sdk-server-ts](goatx402-sdk-server-ts/) — TypeScript server SDK repo directory; npm package name: `goatflow-sdk-server`
 - [goatx402-sdk-server-go](goatx402-sdk-server-go/) — Server SDK (Go)
 - [goatx402-contract](goatx402-contract/) — Callback contract (Foundry)

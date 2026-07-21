@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	receiptspec "github.com/goatnetwork/goatx402-mpp-middleware-go/receiptspec"
+	receiptspec "github.com/goatnetwork/goatflow-mpp-middleware-go/receiptspec"
 )
 
 // HeaderName is the canonical HTTP header carrying the encoded
