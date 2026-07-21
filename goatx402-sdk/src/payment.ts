@@ -86,7 +86,7 @@ export class PaymentHelper {
    * Sign calldata for DELEGATE merchants
    *
    * This is only needed when order.calldataSignRequest is present.
-   * The signature should be submitted to your backend which will forward it to GoatX402.
+   * The signature should be submitted to your backend which will forward it to GOAT Flow.
    *
    * @param order - Order with calldataSignRequest
    * @returns Signature (0x prefixed)
