@@ -1,0 +1,37 @@
+module Scripts.Topup where
+
+import Daml.Script
+
+import Payment
+
+-- Topup re-mints a fresh `Holding` for a bound payer so the
+-- e2e-smoke.sh harness can run multiple iterations without the
+-- pre-mint depleting. Called from scripts/canton-up.sh and
+-- scripts/e2e-smoke.sh between E7 iterations.
+--
+-- Invoke via:
+--   daml script \
+--     --dar .daml/dist/payment-0.0.1.dar \
+--     --script-name Scripts.Topup:topup \
+--     --ledger-host localhost --ledger-port 5011 \
+--     --input-file  topup-args.json \
+--     --output-file topup-result.json
+--
+-- topup-args.json shape (Daml JSON):
+--   { "issuer": "...", "payer": "...", "amount": "100.0", "currency": "USD" }
+
+data TopupArgs = TopupArgs
+  with
+    issuer   : Party
+    payer    : Party
+    amount   : Decimal
+    currency : Text
+  deriving (Eq, Show)
+
+topup : TopupArgs -> Script (ContractId Holding)
+topup args = submit args.issuer $
+  createCmd Holding with
+    issuer   = args.issuer
+    owner    = args.payer
+    amount   = args.amount
+    currency = args.currency

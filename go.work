@@ -1,0 +1,12 @@
+go 1.25.0
+
+// Branch root workspace. Lists every module that lives in this tree.
+// Upstream module (goatx402-sdk-server-go) is included unchanged.
+
+use (
+	./goatx402-canton-cli
+	./goatx402-facilitator
+	./goatx402-merchant
+	./goatx402-receipt
+	./goatx402-sdk-server-go
+)

@@ -1,0 +1,35 @@
+// Canton bootstrap script for the goatx402-canton localnet.
+// Starts the single participant + single domain defined in
+// simple-topology.conf (bind-mounted at /workspace/canton/), connects
+// the participant to the domain, then keeps the daemon alive.
+//
+// The Ledger API is exposed at :5011, admin API at :5012, domain
+// public API at :5018.
+//
+// `scripts/canton-up.sh` greps stdout for the well-known marker
+// printed below to confirm readiness — do not change it without
+// updating that script.
+
+nodes.local.start()
+participant1.domains.connect_local(mydomain)
+
+// Upload the pre-built Daml package. The DAR is committed under
+// goatx402-canton/dist/ so we don't need a daml SDK at runtime.
+participant1.dars.upload("/workspace/canton/dist/payment-0.0.1.dar")
+
+println("=== goatx402 canton localnet ready ===")
+println("  participant1 ledger api  -> :5011")
+println("  participant1 admin api   -> :5012")
+println("  mydomain     public api  -> :5018")
+println("  mydomain     admin api   -> :5019")
+
+// Allocate every party the goatx402 stack needs in one place so the
+// HTTP layer never blocks waiting for party creation:
+val issuer      = participant1.parties.enable("Issuer")
+val alice       = participant1.parties.enable("Alice")
+val facilitator = participant1.parties.enable("facilitator")
+val merchant    = participant1.parties.enable("merchant")
+println(s"  Issuer       party = ${issuer.toString}")
+println(s"  Alice        party = ${alice.toString}")
+println(s"  facilitator  party = ${facilitator.toString}")
+println(s"  merchant     party = ${merchant.toString}")

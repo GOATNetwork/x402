@@ -1,0 +1,173 @@
+# Canton port CI for the canton/initial-port branch.
+#
+# Three jobs:
+#   baseline       — sanity-check the existing upstream Go SDK still builds.
+#   canton-modules — build + vet + unit-test the 4 net-new Go modules.
+#   canton-stack   — docker compose up + canton-localnet healthy + facilitator
+#                   serves /healthz. Slower but the only job that proves
+#                   the stack actually starts.
+#
+# Image digests are pinned for reproducibility (see docs/canton/preflight-notes.md).
+
+name: canton
+
+on:
+  push:
+    branches:
+      - 'canton/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'goatx402-canton/**'
+      - 'goatx402-facilitator/**'
+      - 'goatx402-merchant/**'
+      - 'goatx402-canton-cli/**'
+      - 'goatx402-canton-demo/**'
+      - 'goatx402-receipt/**'
+      - 'scripts/**'
+      - 'docker-compose.yml'
+      - 'go.work'
+      - 'Makefile'
+      - '.github/workflows/canton.yml'
+
+jobs:
+
+  baseline:
+    name: baseline upstream build still passes
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - name: build + vet upstream goatx402-sdk-server-go
+        run: |
+          cd goatx402-sdk-server-go
+          go build ./...
+          go vet ./...
+
+  canton-modules:
+    name: build + vet + unit-test canton modules
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: cache go build + module cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum', 'go.work') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: build all canton modules
+        run: |
+          go build \
+            ./goatx402-receipt/... \
+            ./goatx402-facilitator/... \
+            ./goatx402-merchant/... \
+            ./goatx402-canton-cli/...
+
+      - name: vet all canton modules
+        run: |
+          go vet \
+            ./goatx402-receipt/... \
+            ./goatx402-facilitator/... \
+            ./goatx402-merchant/... \
+            ./goatx402-canton-cli/...
+
+      - name: unit tests (short mode; skips integration tests that need canton localnet)
+        run: |
+          go test -short -count=1 \
+            ./goatx402-receipt/... \
+            ./goatx402-facilitator/... \
+            ./goatx402-merchant/... \
+            ./goatx402-canton-cli/...
+
+      - name: rewrite hygiene — no stale "goat-canton-payment" Go imports
+        run: |
+          # Find/replace verification per port-plan.html §5. .pb.go files keep
+          # the old path inside binary descriptors and one custodial.go string
+          # constant; both are documented and OK.
+          set +e
+          OFFENDERS=$(grep -rn "goat-canton-payment" \
+            --include='*.go' --exclude='*.pb.go' \
+            --include='*.mod' \
+            ./goatx402-receipt ./goatx402-facilitator ./goatx402-merchant ./goatx402-canton-cli \
+            | grep -v 'CanaryMessage = "goat-canton-payment')
+          if [[ -n "$OFFENDERS" ]]; then
+            echo "::error::stale 'goat-canton-payment' imports detected"
+            echo "$OFFENDERS"
+            exit 1
+          fi
+          echo "no stale imports"
+
+  canton-stack:
+    name: docker compose stack — bring up + smoke
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: bring up canton-localnet
+        run: |
+          docker compose up -d canton-localnet
+          # Wait for healthy (the compose healthcheck does the heavy lifting).
+          for i in $(seq 1 60); do
+            h=$(docker inspect goatx402-canton-localnet --format '{{.State.Health.Status}}' 2>/dev/null)
+            echo "[$(date +%T)] health=$h"
+            [[ "$h" == "healthy" ]] && break
+            sleep 5
+          done
+          [[ "$h" == "healthy" ]] || { docker logs goatx402-canton-localnet; exit 1; }
+
+      - name: build facilitator + merchant images
+        run: |
+          docker compose build facilitator merchant
+
+      - name: bring up daml-bootstrap (uploads DAR, allocates parties, topups)
+        run: |
+          docker compose up daml-bootstrap
+          # The bootstrap container exits after success; non-zero exit fails the job.
+          rc=$(docker inspect goatx402-canton-bootstrap --format '{{.State.ExitCode}}')
+          [[ "$rc" == "0" ]] || { docker logs goatx402-canton-bootstrap; exit 1; }
+
+      - name: bring up facilitator + merchant
+        run: |
+          docker compose up -d facilitator merchant
+          # Give them ~30s to start.
+          sleep 30
+
+      - name: smoke — facilitator /healthz + merchant 402
+        run: |
+          set -e
+          curl -fsS http://localhost:8080/healthz | tee /dev/stderr
+          # Merchant should return 402 without X-PAYMENT.
+          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:7070/resource)
+          [[ "$code" == "402" ]] || { echo "::error::expected 402, got $code"; exit 1; }
+          echo "merchant returned 402 as expected"
+
+      - name: tear down
+        if: always()
+        run: |
+          docker compose logs --no-color > docker-compose.log 2>&1 || true
+          docker compose down -v
+
+      - name: upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-compose-logs
+          path: docker-compose.log
+          retention-days: 7

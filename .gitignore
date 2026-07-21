@@ -3,6 +3,10 @@ bin/
 build/
 out/
 dist/
+# Exception: the pre-built Daml DAR is a tracked release asset so the
+# docker-compose stack works without a host daml SDK.
+!goatx402-canton/dist/
+!goatx402-canton/dist/payment-0.0.1.dar
 cache/
 broadcast/
 goatx402-contract/foundry.lock
@@ -26,3 +30,13 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 ADMIN_API.md
+
+# canton port state (generated at runtime)
+state/
+logs/
+
+# Daml SDK build cache
+**/.daml/
+
+# Go module cache (local)
+**/go.sum.local

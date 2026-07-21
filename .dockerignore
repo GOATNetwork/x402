@@ -1,0 +1,15 @@
+# Speed up docker build context transfers.
+
+.git
+.github
+docs
+*.md
+**/node_modules
+**/dist
+**/bin
+**/.daml
+state
+logs
+
+# Archive of old plans (large HTMLs)
+docs/archive

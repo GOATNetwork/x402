@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://goat-network.example/schemas/canton-receipt-v1.json",
+  "title": "CantonReceipt",
+  "description": "Participant-operator-signed off-chain settlement artefact. The bytes signed by the participant-operator Ed25519 key are produced by pkg/receipt.CantonReceipt.Canonical() and exclude `signature` and `receiptPayloadHash`. `domain` is included as an explicit prefix in the canonical bytes to provide cross-protocol domain separation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "domain",
+    "orderId",
+    "ledgerId",
+    "transactionId",
+    "contractId",
+    "paymentRequestContractId",
+    "participantPartyId",
+    "merchant",
+    "payer",
+    "amount",
+    "currency",
+    "trustedIssuer",
+    "resource",
+    "merchantRequestId",
+    "expiresAtHttp",
+    "expiresAtDaml",
+    "signatureScheme",
+    "signature",
+    "receiptPayloadHash",
+    "completedAt"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Receipt schema version, e.g. \"1.0\".",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "domain": {
+      "type": "string",
+      "description": "Domain-separation tag included as an explicit prefix in the canonical bytes. v1 value: \"goat-canton-receipt:v1\".",
+      "minLength": 1
+    },
+    "orderId": {
+      "type": "string",
+      "description": "Server-assigned UUID for the order (UUIDv7).",
+      "minLength": 1
+    },
+    "ledgerId": {
+      "type": "string",
+      "description": "Canton ledger id of the participant that confirmed the transaction.",
+      "minLength": 1
+    },
+    "transactionId": {
+      "type": "string",
+      "description": "Canton transaction id for the confirmed `Pay` exercise.",
+      "minLength": 1
+    },
+    "contractId": {
+      "type": "string",
+      "description": "Contract id of the resulting merchant `Holding`.",
+      "minLength": 1
+    },
+    "paymentRequestContractId": {
+      "type": "string",
+      "description": "Contract id of the `PaymentRequest` that was exercised.",
+      "minLength": 1
+    },
+    "participantPartyId": {
+      "type": "string",
+      "description": "Canton party id of the participant operator that signed the receipt.",
+      "minLength": 1
+    },
+    "merchant": {
+      "type": "string",
+      "description": "Canton party id of the payee.",
+      "minLength": 1
+    },
+    "payer": {
+      "type": "string",
+      "description": "Canton party id of the payer.",
+      "minLength": 1
+    },
+    "amount": {
+      "type": "string",
+      "description": "Decimal-as-string; canonical form (no leading +, no leading zeros except 0.x, no scientific notation, integer-side <= 28 digits, fractional-side <= 10 digits).",
+      "pattern": "^(0|[1-9][0-9]{0,27})\\.[0-9]{1,10}$"
+    },
+    "currency": {
+      "type": "string",
+      "description": "Currency tag, e.g. \"USD-canton\".",
+      "minLength": 1
+    },
+    "trustedIssuer": {
+      "type": "string",
+      "description": "Canton party id of the trusted asset issuer for `currency`. Re-asserted by the merchant verifier against its `TRUSTED_ISSUER_MAP[currency]`.",
+      "minLength": 1
+    },
+    "resource": {
+      "type": "string",
+      "description": "Merchant resource path that this receipt authorises.",
+      "minLength": 1
+    },
+    "merchantRequestId": {
+      "type": "string",
+      "description": "Mirrors the challenge nonce the merchant issued in its 402 envelope. Binds the receipt to a specific 402 session.",
+      "pattern": "^[A-Za-z0-9._-]{22,64}$"
+    },
+    "expiresAtHttp": {
+      "type": "integer",
+      "description": "HTTP-form expiry as Unix epoch milliseconds. This is the value covered by the payer's signature.",
+      "minimum": 0
+    },
+    "expiresAtDaml": {
+      "type": "integer",
+      "description": "Daml-form expiry (HTTP-form + LEDGER_SKEW_SAFETY) as Unix epoch milliseconds. Surfaced for auditor reconciliation; not in the payer's signed preimage.",
+      "minimum": 0
+    },
+    "signatureScheme": {
+      "type": "string",
+      "description": "Signature algorithm identifier.",
+      "enum": ["Ed25519"]
+    },
+    "signature": {
+      "type": "string",
+      "description": "Base64-encoded raw signature bytes. PureEdDSA over `Canonical()` output (which excludes this field and `receiptPayloadHash`).",
+      "minLength": 1
+    },
+    "receiptPayloadHash": {
+      "type": "string",
+      "description": "Base64-encoded sha256 of the canonical receipt bytes (display-only digest; NOT the input to ed25519.Sign).",
+      "minLength": 1
+    },
+    "completedAt": {
+      "type": "integer",
+      "description": "Unix epoch milliseconds; when the participant observed mediator confirmation for the underlying transaction.",
+      "minimum": 0
+    }
+  }
+}

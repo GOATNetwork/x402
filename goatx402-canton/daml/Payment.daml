@@ -1,0 +1,74 @@
+module Payment where
+
+import DA.Action (when, void)
+
+-- Holding: issuer-signed fungible asset. The owner is an observer only so
+-- the asset issuer (the trusted minting party) holds the sole signatory
+-- authority. Transfers are owner-controlled choices on the source Holding,
+-- which propagate the issuer's authority through the choice consequence.
+template Holding
+  with
+    issuer   : Party
+    owner    : Party
+    amount   : Decimal
+    currency : Text
+  where
+    signatory issuer
+    observer  owner
+
+    -- Owner-controlled transfer. Splits the source Holding into:
+    --   * a new Holding for `newOwner` with `xferAmount`
+    --   * (when amount > xferAmount) a change Holding back to the owner
+    -- Issuer authority propagates from the consumed source Holding.
+    choice Transfer : ContractId Holding
+      with
+        newOwner   : Party
+        xferAmount : Decimal
+      controller owner
+      do
+        assertMsg "amount must be positive" (xferAmount > 0.0)
+        assertMsg "insufficient"            (amount >= xferAmount)
+        when (amount > xferAmount)
+          (void $ create this with amount = amount - xferAmount)
+        create this with owner = newOwner; amount = xferAmount
+
+-- PaymentRequest: payer-signed offer to pay `amount` `currency` to `merchant`,
+-- bound to a specific `trustedIssuer` for the asset. `Pay` consumes the
+-- request and exercises `Transfer` on the supplied source Holding.
+template PaymentRequest
+  with
+    merchant          : Party
+    payer             : Party
+    amount            : Decimal
+    currency          : Text
+    trustedIssuer     : Party
+    resource          : Text
+    merchantRequestId : Text
+    nonce             : Text
+    dedupKey          : Text
+    expiresAtHttp     : Int
+    expiresAtDaml     : Int
+  where
+    signatory payer
+    observer  merchant
+
+    -- Ledger-level uniqueness per (payer, dedupKey). Defence-in-depth
+    -- against concurrent same-semantics retries; durable HTTP-side
+    -- idempotency lives in the facilitator's SQL UNIQUE index (see §6.1).
+    key (payer, dedupKey) : (Party, Text)
+    maintainer key._1
+
+    choice Pay : ContractId Holding
+      with
+        sourceHolding : ContractId Holding
+      controller payer
+      do
+        -- Defence-in-depth expiry is enforced HTTP-side by the facilitator
+        -- (PLAN.md §6.4 retry_next_at invariant). On-ledger Time conversion
+        -- from `expiresAtDaml: Int` is a v1 follow-up.
+        assertMsg "amount must be positive" (amount > 0.0)
+        h <- fetch sourceHolding
+        assertMsg "owner mismatch"    (h.owner == payer)
+        assertMsg "currency mismatch" (h.currency == currency)
+        assertMsg "issuer mismatch"   (h.issuer == trustedIssuer)
+        exercise sourceHolding Transfer with newOwner = merchant; xferAmount = amount

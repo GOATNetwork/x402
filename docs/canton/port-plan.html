@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Canton → x402 port plan (v3)</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7fb;
+    --fg: #14171f;
+    --muted: #56607a;
+    --card: #ffffff;
+    --border: #e1e4ee;
+    --accent: #2b6cff;
+    --code-bg: #0e1117;
+    --code-fg: #eef0f6;
+    --pill-bg: #eef1fb;
+    --pill-fg: #1b2c5b;
+    --ok: #1f8a4a;
+    --ok-bg: #e3f5ea;
+    --warn: #b7691a;
+    --warn-bg: #fbeede;
+    --danger: #c0392b;
+    --danger-bg: #fae3e0;
+    --info: #2b6cff;
+    --info-bg: #e7eefe;
+    --canton: #1d6ea0;
+    --canton-bg: #e3eff6;
+    --upstream: #6b3fa0;
+    --upstream-bg: #f0e9f7;
+    --new: #1f8a4a;
+    --new-bg: #e3f5ea;
+    --strike: #9aa3b8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c0e14;
+      --fg: #e6e8ee;
+      --muted: #99a0b3;
+      --card: #161922;
+      --border: #232734;
+      --accent: #5b8bff;
+      --code-bg: #0a0c12;
+      --code-fg: #e6e8ee;
+      --pill-bg: #1a2032;
+      --pill-fg: #c9d6ff;
+      --ok: #4cc983;
+      --ok-bg: #15281f;
+      --warn: #e2a25a;
+      --warn-bg: #2a1f12;
+      --danger: #e67369;
+      --danger-bg: #2c1714;
+      --info: #5b8bff;
+      --info-bg: #131e36;
+      --canton: #7bb6dc;
+      --canton-bg: #142231;
+      --upstream: #c4a7e6;
+      --upstream-bg: #251c33;
+      --new: #4cc983;
+      --new-bg: #15281f;
+      --strike: #5a6378;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--fg); }
+  body {
+    margin: 0;
+    font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+    padding: 28px 16px 96px;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  header { margin-bottom: 24px; }
+  header h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--muted); }
+  .pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--pill-bg);
+    color: var(--pill-fg);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .tldr {
+    background: var(--info-bg);
+    border-left: 4px solid var(--info);
+    padding: 14px 18px;
+    border-radius: 0 12px 12px 0;
+    margin: 16px 0 24px;
+  }
+  .tldr h2 { margin: 0 0 6px; font-size: 16px; }
+  .tldr ul { margin: 4px 0 0; padding-left: 22px; }
+  .tldr li { margin: 4px 0; }
+  section.card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    margin-bottom: 18px;
+  }
+  section.card h2 { margin: 0 0 4px; font-size: 19px; }
+  section.card .subtitle { color: var(--muted); margin: 0 0 14px; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 10px 0; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+  td code, p code, li code, .badge code {
+    background: var(--pill-bg);
+    color: var(--pill-fg);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+    font-size: 12.5px;
+  }
+  pre {
+    margin: 0;
+    background: var(--code-bg);
+    color: var(--code-fg);
+    border-radius: 10px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font: 12.5px/1.55 ui-monospace, "JetBrains Mono", Menlo, monospace;
+    white-space: pre;
+  }
+  .stage {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-top: 12px;
+    background: var(--bg);
+  }
+  .stage h3 {
+    margin: 0 0 6px;
+    font-size: 15px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .badge.canton   { background: var(--canton-bg);   color: var(--canton); }
+  .badge.upstream { background: var(--upstream-bg); color: var(--upstream); }
+  .badge.new      { background: var(--new-bg);      color: var(--new); }
+  .badge.ok       { background: var(--ok-bg);       color: var(--ok); }
+  .badge.warn     { background: var(--warn-bg);     color: var(--warn); }
+  .badge.danger   { background: var(--danger-bg);   color: var(--danger); }
+  ul.compact { margin: 6px 0 0; padding-left: 22px; }
+  ul.compact li { margin: 4px 0; }
+  .gate {
+    border-left: 4px solid var(--warn);
+    background: var(--warn-bg);
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    margin: 10px 0;
+  }
+  .gate strong { color: var(--warn); }
+  footer { margin-top: 32px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  footer a { color: var(--accent); }
+  .arrow { font-size: 16px; color: var(--muted); margin: 0 6px; }
+  .strike { color: var(--strike); text-decoration: line-through; }
+  .decision {
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 6px 12px;
+    align-items: start;
+    margin: 6px 0;
+  }
+  .decision .check { color: var(--ok); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="pill">canton ↔ x402 · port plan v3</span>
+    <h1>Port Canton facilitator + clients onto a <code>canton/initial-port</code> branch</h1>
+    <p>v3 — pure-additive port, upstream code untouched, after Round 2 cross-review.
+       Supersedes <a href="archive/upstream-merge-analysis.html">v1 merge-analysis</a> +
+       <a href="archive/development-plan.html">v1 dev-plan</a> (both based on the wrong premise),
+       and the v2 of this document (it survived Round 1 but R2 surfaced 7 P0s including the SDK-extension fallacy).</p>
+  </header>
+
+  <div class="tldr">
+    <h2>What's new in v3 vs v2 (R2 fixes baked in)</h2>
+    <ul>
+      <li><strong>Stage 6 dropped.</strong> v2 said "extend upstream SDK with <code>AuthScheme</code>." Codex R2 proved that's insufficient — upstream <code>CreateOrderRaw</code> posts <code>{dapp_order_id, chain_id, …}</code> and Canton facilitator expects <code>{merchant, payer, amount, …}</code>; even with auth header pluggable, the request/response bodies don't line up. v3 makes the port <strong>100% additive</strong> — upstream files unchanged.</li>
+      <li><strong>Wire envelope claim fixed.</strong> v2 §3 said both sides emit <code>X402PaymentRequired</code>. False — Canton merchant emits a custom envelope with <code>{scheme, amount, currency, trustedIssuer, payTo, facilitator}</code>; upstream uses <code>X402PaymentRequired{accepts[].Asset/PayTo/Network/…}</code>. Two distinct envelope formats; <code>scheme</code> is the discriminator.</li>
+      <li><strong>Stage 1 mapping corrected.</strong> <code>canton/</code> in current tree has <code>bootstrap.canton</code> + <code>simple-topology.conf</code>, not docker-compose. Real Canton bring-up logic lives in <strong>harness-level</strong> <code>scripts/canton-up.sh</code>. v3 ports both.</li>
+      <li><strong><code>pkg/receipt</code> stays standalone</strong> as <code>goatx402-receipt/</code> module (not folded). Avoids the duplicated canonical-helpers issue in <code>orders.go:446</code>.</li>
+      <li><strong>Module prefix decided</strong>: <code>github.com/goatnetwork/&lt;pkgname&gt;</code> (no <code>/x402/</code> segment) to match upstream's existing <code>github.com/goatnetwork/goatx402-sdk-server</code>.</li>
+      <li><strong>License decided</strong>: branch ships with <code>LICENSE = Apache-2.0</code>; maintainer can change during eventual PR review.</li>
+      <li><strong>Effort retargeted</strong> to 5 dev-days base + 75 % buffer ≈ <strong>9 calendar days</strong>.</li>
+      <li>New sections: rollback / cutover (§10), secrets in CI (§11), upstream-drift policy (§12), submodule strategy (§13), real-network validation as optional Stage 9 (§7).</li>
+    </ul>
+  </div>
+
+  <section class="card">
+    <h2>1 · Decisions confirmed (before Stage 0 starts)</h2>
+    <div class="decision"><span class="check">✓</span><div><strong>Module prefix:</strong> <code>github.com/goatnetwork/goatx402-facilitator</code>, <code>…/goatx402-merchant</code>, <code>…/goatx402-canton-cli</code>, <code>…/goatx402-receipt</code>. Matches upstream's existing <code>github.com/goatnetwork/goatx402-sdk-server</code> shape — no <code>/x402/</code> segment.</div></div>
+    <div class="decision"><span class="check">✓</span><div><strong>Receipt module:</strong> stays <strong>standalone</strong> as <code>goatx402-receipt/</code>. Not folded into facilitator. Reason: facilitator's <code>internal/api/orders.go:446</code> currently has duplicated canonical helpers that <code>pkg/receipt</code> doesn't yet export; folding without first extracting those is a net mess. Standalone is also a smaller surface for third-party consumers who only want to verify a Canton receipt.</div></div>
+    <div class="decision"><span class="check">✓</span><div><strong>Branch hosting:</strong> personal fork (<code>your-handle/x402</code>) initially. Migrate to a GOATNetwork-organisation fork (e.g. <code>GOATNetwork/x402-canton-experiment</code>) only after G3 (Stage 7 CI green for 3 consecutive pushes). Migration is <code>git remote</code> rename + push, near-zero cost.</div></div>
+    <div class="decision"><span class="check">✓</span><div><strong>LICENSE:</strong> commit <code>LICENSE = Apache-2.0</code> on the branch at Stage 0. In parallel, open a governance issue against upstream proposing the same. Maintainer can override during eventual review.</div></div>
+    <div class="decision"><span class="check">✓</span><div><strong>SDK extension (former Stage 6):</strong> <strong>dropped from this port.</strong> Upstream <code>goatx402-sdk-server-go/</code> is untouched. Canton-cli has its own HTTP client; it doesn't need to flow through the upstream SDK. Revisit only after G3 if maintainer signals interest.</div></div>
+  </section>
+
+  <section class="card">
+    <h2>2 · Repo-level comparison (post-R2, factually verified)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Concern</th>
+          <th>upstream <code>GOATNetwork/x402</code></th>
+          <th>canton impl <code>goat-canton-payment</code></th>
+          <th>port impact</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Top-level layout</td>
+          <td>flat: <code>goatx402-{contract,sdk,sdk-server-go,sdk-server-ts,demo}/</code> + docs</td>
+          <td>nested: <code>facilitator/</code>, <code>merchant/</code>, <code>client-cli/</code>, <code>client-web/</code>, <code>daml/</code>, <code>pkg/receipt/</code>, <code>canton/</code>, <code>scripts/</code>; plus harness-level <code>scripts/</code> one level up</td>
+          <td>Add new top-level <code>goatx402-*</code> siblings; see §4.</td>
+        </tr>
+        <tr>
+          <td>Go modules</td>
+          <td>1 module: <code>github.com/goatnetwork/goatx402-sdk-server</code> @ <code>goatx402-sdk-server-go/go.mod</code>, Go 1.25</td>
+          <td>4 modules in <code>go.work</code>, prefix <code>github.com/goat-network/goat-canton-payment/…</code>; mix Go 1.22 / 1.25</td>
+          <td>Rewrite to <code>github.com/goatnetwork/&lt;pkgname&gt;</code>; unify Go to 1.25; add a root <code>go.work</code> on the branch (upstream currently has none).</td>
+        </tr>
+        <tr>
+          <td>TS packages</td>
+          <td><code>goatx402-sdk</code>, <code>goatx402-sdk-server</code>, <code>goatx402-demo</code></td>
+          <td><code>@goat-canton-payment/client-web</code> (Vite SPA)</td>
+          <td>Rename to <code>goatx402-canton-demo</code> with matching <code>package.json</code> style.</td>
+        </tr>
+        <tr>
+          <td>Daml SDK</td>
+          <td>n/a</td>
+          <td><code>sdk-version: 2.10.0</code></td>
+          <td>Net new — first Daml component in the repo.</td>
+        </tr>
+        <tr>
+          <td>Canton runtime</td>
+          <td>n/a</td>
+          <td>Runs via harness-level <code>scripts/canton-up.sh</code> against the <code>canton-localnet-goat-canton-payment</code> container; <code>canton/</code> dir holds <code>bootstrap.canton</code> + <code>simple-topology.conf</code>. The project-local <code>scripts/canton-up.sh</code> is only a restart wrapper.</td>
+          <td>Port both: the harness bring-up script + the project-local restart helper + bootstrap.canton + simple-topology.conf, into <code>goatx402-canton/</code>.</td>
+        </tr>
+        <tr>
+          <td>HTTP route prefix</td>
+          <td><code>/api/v1/orders[/…]</code> served by hosted GoatX402 Core</td>
+          <td><code>/api/v1/orders[/…]</code> served by our facilitator</td>
+          <td>Same path prefix is coincidence, not compatibility (see envelope row).</td>
+        </tr>
+        <tr>
+          <td><strong>Order create body</strong></td>
+          <td><code>{dapp_order_id, chain_id, token_symbol, from_address, amount_wei}</code> (<code>client.go:53</code>, <code>types.go:30</code>)</td>
+          <td><code>{x402Version, merchant, payer, amount, currency, trustedIssuer, resource, merchantRequestId, sourceHoldingContractId, …}</code> (<code>orders.go:50</code>)</td>
+          <td><strong>Bodies are not interchangeable.</strong> Upstream SDK can't post to Canton facilitator. Confirms Stage 6 drop.</td>
+        </tr>
+        <tr>
+          <td><strong>402 envelope</strong></td>
+          <td><code>X402PaymentRequired{x402Version, resource, accepts[].{scheme, network, amount, asset, payTo, extra}, extensions.goatx402}</code> (<code>types.go:69</code>)</td>
+          <td>Custom merchant envelope: <code>{x402Version, accepts[].{scheme, amount, currency, trustedIssuer, payTo, facilitator, resource, merchantRequestId}}</code> (<code>resource.go:133</code>)</td>
+          <td>Same outer shape (<code>x402Version</code> + <code>accepts[]</code>), <em>different</em> inner field set. <code>scheme</code> distinguishes — <code>"evm-eip3009"</code> vs <code>"canton-daml"</code>. Document this as "x402 envelope, canton-daml dialect."</td>
+        </tr>
+        <tr>
+          <td>Auth scheme</td>
+          <td>HMAC-SHA256 (<code>signature.go</code>, headers <code>X-API-Key</code>/<code>X-Timestamp</code>/<code>X-Nonce</code>/<code>X-Sign</code>)</td>
+          <td><code>X-Payer-Token</code> bearer (<code>middleware/payer_token.go</code>)</td>
+          <td>Different actors entirely: upstream auths merchant ↔ Core; canton facilitator auths payer ↔ facilitator. Don't try to unify.</td>
+        </tr>
+        <tr>
+          <td>Proof shape</td>
+          <td><code>OrderProofResponse{payload{order_id, tx_hash, log_index, from_addr, to_addr, amount_wei, chain_id, flow}, signature}</code></td>
+          <td><code>CantonReceipt{ledgerId, transactionId, contractId, …}</code></td>
+          <td>Distinct types. <code>X-PAYMENT</code> header carries base64-encoded receipt; verifier is per-scheme.</td>
+        </tr>
+        <tr>
+          <td>LICENSE / CONTRIBUTING</td>
+          <td>absent</td>
+          <td>README mentions "LICENSE if present"; absent</td>
+          <td>Branch commits <code>LICENSE = Apache-2.0</code>; governance issue runs in parallel (per §1 decision).</td>
+        </tr>
+        <tr>
+          <td>CI</td>
+          <td>none (<code>.github/</code> absent)</td>
+          <td>none in repo; <code>e2e-smoke.sh</code> is CI-shaped</td>
+          <td>Add <code>.github/workflows/canton.yml</code> on the branch (Stage 7).</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>3 · Branch on upstream</h2>
+<pre># 1. fork GOATNetwork/x402 on GitHub → your-handle/x402
+
+# 2. clone the fork (not the submodule path inside giftcard; that's read-only)
+git clone https://github.com/your-handle/x402.git ~/workspace/x402-canton-branch
+cd ~/workspace/x402-canton-branch
+
+# 3. add upstream remote, fetch, branch
+git remote add upstream https://github.com/GOATNetwork/x402.git
+git fetch upstream
+git checkout -b canton/initial-port upstream/main
+
+# 4. push the branch early so it's visible (WIP)
+git push -u origin canton/initial-port</pre>
+    <p>All port commits go here. Stages 0–8 below all merge into this branch. PR discussion does <em>not</em> begin until §9 G4.</p>
+  </section>
+
+  <section class="card">
+    <h2>4 · Directory mapping (canton-impl <span class="arrow">→</span> branch layout)</h2>
+    <p class="subtitle">Corrected after R2; <code>canton/</code> content + harness scripts now mapped accurately.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Current path in <code>goat-canton-payment</code></th>
+          <th>New path on <code>canton/initial-port</code> branch</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>daml/</code> (<code>Payment.daml</code>, <code>Scripts/Topup.daml</code>, <code>daml.yaml</code>)</td>
+          <td><code>goatx402-canton/daml/</code> <span class="badge new">NEW</span></td>
+          <td>Daml SDK 2.10.0; <code>daml build</code> produces the DAR uploaded in Stage 1.</td>
+        </tr>
+        <tr>
+          <td><code>canton/bootstrap.canton</code></td>
+          <td><code>goatx402-canton/bootstrap.canton</code></td>
+          <td>Verified actual file. Sets up parties, console bindings.</td>
+        </tr>
+        <tr>
+          <td><code>canton/simple-topology.conf</code></td>
+          <td><code>goatx402-canton/simple-topology.conf</code></td>
+          <td>Verified actual file. Single-domain topology for localnet.</td>
+        </tr>
+        <tr>
+          <td>(harness-level) <code>../scripts/canton-up.sh</code></td>
+          <td><code>scripts/canton-up.sh</code> at repo root <span class="badge new">NEW</span></td>
+          <td>This is the <em>real</em> bring-up script (creates container, runs bootstrap.canton). The project-local <code>scripts/canton-up.sh</code> is only a restart wrapper and delegates here when the container doesn't exist.</td>
+        </tr>
+        <tr>
+          <td><code>scripts/{canton-down,canton-smoke,init-custodial-keys,e2e-smoke,e2e-canton-down-midflow,e2e-cross-sdk-parity}.sh</code></td>
+          <td><code>scripts/</code> at repo root</td>
+          <td>Verbatim copy. Prefix names with <code>canton-</code> in the Makefile target table, but file names stay.</td>
+        </tr>
+        <tr>
+          <td><code>facilitator/cmd/server/</code></td>
+          <td><code>goatx402-facilitator/cmd/server/</code> <span class="badge new">NEW</span></td>
+          <td>Go binary. Module <code>github.com/goatnetwork/goatx402-facilitator</code>.</td>
+        </tr>
+        <tr>
+          <td><code>facilitator/internal/{api,canton,config,log,metrics,signer,store}/</code></td>
+          <td><code>goatx402-facilitator/internal/{api,canton,config,log,metrics,signer,store}/</code></td>
+          <td>Verbatim move; rewrite imports per §5.</td>
+        </tr>
+        <tr>
+          <td><code>pkg/receipt/</code></td>
+          <td><code>goatx402-receipt/</code> <span class="badge new">NEW, STANDALONE</span></td>
+          <td>Independent Go module; not folded. Module <code>github.com/goatnetwork/goatx402-receipt</code>. Imported by facilitator + merchant + canton-cli.</td>
+        </tr>
+        <tr>
+          <td><code>merchant/</code></td>
+          <td><code>goatx402-merchant/</code> <span class="badge new">NEW</span></td>
+          <td>Module <code>github.com/goatnetwork/goatx402-merchant</code>.</td>
+        </tr>
+        <tr>
+          <td><code>client-cli/</code></td>
+          <td><code>goatx402-canton-cli/</code> <span class="badge new">NEW</span></td>
+          <td>Module <code>github.com/goatnetwork/goatx402-canton-cli</code>. Has its own HTTP client; doesn't import upstream SDK.</td>
+        </tr>
+        <tr>
+          <td><code>client-web/</code></td>
+          <td><code>goatx402-canton-demo/</code> <span class="badge new">NEW</span></td>
+          <td>TS Vite SPA. Sibling of upstream's <code>goatx402-demo/</code>.</td>
+        </tr>
+        <tr>
+          <td><code>Makefile</code> (top-level outer wrapper)</td>
+          <td><code>Makefile</code> at branch root <span class="badge new">NEW</span></td>
+          <td>Upstream has no root Makefile. We add one with canton-related targets only; don't disturb per-package builds.</td>
+        </tr>
+        <tr>
+          <td><code>docs/{operator-handbook,x402-canton-mapping,canton-receipt.schema.json}</code></td>
+          <td><code>docs/canton/</code> at branch root</td>
+          <td>Keeps separation from upstream's <code>docs/</code> tree.</td>
+        </tr>
+        <tr>
+          <td><code>goatx402-sdk-server-go/</code></td>
+          <td><span class="strike">unchanged</span></td>
+          <td><strong>Untouched.</strong> Former v2 Stage 6 dropped per §1.</td>
+        </tr>
+        <tr>
+          <td><code>goatx402-{sdk,sdk-server-ts,demo,contract}/</code></td>
+          <td><span class="strike">unchanged</span></td>
+          <td>Out of scope for this port.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>5 · Module-rename inventory (covers all rewrite targets)</h2>
+    <p class="subtitle">R2 P1: a Go-only <code>sed</code> pass misses scripts, TS, docs, README references. This list is the rewrite contract.</p>
+    <table>
+      <thead><tr><th>Target</th><th>Old token</th><th>New token</th><th>Files to scan</th></tr></thead>
+      <tbody>
+        <tr><td>Go imports</td><td><code>github.com/goat-network/goat-canton-payment/facilitator</code></td><td><code>github.com/goatnetwork/goatx402-facilitator</code></td><td><code>**/*.go</code></td></tr>
+        <tr><td>Go imports</td><td><code>github.com/goat-network/goat-canton-payment/merchant</code></td><td><code>github.com/goatnetwork/goatx402-merchant</code></td><td><code>**/*.go</code></td></tr>
+        <tr><td>Go imports</td><td><code>github.com/goat-network/goat-canton-payment/client-cli</code></td><td><code>github.com/goatnetwork/goatx402-canton-cli</code></td><td><code>**/*.go</code></td></tr>
+        <tr><td>Go imports</td><td><code>github.com/goat-network/goat-canton-payment/pkg/receipt</code></td><td><code>github.com/goatnetwork/goatx402-receipt</code></td><td><code>**/*.go</code></td></tr>
+        <tr><td><code>go.mod</code></td><td><code>module github.com/goat-network/goat-canton-payment/&lt;name&gt;</code></td><td><code>module github.com/goatnetwork/goatx402-&lt;name&gt;</code></td><td>4 × <code>go.mod</code> files</td></tr>
+        <tr><td><code>go.work</code></td><td><code>./client-cli ./facilitator ./merchant ./pkg/receipt</code></td><td><code>./goatx402-canton-cli ./goatx402-facilitator ./goatx402-merchant ./goatx402-receipt</code></td><td>branch-root <code>go.work</code></td></tr>
+        <tr><td>Shell scripts</td><td><code>goat-canton-payment</code> directory refs, <code>../facilitator/bin</code> binary paths</td><td>updated branch paths</td><td><code>scripts/**/*.sh</code></td></tr>
+        <tr><td><code>package.json</code></td><td><code>@goat-canton-payment/client-web</code></td><td><code>goatx402-canton-demo</code></td><td><code>goatx402-canton-demo/package.json</code></td></tr>
+        <tr><td>Docs / README references</td><td><code>goat-canton-payment</code> repo name</td><td><code>x402</code> / <code>goatx402-*</code></td><td><code>docs/canton/**/*.md</code>, <code>**/README.md</code></td></tr>
+        <tr><td>Upstream-docs cleanup (one-off)</td><td><code>github.com/goatx402/sdk-server-go</code> (existing typo)</td><td><code>github.com/goatnetwork/goatx402-sdk-server</code> (the real module)</td><td><code>goatx402-sdk-server-go/x402-integration.md:34</code> and any other hits — separate doc-only commit, optional</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Post-rewrite verification</strong> (must pass before Stage 2 acceptance):</p>
+<pre># 1. No old prefixes remain anywhere in the branch
+grep -r "goat-canton-payment" . --exclude-dir=archive --exclude-dir=.git
+# expected: zero output
+
+# 2. Go vet + unused imports
+go vet ./...
+goimports -l ./...
+# expected: zero lines printed
+
+# 3. Build entire branch
+go build ./...
+# expected: exit 0</pre>
+  </section>
+
+  <section class="card">
+    <h2>6 · Port stages (Stage 6 dropped; 8 stages total)</h2>
+
+    <div class="stage">
+      <h3>Stage 0 · Branch + tooling setup <span class="badge ok">~0.5 d</span></h3>
+      <ul class="compact">
+        <li>Fork upstream; <code>git checkout -b canton/initial-port upstream/main</code>; push to fork.</li>
+        <li>Commit <code>LICENSE = Apache-2.0</code> at branch root (per §1 decision).</li>
+        <li>Create empty top-level <code>go.work</code> on branch listing existing <code>goatx402-sdk-server-go</code> only (no canton modules yet); confirms <code>go work sync</code> passes baseline.</li>
+        <li>Add empty <code>Makefile</code> + <code>scripts/</code> directory + <code>.github/workflows/canton.yml</code> stub.</li>
+        <li>Open governance issue against upstream: "Adding LICENSE + CONTRIBUTING."</li>
+      </ul>
+      <p><strong>Acceptance:</strong> branch is set up; <code>go build ./...</code> passes (only the existing SDK builds); <code>git status</code> clean after first commit.</p>
+    </div>
+
+    <div class="stage">
+      <h3>Stage 0.5 · Pre-flight checks <span class="badge new">NEW</span> <span class="badge ok">~0.25 d</span></h3>
+      <p class="subtitle">R2 P1: pre-flight before touching canton code so big surprises surface early.</p>
+      <ul class="compact">
+        <li>On the canton impl side, run <code>go build ./pkg/receipt/...</code>, capture interface surface (<code>go doc ./pkg/receipt</code>).</li>
+        <li>Compare to facilitator's duplicated canonical helpers in <code>orders.go:446</code>. Note which need exporting.</li>
+        <li>Decision recorded: stays standalone (per §1); facilitator imports unchanged.</li>
+        <li>Smoke-test <code>daml build</code> from a clean checkout; record SDK install time / dependencies.</li>
+        <li>Check current Canton image: <code>docker inspect canton-localnet-goat-canton-payment | jq '.Config.Image'</code> → use the image SHA in Stage 7 CI.</li>
+      </ul>
+      <p><strong>Acceptance:</strong> a written one-pager <code>docs/canton/preflight-notes.md</code> records image SHA, Daml SDK install method, observed dep list. Branch state unchanged.</p>
+    </div>
+
+    <div class="stage">
+      <h3>Stage 1 · Daml + Canton localnet <span class="badge new">NEW</span> <span class="badge ok">~1.5 d</span></h3>
+      <ul class="compact">
+        <li>Copy <code>daml/</code> → <code>goatx402-canton/daml/</code>. <code>daml build</code> succeeds against SDK 2.10.</li>
+        <li>Copy <code>canton/{bootstrap.canton, simple-topology.conf}</code> → <code>goatx402-canton/</code>.</li>
+        <li>Port the <strong>harness-level</strong> <code>scripts/canton-up.sh</code> (the one that <em>creates</em> the container, runs bootstrap, allocates parties) → <code>scripts/canton-up.sh</code> at branch root.</li>
+        <li>Port the <strong>project-level</strong> restart wrapper <code>scripts/canton-up.sh</code> (which delegates to the harness one) — fold both into a single self-contained <code>scripts/canton-up.sh</code> on the branch; no more delegation cross-level.</li>
+        <li>Port <code>canton-down.sh</code> + <code>canton-smoke.sh</code>.</li>
+        <li>Verify <code>nc -z localhost 5011</code> succeeds after <code>./scripts/canton-up.sh</code>; <code>canton-smoke.sh</code> uploads DAR + allocates parties + mints a topup Holding.</li>
+      </ul>
+      <p><strong>Acceptance:</strong> <code>make canton-up &amp;&amp; make canton-smoke</code> green on a clean checkout; <code>state/source-holding.json</code> is produced.</p>
+    </div>
+
+    <div class="stage">
+      <h3>Stage 2 · Facilitator + Receipt port <span class="badge ok">~1 d</span></h3>
+      <ul class="compact">
+        <li>Copy <code>facilitator/</code> → <code>goatx402-facilitator/</code>.</li>
+        <li>Copy <code>pkg/receipt/</code> → <code>goatx402-receipt/</code> as its own Go module.</li>
+        <li>Apply find/replace per §5; run post-rewrite verification (the three commands).</li>
+        <li>Update root <code>go.work</code> to include both new modules.</li>
+        <li>Bring up Canton (Stage 1) and run unit + integration tests.</li>
+      </ul>
+      <p><strong>Acceptance:</strong> <code>go build ./goatx402-facilitator/... ./goatx402-receipt/...</code> exit 0; <code>go test ./goatx402-facilitator/... ./goatx402-receipt/... -count=1</code> exit 0 (no hard-coded file count — whatever tests exist, all must pass).</p>
+    </div>
+
+    <div class="stage">
+      <h3>Stage 3 · Merchant + canton-cli port <span class="badge ok">~0.5 d</span></h3>
+      <ul class="compact">
+        <li>Copy + rewrite imports for both; build cleanly.</li>
+        <li>Port <code>init-custodial-keys.sh</code> + <code>init-custodial-keys.bats</code>.</li>
+        <li>Smoke: <code>./bin/goatx402-canton-cli --help</code>, <code>./bin/goatx402-merchant --help</code> resolve.</li>
+      </ul>
+      <p><strong>Acceptance:</strong> <code>go test ./goatx402-merchant/... ./goatx402-canton-cli/... -count=1</code> exit 0.</p>
+    </div>
+
+    <div class="stage">
+      <h3>Stage 4 · Canton-demo SPA port <span class="badge ok">~0.5 d</span></h3>
+      <ul class="compact">
+        <li>Copy <code>client-web/</code> → <code>goatx402-canton-demo/</code>; rename package; <code>pnpm install &amp;&amp; pnpm run build</code> clean.</li>
+        <li><code>pnpm run preview</code> serves the SPA on the configured port.</li>
+      </ul>
+      <p><strong>Acceptance:</strong> a fresh pnpm install + build + preview round-trip works on a clean Node setup.</p>
+    </div>
+
+    <div class="stage">
+      <h3>Stage 5 · End-to-end smoke <span class="badge canton">CANTON</span> <span class="badge ok">~0.5 d</span></h3>
+      <ul class="compact">
+        <li>Port <code>scripts/e2e-smoke.sh</code> with all binary paths rewritten to branch layout (<code>./goatx402-facilitator/bin/server</code>, <code>./goatx402-merchant/bin/merchant</code>, <code>./goatx402-canton-cli/bin/canton-cli</code>).</li>
+        <li>Port <code>scripts/e2e-canton-down-midflow.sh</code> + <code>scripts/e2e-cross-sdk-parity.sh</code>.</li>
+        <li>Run full local: 30 iterations (5 warmup + 25 measured); perf gate <strong>P95 &lt; 5 s</strong> + window invariant.</li>
+        <li>If E2E_SKIP_PLAYWRIGHT unset, Playwright must also pass against <code>pnpm run preview</code>.</li>
+      </ul>
+      <p><strong>Acceptance:</strong> e2e-smoke green; latencies file produced; receipt schema validation passes for all 25 measured iterations.</p>
+    </div>
+
+    <div class="stage">
+      <h3><span class="strike">Stage 6 · SDK auth-scheme extension</span> <span class="badge danger">DROPPED</span></h3>
+      <p>R2 P0: upstream SDK <code>CreateOrderRaw</code> body + response shape doesn't fit Canton facilitator. <code>AuthScheme</code> alone wouldn't let upstream <code>Client</code> talk to Canton. Building a full Canton-aware client is a separate work item, not part of this port. Upstream <code>goatx402-sdk-server-go/</code> is untouched on this branch.</p>
+    </div>
+
+    <div class="stage">
+      <h3>Stage 7 · CI workflow <span class="badge ok">~1 d</span></h3>
+      <ul class="compact">
+        <li>Flesh out <code>.github/workflows/canton.yml</code>:
+          <ul>
+            <li>Setup Go 1.25.</li>
+            <li>Install Daml SDK 2.10 via the official tarball; cache <code>~/.daml</code> by SDK version.</li>
+            <li><code>go build ./...</code></li>
+            <li><code>go test ./goatx402-receipt/... ./goatx402-facilitator/... ./goatx402-merchant/... ./goatx402-canton-cli/...</code> (all 4 new modules).</li>
+            <li>Boot Canton localnet (pinned image SHA from §6 Stage 0.5).</li>
+            <li>Run <code>canton-smoke</code> + <code>canton-e2e-smoke</code> with CI-sized env (<code>E2E_ITERATIONS=5</code>, <code>E2E_WARMUP=1</code>, <code>E2E_SKIP_PLAYWRIGHT=1</code> — Playwright in CI is opt-in; documented as a separate workflow).</li>
+            <li>Optional second job <code>canton-playwright.yml</code>: only runs on labelled PRs, installs browsers, runs <code>e2e-cross-sdk-parity.sh</code>.</li>
+          </ul>
+        </li>
+        <li>Image SHA pinning: <code>image: docker.io/digitalasset/canton-open-source:&lt;SHA from Stage 0.5&gt;</code> — never <code>:latest</code> or tag-only.</li>
+        <li>Daml SDK install: pin to <code>2.10.0</code> with a specific tarball URL; allow 1 retry on tarball pull.</li>
+      </ul>
+      <p><strong>Acceptance:</strong> push to fork's <code>canton/initial-port</code> branch → both jobs green; latencies posted as workflow artifact.</p>
+    </div>
+
+    <div class="stage">
+      <h3>Stage 8 · Documentation pass <span class="badge ok">~0.5 d</span></h3>
+      <ul class="compact">
+        <li>Add <code>docs/canton/README.md</code> linking operator-handbook, x402-canton-mapping, receipt schema.</li>
+        <li>Add <code>goatx402-canton/README.md</code> ("Daml + Canton localnet; see <code>docs/canton/</code> for ops").</li>
+        <li>Add <code>goatx402-facilitator/README.md</code>, <code>goatx402-merchant/README.md</code>, etc. — short orienting blurbs.</li>
+        <li>Do <strong>not</strong> touch upstream <code>README.md</code> on this branch. Mention canton briefly in a separate doc, link from the branch root README.</li>
+        <li>Run cold-start verification: in a fresh git clone on a fresh machine, <code>make canton-e2e</code> reproduces from docs alone.</li>
+      </ul>
+      <p><strong>Acceptance:</strong> cold-start works; <code>grep -r "goat-canton-payment" docs/</code> returns zero.</p>
+    </div>
+
+    <div class="stage">
+      <h3>Stage 9 · Real-network validation <span class="badge new">NEW, OPTIONAL</span> <span class="badge warn">post-G3</span></h3>
+      <p class="subtitle">R2 missing: everything verified is localnet. Real-network is its own work item, gated by G3.</p>
+      <ul class="compact">
+        <li>Point facilitator at the existing TestNet validator (<code>184.32.95.88</code>) via <code>CANTON_PORT</code> + JWT auth (not unsafe-auth).</li>
+        <li>Run a single end-to-end against TestNet: mint a Holding (already exists from the live wallet, 98 CC), submit one <code>PaymentRequest_Pay</code>, verify receipt.</li>
+        <li>Document differences vs localnet in <code>docs/canton/testnet-notes.md</code>.</li>
+      </ul>
+      <p><strong>Defer until:</strong> branch is otherwise feature-complete + CI green. Real-network testing burns real validator traffic + amulets; do it sparingly.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>7 · Effort summary (corrected per R2)</h2>
+    <table>
+      <thead><tr><th>Stage</th><th>Effort</th><th>Cumulative</th><th>With 75 % buffer</th></tr></thead>
+      <tbody>
+        <tr><td>0 · Branch + tooling</td><td>0.5 d</td><td>0.5 d</td><td>0.9 d</td></tr>
+        <tr><td>0.5 · Pre-flight</td><td>0.25 d</td><td>0.75 d</td><td>1.3 d</td></tr>
+        <tr><td>1 · Daml + Canton localnet</td><td>1.5 d</td><td>2.25 d</td><td>3.9 d</td></tr>
+        <tr><td>2 · Facilitator + Receipt</td><td>1.0 d</td><td>3.25 d</td><td>5.7 d</td></tr>
+        <tr><td>3 · Merchant + canton-cli</td><td>0.5 d</td><td>3.75 d</td><td>6.6 d</td></tr>
+        <tr><td>4 · Canton-demo SPA</td><td>0.5 d</td><td>4.25 d</td><td>7.4 d</td></tr>
+        <tr><td>5 · E2E smoke</td><td>0.5 d</td><td>4.75 d</td><td>8.3 d</td></tr>
+        <tr><td><span class="strike">6 · SDK auth-scheme</span></td><td><span class="strike">—</span></td><td><span class="strike">—</span></td><td><span class="strike">DROPPED</span></td></tr>
+        <tr><td>7 · CI workflow</td><td>1.0 d</td><td>5.75 d</td><td>10.1 d</td></tr>
+        <tr><td>8 · Docs pass</td><td>0.5 d</td><td>6.25 d</td><td>10.9 d</td></tr>
+        <tr><td>9 · Real-network (optional)</td><td>0.5 d</td><td>6.75 d</td><td>11.8 d</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Base total: ~6.25 dev-days for full port</strong> (Stage 9 optional adds 0.5 d). With Codex's recommended 75 % buffer for CI/Daml/Docker flakes + upstream rebase + path-rewrite surprises: <strong>~11 calendar days</strong> end-to-end. Single engineer; multiply only if parallelism is plausible — for this port it isn't (sequential dependencies).</p>
+  </section>
+
+  <section class="card">
+    <h2>8 · Decision gates</h2>
+    <table>
+      <thead><tr><th>Gate</th><th>After stage</th><th>Trigger</th><th>Decision</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>G1</td><td>Stage 2</td>
+          <td>Facilitator builds + tests pass under new module paths</td>
+          <td>If red: fix the rewrite. If <code>goatx402-receipt</code> needs the duplicated canonical helpers extracted, do that as a separate commit; do not abandon the standalone decision.</td>
+        </tr>
+        <tr>
+          <td>G2</td><td>Stage 5</td>
+          <td>E2E smoke green for 25 iterations under perf gate</td>
+          <td>If green: branch is feature-complete. Move to Stages 7-8. If red: dig into env / path-join regression.</td>
+        </tr>
+        <tr>
+          <td>G3</td><td>Stage 7</td>
+          <td>Branch CI green for 3 consecutive pushes</td>
+          <td>Branch is shippable. Demo internally. Now consider Stage 9 (real network) and/or maintainer outreach.</td>
+        </tr>
+        <tr>
+          <td>G4</td><td>after G3 + Stage 8</td>
+          <td>Internal team agrees branch is in good shape</td>
+          <td>Open <strong>discussion issue</strong> on upstream linking the branch + the governance LICENSE issue. Don't open formal PRs until that conversation lands.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>9 · Risks &amp; mitigations</h2>
+    <table>
+      <thead><tr><th>Risk</th><th>Likelihood</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Daml SDK 2.10 install slow / flaky on CI runners</td>
+          <td><span class="badge warn">medium</span></td>
+          <td>Cache <code>~/.daml</code> by SDK version; allow 1 retry on tarball pull; pre-flight in Stage 0.5 records the install URL + size baseline so CI failure surfaces as "deviation," not mystery.</td>
+        </tr>
+        <tr>
+          <td>Canton localnet image pull / boot flake</td>
+          <td><span class="badge warn">medium</span></td>
+          <td>Pin SHA in Stage 0.5; CI retry container start once; cap boot wait to 60 s; if fail, report image SHA + log tail.</td>
+        </tr>
+        <tr>
+          <td>Module-rename misses a file</td>
+          <td><span class="badge warn">medium</span></td>
+          <td>Post-rewrite verification block in §5 (<code>grep -r 'goat-canton-payment' .</code> must be empty). Also <code>goimports -l ./...</code> and <code>go vet ./...</code> as part of Stage 2 acceptance.</td>
+        </tr>
+        <tr>
+          <td><code>pkg/receipt</code> duplicated canonical helpers in <code>orders.go:446</code></td>
+          <td><span class="badge warn">medium</span></td>
+          <td>Pre-flight (Stage 0.5) records exactly which helpers are duplicated. If they break compilation when copied as-is, extract to <code>goatx402-receipt</code> as a separate commit before Stage 2 imports.</td>
+        </tr>
+        <tr>
+          <td>Branch ages out against upstream <code>main</code></td>
+          <td><span class="badge warn">medium</span></td>
+          <td>Rebase weekly. Branch is 100% additive (Stage 6 dropped), so conflicts limited to <code>go.work</code> and possibly <code>scripts/</code> if upstream adds CI. Doc conflicts: prefer upstream's wording for shared files (none on this branch); for new files, ours wins by default.</td>
+        </tr>
+        <tr>
+          <td>Receipt verifier missing fields after rename</td>
+          <td><span class="badge ok">low</span></td>
+          <td><code>goatx402-receipt</code> is standalone with its own test suite; runs in Stage 2.</td>
+        </tr>
+        <tr>
+          <td>Real-network behaviour differs from localnet</td>
+          <td><span class="badge warn">medium</span></td>
+          <td>Stage 9 is explicitly post-G3 and optional. Document differences in <code>testnet-notes.md</code>. Don't gate the branch on real-network behaviour for the initial port.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>10 · Rollback &amp; cutover plan <span class="badge new">NEW</span></h2>
+    <p class="subtitle">R2 missing: what if a stage breaks irrecoverably mid-port.</p>
+    <table>
+      <thead><tr><th>Stage that breaks</th><th>Rollback action</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Stage 1 (Daml/Canton)</td>
+          <td><code>git reset --hard</code> to end-of-Stage-0; re-evaluate which canton bootstrap files are needed; consider keeping the harness-level + project-level scripts separate (don't fold) if the unified script is too brittle.</td>
+        </tr>
+        <tr>
+          <td>Stage 2 (facilitator)</td>
+          <td>Most likely failure mode: rewrite missed something. Run §5 verification, fix, retry. If <code>goatx402-receipt</code> duplicated-helper issue blocks compile: extract to a pre-Stage-2 commit; do not merge facilitator's old <code>orders.go:446</code> helpers directly into <code>goatx402-receipt</code> if their API isn't clean.</td>
+        </tr>
+        <tr>
+          <td>Stage 5 (e2e)</td>
+          <td>If perf gate fails: capture latencies; compare to known canton-impl baseline; first suspect is env var / path-join regression, not actual perf drop. If genuine perf regression: revert Stage 5 e2e changes and rerun on canton impl's old layout to confirm baseline.</td>
+        </tr>
+        <tr>
+          <td>Stage 7 (CI)</td>
+          <td>If CI fails on a clean push but local passes: pin runner OS version; reduce iteration count; if Canton image pull fails: switch to GHCR mirror; if Daml install fails: vendor a tarball mirror.</td>
+        </tr>
+        <tr>
+          <td>Any stage, "branch is broken beyond repair"</td>
+          <td>The branch lives on a fork — destruction is cheap. <code>git checkout main &amp;&amp; git branch -D canton/initial-port</code> + restart from upstream/main. Re-port using lessons learned. No data loss; canton impl's original tree is untouched.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>11 · Secrets / state handling on the branch <span class="badge new">NEW</span></h2>
+    <p class="subtitle">R2 missing: how are payer tokens, custodial keys, participant signing keys handled in CI / dev?</p>
+    <ul class="compact">
+      <li><strong>Local dev:</strong> unchanged from canton impl — <code>scripts/init-custodial-keys.sh</code> mints fresh per-payer ed25519 + tokens into <code>state/</code> (gitignored). Each developer has their own.</li>
+      <li><strong>CI:</strong> the workflow generates fresh keys at job start via the same script. Nothing checked in. No secrets in GitHub secrets store needed for the initial port (everything runs against localnet).</li>
+      <li><strong>Real-network (Stage 9):</strong> separate matter. JWT for the TestNet validator participant goes into GitHub Actions secrets; the workflow injects it as <code>PARTICIPANT_JWT</code> env var. Document in <code>docs/canton/testnet-notes.md</code>.</li>
+      <li><strong>What never gets committed:</strong> <code>state/**</code>, <code>*.ed25519</code>, <code>payer-tokens.json</code>, <code>participant-signing.ed25519</code>, <code>source-holding.json</code>, <code>*.pid</code>, <code>*.db</code>. Already covered by canton impl's <code>.gitignore</code>; port it verbatim and verify.</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>12 · Upstream drift policy <span class="badge new">NEW</span></h2>
+    <ul class="compact">
+      <li>Rebase the branch against <code>upstream/main</code> weekly during the port window (~2 weeks).</li>
+      <li>Branch is 100 % additive — conflicts limited to:
+        <ul>
+          <li><code>go.work</code> — if upstream adds one independently, prefer ours (it lists more modules); manually merge.</li>
+          <li><code>scripts/</code> — if upstream adds CI scripts here, namespace canton scripts as <code>scripts/canton-*.sh</code>.</li>
+          <li><code>.github/workflows/</code> — if upstream adds workflows, ours just sits alongside.</li>
+        </ul>
+      </li>
+      <li>If upstream rebases history (force-push to main): re-fork. Personal fork makes this cheap.</li>
+      <li>After G3, freeze the branch off upstream's <code>main</code> at a known SHA until PR conversation begins. Resume rebasing only if discussion stalls beyond 1 week.</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>13 · Submodule strategy <span class="badge new">NEW</span></h2>
+    <p>The current setup at <code>/Users/drej/workspace/giftcard/third_party/x402/</code> is a Git submodule of <code>github.com/GOATNetwork/x402</code> inside the <code>giftcard</code> repo. <strong>Do not</strong> port via the submodule — that path is treated as read-only and detached HEAD.</p>
+    <p>Clone the fork directly to a new working directory (<code>~/workspace/x402-canton-branch/</code> per §3). After the port, <code>giftcard</code>'s submodule pointer can later be bumped to a SHA on the canton branch if needed for downstream demos — but that's a downstream concern, not part of this port.</p>
+  </section>
+
+  <section class="card">
+    <h2>14 · Out of scope (explicitly deferred)</h2>
+    <ul class="compact">
+      <li><strong>SDK extension</strong> (former Stage 6) — defer to post-G3 discussion.</li>
+      <li><strong>TS SDK Canton support</strong> — same.</li>
+      <li><strong>Solidity contract changes</strong> — Canton flow doesn't use the EVM callback contract.</li>
+      <li><strong>Spec-level changes to <code>API.md</code></strong> — propose a small "canton-daml scheme registry" entry as part of the eventual PR conversation, not now.</li>
+      <li><strong>Folding <code>pkg/receipt</code> into facilitator</strong> — kept independent. May revisit if standalone usage proves theoretical.</li>
+      <li><strong>Replacing GoatX402 Core</strong> — explicit non-goal. Branch grows upstream from "client SDK to hosted EVM service" into "client SDK + a reference Canton facilitator that runs from the repo." Core's role is unchanged.</li>
+    </ul>
+  </section>
+
+  <footer>
+    v3 supersedes <a href="archive/upstream-merge-analysis.html">archive/upstream-merge-analysis.html</a> +
+    <a href="archive/development-plan.html">archive/development-plan.html</a> (v1) and v2 of this document (revised in-place).
+    Round 2 cross-review (Claude + Codex on 2026-05-21) drove the corrections in §1 (Stage 6 dropped, license decided),
+    §2 (wire envelope claim fixed), §4 (canton/ files re-inventoried), §5 (rename inventory), §7 (effort retargeted),
+    §10-§13 (rollback / secrets / drift / submodule sections added).
+    Round 3 review recommended before Stage 0 begins.
+  </footer>
+</div>
+</body>
+</html>

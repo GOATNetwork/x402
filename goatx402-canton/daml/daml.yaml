@@ -1,0 +1,9 @@
+sdk-version: 2.10.0
+name: payment
+version: 0.0.1
+source: .
+parties: []
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
