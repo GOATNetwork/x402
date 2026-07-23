@@ -2,7 +2,7 @@
 
 This guide covers the public contract of the browser-oriented
 `goatflow-sdk` package. Merchant API authentication and order creation belong in
-`goatx402-sdk-server` or the Go server SDK.
+`goatflow-sdk-server` or the Go server SDK.
 
 For the complete GOAT Flow API guide, see
 [GOAT Flow Integration](../../docs/goat-flow-integration.md).
@@ -82,7 +82,7 @@ interface ClientOrder {
 Map it on the backend:
 
 ```ts
-import type { Order as ServerOrder } from 'goatx402-sdk-server'
+import type { Order as ServerOrder } from 'goatflow-sdk-server'
 import type { Order as ClientOrder } from 'goatflow-sdk'
 
 function toClientOrder(
@@ -474,9 +474,10 @@ type OrderStatus =
   | 'CANCELLED'
 ```
 
-The browser SDK does not poll order status itself. Use your backend/server SDK.
-`PAYMENT_CONFIRMED` is the explicit confirmed state. `INVOICED` is a known
-type value whose terminal/success meaning is deployment-defined.
+The browser SDK does not poll or classify order status itself. Use the backend
+Server SDK, whose current waiters treat `PAYMENT_CONFIRMED` and `INVOICED` as
+successful terminal states. This order model is separate from QuickPay session
+status, whose terminal set does not include `INVOICED`.
 
 ## 9. Security checklist
 
@@ -505,4 +506,4 @@ Behavior in this guide was checked against:
 - `src/__tests__/*`
 - `package.json`
 
-Last verified: July 21, 2026.
+Last verified: July 23, 2026.

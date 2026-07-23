@@ -1,4 +1,4 @@
-# goatx402-quickpay
+# goatflow-quickpay
 
 Public payer/agent library and CLI for **GOAT Flow QuickPay**. It is generic,
 stateless, and manifest-driven: it does not know any specific merchant — the
@@ -17,33 +17,33 @@ no interoperability test with official MPP SDKs.
 ## Install
 
 ```bash
-npm install goatx402-quickpay
+npm install goatflow-quickpay
 
 # Required only for the built-in pay-mpp backend:
-npm install goatx402-sdk
+npm install goatflow-sdk
 ```
 
 ```bash
 # show available commands
-npx goatx402-quickpay --help
+npx goatflow-quickpay --help
 
 # inspect a merchant's payment capabilities (machine-readable JSON)
-npx goatx402-quickpay inspect https://flow-quickpay.goat.network/quickpay/acme/agent.md --json
+npx goatflow-quickpay inspect https://flow-quickpay.goat.network/quickpay/acme/agent.md --json
 
 # Provide the payer key WITHOUT writing the secret into a command (shell history and
 # agent transcripts leak it): set QUICKPAY_PRIVATE_KEY in your environment out-of-band
 # (e.g. from a secret manager), or pass --wallet-file <path> (a chmod 600 key file).
 
 # pay a custom amount via x402
-npx goatx402-quickpay pay-x402 https://flow-quickpay.goat.network/quickpay/acme/agent.md \
+npx goatflow-quickpay pay-x402 https://flow-quickpay.goat.network/quickpay/acme/agent.md \
   --amount 12.50 --token-contract 0xToken --chain 4217
 
 # buy a fixed-price product (the merchant prices it; you only pick the token + chain)
-npx goatx402-quickpay pay-product https://flow-quickpay.goat.network/quickpay/acme/agent.md \
+npx goatflow-quickpay pay-product https://flow-quickpay.goat.network/quickpay/acme/agent.md \
   --product mug --token-contract 0xToken --chain 4217
 
 # pay a fixed MPP route
-npx goatx402-quickpay pay-mpp https://flow-quickpay.goat.network/quickpay/acme/agent.md \
+npx goatflow-quickpay pay-mpp https://flow-quickpay.goat.network/quickpay/acme/agent.md \
   --route GET:api:data
 ```
 
@@ -57,7 +57,7 @@ price.
 Library usage:
 
 ```ts
-import { QuickPayClient } from 'goatx402-quickpay'
+import { QuickPayClient } from 'goatflow-quickpay'
 
 const client = new QuickPayClient('https://flow-quickpay.goat.network/quickpay/acme/agent.md')
 const manifest = await client.loadManifest()
@@ -103,7 +103,7 @@ The input link's **origin** (`scheme://host`) is the single trust anchor:
 Share only links on a host you trust (e.g. `flow-quickpay.goat.network`).
 
 This same-origin rule is specific to QuickPay-driven MPP. A standalone
-`goatx402-sdk` `MPPClient` instead uses the deployment's configured Core/API
+`goatflow-sdk` `MPPClient` instead uses the deployment's configured Core/API
 `coreUrl`.
 
 Manifest validation is a discovery/preflight boundary, not the final transfer
@@ -114,20 +114,25 @@ provides the current transfer terms.
 
 ## Retry safety (avoid double-paying)
 
-Retry protection depends on the command and on which recovery data is still
-available:
+QuickPay session terminal states are `PAYMENT_CONFIRMED`, `EXPIRED`, `FAILED`,
+and `CANCELLED`. This is separate from the Server SDK order model, where
+`INVOICED` is also a successful terminal state.
 
 - A **reused** session (same payment intent) is **not auto-paid** — the CLI
   resumes/polls it. Only pass `--force` to `pay-x402`/`pay-product` to broadcast on
   a reused session, and only when you are certain no payment was sent (e.g. the
   wallet rejected the first attempt).
-- Do not assume every failed command returns a transaction hash or full recovery
-  context. In particular, when an MPP backend returns a `tx_hash` without a
-  receipt, the current library can lack the original challenge and the CLI emits
-  a generic error. There is no resume-verification CLI command.
-- After any ambiguous post-broadcast failure, do not run a payment command again.
-  Reconcile the wallet transaction and session/order. Use library
-  `verifyChallenge()` only when the preserved MPP challenge handle is available.
+- Polling uses `pollTimeoutMs` as a hard overall cap: sleeps and individual
+  status requests are bounded by the remaining time.
+- A broadcast transaction hash is retained across status-fetch failures. For a
+  fresh payment, a server-confirmed fee-bump replacement can become the final
+  hash; a forced reused session does not replace its local hash with an
+  unrelated prior server value.
+- If a known transaction is reported `EXPIRED`, the client performs five
+  bounded grace polls because a pre-expiry transfer can confirm late.
+- If MPP fails after broadcast, preserve the reported transaction hash and
+  challenge context. Reconcile by `session_id` and `tx_hash`; never rebroadcast
+  merely because status polling or receipt verification failed.
 
 ## Configuration
 
@@ -148,7 +153,7 @@ available:
   The on-chain step is behind an injectable backend so the orchestration is unit
   tested without a chain.
 - `backend-ethers.ts` — real ERC20 transfer for `pay-x402` (ethers v6).
-- `backend-mpp-sdk.ts` — `pay-mpp` delegates to `goatx402-sdk`'s `MPPClient`
+- `backend-mpp-sdk.ts` — `pay-mpp` delegates to `goatflow-sdk`'s `MPPClient`
   (an **optional** dependency loaded at runtime).
 
 > The live on-chain flows (the ERC-20 transfer and MPP transfer/receipt

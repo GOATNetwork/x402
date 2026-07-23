@@ -4,7 +4,7 @@ Hosted Checkout is the recommended browser integration when a merchant does not
 want to build wallet connection, buyer-transfer UI, session polling, and
 completion UX inside its own application.
 
-The browser package is `goatx402-checkout`. It opens a GOAT Flow-hosted, top-level
+The browser package is `goatflow-checkout`. It opens a GOAT Flow-hosted, top-level
 checkout page; the server packages create authenticated Checkout Sessions.
 
 ## Choose the right path
@@ -14,7 +14,7 @@ checkout page; the server packages create authenticated Checkout Sessions.
 | Fixed DIRECT catalog item | QuickPay product + `open({ merchant, productKey })` | No |
 | Dynamic DIRECT cart/amount | Unified Checkout Session + `open({ checkoutId })` | Yes |
 | Donation or buyer-entered amount | `openCustom({ merchant, amount })` | No, but server-side reconciliation is required |
-| Fully custom wallet/order UI | `goatflow-sdk` + `goatx402-sdk-server` | Yes |
+| Fully custom wallet/order UI | `goatflow-sdk` + `goatflow-sdk-server` | Yes |
 
 Do not use `openCustom` for automatic fulfillment. Its amount originates in the
 browser and is not a merchant-authoritative price.
@@ -22,10 +22,10 @@ browser and is not a merchant-authoritative price.
 ## Install
 
 ```bash
-npm install goatx402-checkout
+npm install goatflow-checkout
 
 # Backend, when creating Checkout Sessions:
-npm install goatx402-sdk-server
+npm install goatflow-sdk-server
 ```
 
 The checkout package is framework-free and includes
@@ -40,7 +40,7 @@ The merchant first configures a QuickPay product. The merchant page passes only 
 merchant ID and product key:
 
 ```ts
-import { GoatCheckout } from 'goatx402-checkout'
+import { GoatCheckout } from 'goatflow-checkout'
 
 const goat = GoatCheckout({ origin: 'https://flow-quickpay.goat.network' })
 
@@ -71,7 +71,7 @@ with the merchant API secret and maps the response to:
 ```ts
 type CheckoutSession = {
   checkoutId: string
-  checkoutType: string // the current public merchant path returns 'DIRECT'
+  checkoutType: string // current values: 'DIRECT' | 'DELEGATE'
   url: string
   expiresAt: number
 }
@@ -83,9 +83,9 @@ request body.
 ### TypeScript: dynamic DIRECT checkout
 
 ```ts
-import { GoatX402Client } from 'goatx402-sdk-server'
+import { GoatFlowClient } from 'goatflow-sdk-server'
 
-const client = new GoatX402Client({
+const client = new GoatFlowClient({
   baseUrl: process.env.GOATX402_API_URL!,
   apiKey: process.env.GOATX402_API_KEY!,
   apiSecret: process.env.GOATX402_API_SECRET!,
@@ -112,7 +112,7 @@ have QuickPay enabled.
 ### Go
 
 ```go
-session, err := client.CreateCheckoutSession(ctx, goatx402.CreateCheckoutSessionParams{
+session, err := client.CreateCheckoutSession(ctx, goatflow.CreateCheckoutSessionParams{
     CheckoutType:     "DIRECT",
     Price:            "19.95",
     ClientReferenceID: "cart_9f31",
@@ -127,20 +127,19 @@ if err != nil {
 
 ### Operator-provisioned compatibility reference
 
-The API and SDK types retain a DELEGATE session value for environments that the
-GOAT operator has explicitly provisioned. It is not part of the current public
-merchant onboarding path. The canonical field contract, including
-`callback_calldata` and decimal-price and legacy fixed-wei forms, is recorded in
-the [API Reference](./goat-flow-api-reference.md). Deprecated TypeScript and Go
-wrapper methods remain in source for compatibility, but new integrations use
-the unified create method. Do not infer availability from these types.
+The API and SDK retain a compatibility session value for explicitly
+operator-provisioned environments. It is not part of public merchant onboarding,
+and new integrations use `createCheckoutSession()` with `DIRECT`. Do not infer
+availability from SDK types. The complete legacy field mapping, deprecated
+wrappers, and callback trust boundary are isolated in the
+[API Reference appendix](./goat-flow-api-reference.md#appendix-a-operator-provisioned-callback-compatibility).
 
 ## Open the session in the browser
 
 Return the opaque `checkoutId` to the browser; never return the API secret.
 
 ```ts
-import { GoatCheckout } from 'goatx402-checkout'
+import { GoatCheckout } from 'goatflow-checkout'
 
 const goat = GoatCheckout({ origin: 'https://flow-quickpay.goat.network' })
 
@@ -178,11 +177,12 @@ browsers.
 6. GOAT Flow records the resulting session state and may emit the authenticated
    completion webhook configured by that deployment.
 
-Known session states include `OPEN`, `BOUND`, `SIGNED` (operator-provisioned
-compatibility sessions),
-`COMPLETED`, `EXPIRED`, and `CANCELLED`. The linked order has its own status
-contract. `INVOICED` is a known SDK value, but its success/terminal meaning is
-deployment-defined.
+Known Checkout Session states include `OPEN`, `BOUND`, `SIGNED`
+(operator-provisioned compatibility sessions), `COMPLETED`, `EXPIRED`, and
+`CANCELLED`. The linked order has a separate status model. Server SDK order
+waiters treat `PAYMENT_CONFIRMED` and `INVOICED` as successful terminal states;
+Core can advance a DIRECT order to `INVOICED` before a poller observes
+`PAYMENT_CONFIRMED`.
 
 ## API surface
 

@@ -8,7 +8,7 @@ Frontend TypeScript SDK for GOAT Flow, built on ethers v6. It provides:
 - `MPPClient` for challenge, buyer transfer, verification, and receipt recovery
 
 This package does not hold merchant API credentials or create authenticated
-orders. Use `goatx402-sdk-server` or the Go server SDK on your backend.
+orders. Use `goatflow-sdk-server` or the Go server SDK on your backend.
 Buyer-wallet transfers go directly to the instructed recipient; GOAT Flow and
 this SDK do not act as an intermediary for merchant customer funds.
 

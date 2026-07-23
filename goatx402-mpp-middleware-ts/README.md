@@ -21,7 +21,7 @@ Fastify entry points.
 ## Install
 
 This package is source-only in this repository and is not included in the npm
-release runbook. As of July 21, 2026, the package name is not available from the
+release runbook. As of July 23, 2026, the package name is not available from the
 public npm registry. Build and install the checked-in directory locally instead
 of treating the name as a published dependency. From a sibling application:
 

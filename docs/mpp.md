@@ -309,17 +309,17 @@ library/manual operation — do not re-run `pay-mpp` to recover, as it pays agai
 
 ---
 
-## 8. QuickPay CLI (`goatx402-quickpay`)
+## 8. QuickPay CLI (`goatflow-quickpay`)
 
 For agents and scripts, the QuickPay CLI coordinates this profile's discovery, the
 buyer-authorized direct transfer, and receipt verification:
 
 ```bash
 # 1. Inspect a merchant's payment capabilities (machine-readable JSON)
-npx goatx402-quickpay inspect https://flow-quickpay.goat.network/quickpay/acme/agent.md --json
+npx goatflow-quickpay inspect https://flow-quickpay.goat.network/quickpay/acme/agent.md --json
 
 # 2. Pay a fixed MPP route
-npx goatx402-quickpay pay-mpp https://flow-quickpay.goat.network/quickpay/acme/agent.md \
+npx goatflow-quickpay pay-mpp https://flow-quickpay.goat.network/quickpay/acme/agent.md \
   --route GET:api:data
 ```
 
@@ -329,13 +329,11 @@ Notes:
   command line (shell history leaks). Configure the chain RPC the same way.
 - Every endpoint the CLI calls (session create/status, MPP challenge/verify) is
   **derived from the origin**; absolute URLs in the manifest are never trusted.
-- Do not assume every failed `pay-mpp` JSON result preserves a recovery handle.
-  When the backend reports a transaction hash without a receipt, the current
-  library can lack the original challenge and the CLI emits only a generic
-  error. There is no resume-verification CLI command. Do not rerun payment;
-  reconcile the transaction and use library recovery only when the challenge
-  handle is available.
-- The on-chain step uses `goatx402-sdk` (ethers v6) as an optional dependency.
+- Post-broadcast MPP failures preserve recoverable challenge and transaction
+  context in structured output. There is no resume-verification CLI command, so
+  do not rerun payment; reconcile the transaction and use
+  `MPPClient.verifyChallenge()` with the preserved context.
+- The on-chain step uses `goatflow-sdk` (ethers v6) as an optional dependency.
 
 ---
 
@@ -407,8 +405,8 @@ For a sibling Go application, bind the module path to the local source before
 resolving it:
 
 ```bash
-go mod edit -replace=github.com/goatnetwork/goatx402-mpp-middleware-go=../goatx402-mpp-middleware-go
-go get github.com/goatnetwork/goatx402-mpp-middleware-go
+go mod edit -require=github.com/goatnetwork/goatflow-mpp-middleware-go@v0.0.0
+go mod edit -replace=github.com/goatnetwork/goatflow-mpp-middleware-go=../x402/goatx402-mpp-middleware-go
 ```
 
 ```go
@@ -416,8 +414,8 @@ import (
     "crypto/ed25519"
     "net/http"
 
-    mppmiddleware "github.com/goatnetwork/goatx402-mpp-middleware-go"
-    receiptspec "github.com/goatnetwork/goatx402-mpp-middleware-go/receiptspec"
+    mppmiddleware "github.com/goatnetwork/goatflow-mpp-middleware-go"
+    receiptspec "github.com/goatnetwork/goatflow-mpp-middleware-go/receiptspec"
 )
 
 middleware := mppmiddleware.Middleware(mppmiddleware.Config{
@@ -437,6 +435,8 @@ handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Reque
     _, _ = w.Write([]byte(receipt.ReceiptID))
 }))
 ```
+
+After adding the imports, run `go mod tidy`.
 
 Both middlewares run these checks in order and reject on the **first** failure:
 

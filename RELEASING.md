@@ -5,9 +5,9 @@ This repo release-manages exactly four npm packages:
 | npm package | Directory | Required entry artifacts |
 | --- | --- | --- |
 | `goatflow-sdk` | `goatx402-sdk/` | `dist/index.js`, `dist/index.d.ts` |
-| `goatx402-sdk-server` | `goatx402-sdk-server-ts/` | `dist/index.js`, `dist/index.d.ts` |
-| `goatx402-quickpay` | `goatx402-quickpay/` | `dist/index.js`, `dist/index.d.ts`, `dist/cli.js` |
-| `goatx402-checkout` | `goatx402-checkout/` | `dist/index.js`, `dist/index.d.ts`, `dist/checkout.global.js` |
+| `goatflow-sdk-server` | `goatx402-sdk-server-ts/` | `dist/index.js`, `dist/index.d.ts` |
+| `goatflow-quickpay` | `goatx402-quickpay/` | `dist/index.js`, `dist/index.d.ts`, `dist/cli.js` |
+| `goatflow-checkout` | `goatx402-checkout/` | `dist/index.js`, `dist/index.d.ts`, `dist/checkout.global.js` |
 
 The private demo, Foundry project, Go modules, and
 `goatx402-mpp-middleware-ts/` are outside this npm runbook. The presence of a
@@ -21,17 +21,16 @@ trigger, unpinned actions); until a hardened workflow replaces it, releases
 follow this manual runbook. Every step is required — ad-hoc publishes drifting
 from git is the root cause this process exists to prevent.
 
-## GOAT Flow package migration
+## GOAT Flow package identities
 
-`goatflow-sdk@0.2.1` is the released GOAT Flow-branded browser SDK. On this
-commit, the Server SDK, QuickPay, and Checkout manifests still use their
-`goatx402-*` npm names. Treat the corresponding `goatflow-*` names as future
-release identities until each package's complete code, metadata, lockfile,
-tests, and changelog state has merged and passed this runbook.
+The current released identities are `goatflow-sdk@0.2.1`,
+`goatflow-sdk-server@0.3.0`, `goatflow-quickpay@0.3.0`, and
+`goatflow-checkout@0.1.0`. Repository directory names remain `goatx402-*` and
+must not be mistaken for npm package names.
 
-Migrating or deprecating an existing `goatx402-*` package is a separate,
-explicit release action. Do not infer authorization from the SDK migration or
-from documentation changes.
+Deprecating or otherwise modifying an older `goatx402-*` npm package remains a
+separate, explicit release action. Do not infer authorization from a GOAT Flow
+release or from documentation changes.
 
 ## Current Blockers And Known Issues
 
@@ -153,7 +152,7 @@ Run the tests explicitly as shown above; do not rely on lifecycle hooks as a
 substitute. If source, metadata, dependencies, or the release commit changes,
 discard the tarball and restart validation.
 
-`goatx402-quickpay` and `goatx402-checkout` currently define an explicit
+The `goatx402-quickpay/` and `goatx402-checkout/` directories currently define an explicit
 `typecheck` script. SDK and Server do not, so `--if-present` intentionally skips
 that command for those two packages; their `build` commands still run `tsc`
 against the shipping build configuration.
@@ -219,12 +218,12 @@ Read the remote tag back with `git ls-remote --tags` and confirm its peeled
 Preserve this order for whichever packages are in the release:
 
 1. `goatflow-sdk`
-2. `goatx402-quickpay`
-3. `goatx402-sdk-server`
-4. `goatx402-checkout`
+2. `goatflow-quickpay`
+3. `goatflow-sdk-server`
+4. `goatflow-checkout`
 
-QuickPay currently advertises `goatx402-sdk` through
-`^0.1.2 || ^0.2.0` as an optional dependency, so a newly released SDK in that
+QuickPay currently advertises `goatflow-sdk` through `^0.2.0` as an optional
+dependency, so a newly released SDK in that
 range must be visible on npm before QuickPay is published. Checkout and Server
 do not currently depend on the other release-managed packages, but retaining
 one deterministic order makes the evidence easier to audit.
@@ -292,11 +291,11 @@ Checkout, also evaluate the installed `dist/checkout.global.js` and confirm
 `window.GoatCheckout` exists. Run QuickPay's installed CLI, including:
 
 ```bash
-npx --no-install goatx402-quickpay --help
+npx --no-install goatflow-quickpay --help
 ```
 
 Run Checkout's installed browser IIFE as well. When QuickPay and the SDK are
-released together, use `npm ls goatx402-quickpay goatx402-sdk --depth=1` to
+released together, use `npm ls goatflow-quickpay goatflow-sdk --depth=1` to
 confirm QuickPay actually resolves the intended SDK version.
 
 Inspect the installed package contents as well as the imports. A local workspace

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	receiptspec "github.com/goatnetwork/goatx402-mpp-middleware-go/receiptspec"
+	receiptspec "github.com/goatnetwork/goatflow-mpp-middleware-go/receiptspec"
 )
 
 // verifyResult is the unified return type of verify. Exactly one of

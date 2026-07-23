@@ -7,9 +7,9 @@ advanced, config-gated examples.
 
 | UI path | Status | What it demonstrates |
 | --- | --- | --- |
-| Checkout SDK / DIRECT | Default public path | A merchant product opened in hosted checkout with `goatx402-checkout` |
+| Checkout SDK / DIRECT | Default public path | A merchant product opened in hosted checkout with `goatflow-checkout` |
 | Advanced / Classic | Optional | Custom wallet UI, backend HMAC order creation, status polling, and calldata signing when returned by Core |
-| Checkout SDK / DELEGATE | Optional/internal | Server-created cross-chain DELEGATE sessions backed by `MerchantCallback` |
+| Operator-provisioned checkout | Optional/internal | Compatibility session backed by `MerchantCallback` |
 | Advanced / MPP | Optional | Browser flow for the GOAT Flow MPP adapter plus profile `Payment-Receipt` verification |
 
 The DIRECT QuickPay merchant is configured by `VITE_QUICKPAY_MERCHANT`. It is
@@ -79,7 +79,7 @@ GOATX402_API_KEY=your_api_key
 GOATX402_API_SECRET=your_api_secret
 ```
 
-The backend uses `goatx402-sdk-server` for HMAC-authenticated merchant and order
+The backend uses `goatflow-sdk-server` for HMAC-authenticated merchant and order
 calls. The browser never receives the API secret. It fetches the merchant's
 configured chains/tokens, connects an EVM wallet, creates an order through the
 backend, and uses `PaymentHelper` from `goatflow-sdk` to submit the buyer-
@@ -88,7 +88,7 @@ authorized transfer returned by the order flow.
 If Core returns a calldata-sign request, the browser signs it and submits the
 signature through `POST /api/orders/:orderId/signature`.
 
-## Optional DELEGATE Hosted Checkout
+## Operator-provisioned Checkout (Internal)
 
 This section is hidden unless:
 
@@ -98,9 +98,9 @@ DELEGATE_ENABLED=1
 # DELEGATE_CANCEL_URL=https://your.app/cancel
 ```
 
-The `GOATX402_API_KEY` and `GOATX402_API_SECRET` must belong to a DELEGATE
-merchant whose callback contract has already been deployed, authorized, and
-approved by the deployment operator.
+This source-only compatibility demo is outside public merchant onboarding. Its
+API credentials must belong to a merchant whose callback contract has already
+been deployed, authorized, and approved by the deployment operator.
 
 The browser sends only `{ product_key }`. The demo backend owns the catalog and
 USD price and creates:
@@ -121,8 +121,7 @@ hook. Its template arguments are static demo values:
 `originalPayer` nor validates `payer` or `value` against the payment. See the
 canonical
 [`MerchantCallback` behavior](../goatx402-contract/MERCHANT_CALLBACK.md#calldata-execution-semantics)
-and [hosted checkout guide](../docs/goat-flow-checkout.md). This DELEGATE section is
-not the current public DIRECT onboarding path.
+and [hosted checkout guide](../docs/goat-flow-checkout.md).
 
 ## Optional MPP Mode
 

@@ -40,17 +40,17 @@ function validateOrigin(origin: string): string {
   try {
     u = new URL(origin)
   } catch {
-    throw new Error(`goatx402-checkout: invalid origin: ${origin}`)
+    throw new Error(`goatflow-checkout: invalid origin: ${origin}`)
   }
   const isLoopback = u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '[::1]'
   if (u.protocol === 'http:') {
-    if (!isLoopback) throw new Error(`goatx402-checkout: origin must be https (http only for localhost): ${origin}`)
+    if (!isLoopback) throw new Error(`goatflow-checkout: origin must be https (http only for localhost): ${origin}`)
   } else if (u.protocol !== 'https:') {
-    throw new Error(`goatx402-checkout: origin must be https: ${origin}`)
+    throw new Error(`goatflow-checkout: origin must be https: ${origin}`)
   }
-  if (u.username || u.password) throw new Error('goatx402-checkout: origin must not contain credentials')
+  if (u.username || u.password) throw new Error('goatflow-checkout: origin must not contain credentials')
   // Reject a path/query/fragment — origin must be bare scheme://host[:port].
-  if (u.pathname !== '/' || u.search || u.hash) throw new Error(`goatx402-checkout: origin must be bare scheme://host: ${origin}`)
+  if (u.pathname !== '/' || u.search || u.hash) throw new Error(`goatflow-checkout: origin must be bare scheme://host: ${origin}`)
   return u.origin
 }
 
@@ -59,10 +59,10 @@ function validateOrigin(origin: string): string {
 // escape the configured origin or smuggle forbidden params (e.g. a preseeded amount).
 function validateCheckoutPath(path: string): string {
   if (!path.startsWith('/') || path.startsWith('//')) {
-    throw new Error(`goatx402-checkout: checkoutPath must be a root-relative path (start with '/'): ${path}`)
+    throw new Error(`goatflow-checkout: checkoutPath must be a root-relative path (start with '/'): ${path}`)
   }
   if (/:\/\/|[?#\\]/.test(path) || /\s/.test(path)) {
-    throw new Error(`goatx402-checkout: checkoutPath must not contain a scheme, query, fragment, or whitespace: ${path}`)
+    throw new Error(`goatflow-checkout: checkoutPath must not contain a scheme, query, fragment, or whitespace: ${path}`)
   }
   return path
 }
@@ -106,7 +106,7 @@ function buildUrl(origin: string, path: string, params: Record<string, string>, 
   const u = new URL(path, origin)
   // Defense in depth: a validated root-relative path can never change the origin,
   // but assert it so a future caller mistake can never point the popup off-host.
-  if (u.origin !== origin) throw new Error(`goatx402-checkout: checkout path escaped origin: ${path}`)
+  if (u.origin !== origin) throw new Error(`goatflow-checkout: checkout path escaped origin: ${path}`)
   for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v)
   if (channel) {
     u.searchParams.set('o', channel.o)
@@ -434,7 +434,7 @@ export function GoatCheckout(config: GoatCheckoutConfig, env: BrowserEnv = defau
     // callbacks here, so a misuse is a hard programming error → throw.
     const params = fulfillableParams(opts)
     if (!params) {
-      throw new Error('goatx402-checkout: redirectToCheckout requires checkoutId OR merchant+productKey (and not both)')
+      throw new Error('goatflow-checkout: redirectToCheckout requires checkoutId OR merchant+productKey (and not both)')
     }
     env.navigate(buildUrl(origin, pathFor(params), params))
   }

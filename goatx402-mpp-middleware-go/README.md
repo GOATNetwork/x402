@@ -12,21 +12,22 @@ or merchant funds.
 Module:
 
 ```text
-github.com/goatnetwork/goatx402-mpp-middleware-go
+github.com/goatnetwork/goatflow-mpp-middleware-go
 ```
 
 ## Install
 
-This module is source-only in this repository. As of July 21, 2026, its module
-path is not available from the public Go proxy. For a sibling application, bind
-the import path to the checked-in directory:
+This module is source-only in this repository and is not published from a
+standalone source repository. Clone `GOATNetwork/x402`, then bind the logical
+module path to the checked-in directory:
 
 ```bash
-go mod edit -replace=github.com/goatnetwork/goatx402-mpp-middleware-go=../goatx402-mpp-middleware-go
-go get github.com/goatnetwork/goatx402-mpp-middleware-go
+go mod edit -require=github.com/goatnetwork/goatflow-mpp-middleware-go@v0.0.0
+go mod edit -replace=github.com/goatnetwork/goatflow-mpp-middleware-go=../x402/goatx402-mpp-middleware-go
 ```
 
-The checked-in module declares Go 1.22.
+Add the imports shown below, then run `go mod tidy`. The checked-in module
+declares Go 1.22.
 
 ## Receipt Format
 
@@ -52,8 +53,8 @@ import (
     "crypto/ed25519"
     "net/http"
 
-    mppmiddleware "github.com/goatnetwork/goatx402-mpp-middleware-go"
-    receiptspec "github.com/goatnetwork/goatx402-mpp-middleware-go/receiptspec"
+    mppmiddleware "github.com/goatnetwork/goatflow-mpp-middleware-go"
+    receiptspec "github.com/goatnetwork/goatflow-mpp-middleware-go/receiptspec"
 )
 
 func paidHandler(receiptVerificationKey ed25519.PublicKey, store mppmiddleware.ReceiptIDStore) http.Handler {

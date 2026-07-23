@@ -17,8 +17,10 @@ Use:
 
 Compatibility notes:
 
-- Published package names, types, JSON fields, and `GOATX402_*` environment
-  variables retain their existing `goatx402` naming.
+- Published packages use the `goatflow-*` names listed in
+  [`docs/README.md`](./docs/README.md#npm-packages).
+- Protocol fields, JSON keys such as the `goatx402` extension, and
+  `GOATX402_*` environment variables retain their existing technical names.
 - Merchant API credentials and HMAC signing belong on the backend.
 - HTTP `402` is an expected success only for endpoints documented as payment
   challenges, including order creation and the GOAT Flow profile's MPP

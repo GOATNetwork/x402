@@ -48,7 +48,9 @@ That gives the merchant:
 
 - an on-chain transfer to its configured address
 - an order ID and status lifecycle for application reconciliation
-- a signed proof endpoint after confirmation
+- a server-issued payment-record endpoint after confirmation; its historical
+  `signature` field is an unsigned digest, so independent proof still requires
+  on-chain transaction verification
 - a common SDK shape across runtime-configured EVM chains and tokens
 
 DIRECT does not make the transaction gasless. The buyer wallet still broadcasts
@@ -138,8 +140,8 @@ without sending a second payment.
 
 | Requirement | Use |
 | --- | --- |
-| Merchant backend creates a payment order | `goatx402-sdk-server` order API |
-| Fixed-price public catalog item | QuickPay Product + `goatx402-checkout` |
+| Merchant backend creates a payment order | `goatflow-sdk-server` order API |
+| Fixed-price public catalog item | QuickPay Product + `goatflow-checkout` |
 | Dynamic cart or backend-priced purchase | `createCheckoutSession(...)` + `open({ checkoutId })` |
 | Tip or donation with a buyer-entered amount | QuickPay custom amount |
 | Agent pays to access an API route | GOAT Flow MPP adapter + profile middleware |

@@ -1,23 +1,19 @@
 // Package receiptspec defines the canonical on-wire format, deterministic
-// identifier derivation, and signature primitives for the GoatX402 MPP
+// identifier derivation, and signature primitives for the GOAT Flow MPP
 // (Merchant Payment Protocol) Payment-Receipt.
 //
-// # Vendoring note (Round-17 codex P2)
+// # Bundling note
 //
-// This package is a BYTE-FOR-BYTE MIRROR of the standalone
-// github.com/goatnetwork/goatx402-mpp-receipt-spec module. The mirror
-// exists because go.mod `replace` directives are not honoured for
-// downstream consumers; without the in-module copy the public
-// middleware library would not be `go get`-able outside the monorepo.
+// This package is bundled with the source-only Go middleware module so an
+// application needs only one local `replace` directive for the x402 repository
+// checkout. It is the Go source of the receipt contract used by this middleware.
 //
 // The signing-bytes layout, field order, and ID derivation are by
-// design immutable until the protocol version is bumped; any change
-// to this package must land identically in the standalone module
-// (and vice versa). TestSigningBytes_GoldenFixture (sign_golden_test.go)
-// pins this copy's SigningBytes output to the SAME hand-verified golden
-// hex used by the standalone module and the TS cross-validate fixture, so
-// a drift in this copy fails the build here rather than silently shipping a
-// receipt the rest of the ecosystem rejects.
+// design immutable until the protocol version is bumped.
+// TestSigningBytes_GoldenFixture (sign_golden_test.go) pins this package's
+// SigningBytes output to the hand-verified golden hex used by the TS
+// cross-validation fixture, so a drift fails the build here rather than
+// silently shipping a receipt the rest of the ecosystem rejects.
 //
 // # Purpose
 //

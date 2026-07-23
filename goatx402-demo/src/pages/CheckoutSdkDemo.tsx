@@ -2,12 +2,12 @@
  * Checkout SDK demo — the Stripe-style drop-in.
  *
  * The developer renders their OWN product UI (name/image/price) and a single Pay
- * button. `goatx402-checkout` opens the platform-hosted checkout in a top-level
+ * button. `goatflow-checkout` opens the platform-hosted checkout in a top-level
  * popup; the buyer connects a wallet and pays THERE. No wallet code, no order code
  * here. onSuccess is a UX signal only — real fulfillment is confirmed via webhook.
  */
 import { useEffect, useMemo, useState } from 'react'
-import { GoatCheckout } from 'goatx402-checkout'
+import { GoatCheckout } from 'goatflow-checkout'
 
 // In local dev the hosted checkout (goatx402-quickpay-web) runs on :3005, the
 // platform QuickPay origin. In prod this is e.g. https://pay.goat.network.
@@ -202,7 +202,7 @@ export function CheckoutSdkDemo() {
         disabled={busy || !DIRECT_CONFIGURED}
         className="w-full rounded-md bg-blue-600 px-4 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-blue-600"
       >
-        {DIRECT_CONFIGURED ? `Pay with GoatX402 — DIRECT (${MERCHANT})` : 'Pay with GoatX402 — DIRECT'}
+        {DIRECT_CONFIGURED ? `Pay with GOAT Flow — DIRECT (${MERCHANT})` : 'Pay with GOAT Flow — DIRECT'}
       </button>
       {!DIRECT_CONFIGURED && (
         <p className="text-xs text-amber-600">

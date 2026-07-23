@@ -10,7 +10,7 @@ export type RpcResolver = (chainId: number) => string
 
 /**
  * EthersPaymentBackend executes the on-chain ERC20 transfer for pay-x402. It
- * mirrors goatx402-sdk's PaymentHelper.transfer (transfer tokens to payTo). The
+ * mirrors goatflow-sdk's PaymentHelper.transfer (transfer tokens to payTo). The
  * RPC URL for each chain is resolved via the provided resolver (flag / env).
  *
  * NOTE: the live on-chain transfer cannot be exercised in unit tests; the

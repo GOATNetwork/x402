@@ -1,4 +1,4 @@
-# goatx402-checkout
+# goatflow-checkout
 
 Framework-free browser SDK for GOAT Flow hosted checkout. It opens the
 GOAT Flow-hosted checkout interface in a top-level popup, tab, or full-page
@@ -11,7 +11,7 @@ DIRECT flow and server SDK examples.
 ## Install
 
 ```bash
-npm install goatx402-checkout
+npm install goatflow-checkout
 ```
 
 The package also builds `dist/checkout.global.js` as a browser IIFE for
@@ -29,7 +29,7 @@ A QuickPay-enabled DIRECT merchant can open a server-priced product without a
 merchant backend. The browser carries the product key, never the amount.
 
 ```ts
-import { GoatCheckout } from 'goatx402-checkout'
+import { GoatCheckout } from 'goatflow-checkout'
 
 const goat = GoatCheckout({ origin: 'https://flow-quickpay.goat.network' })
 
@@ -55,10 +55,10 @@ button.addEventListener('click', () => {
 `open()` must run synchronously inside the user gesture so browsers do not block
 the popup or tab.
 
-## Unified Checkout Session
+## Hosted Checkout Session
 
 Dynamic DIRECT checkout starts on the merchant backend. Create a
-server-authoritative session with `goatx402-sdk-server`, return only the opaque
+server-authoritative session with `goatflow-sdk-server`, return only the opaque
 `checkoutId` to the browser, then open it with this package:
 
 ```ts
@@ -75,7 +75,8 @@ goat.redirectToCheckout({ checkoutId: session.checkoutId })
 ```
 
 The hosted page reads the session terms. The server SDK response exposes
-`checkoutType` as `string`; the current public merchant path uses `DIRECT`.
+`checkoutType` as `string`; public merchant integrations use `DIRECT` and
+handle unknown future values explicitly.
 
 ## Payment modes and amount integrity
 

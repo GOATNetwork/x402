@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"time"
 
-	mppmiddleware "github.com/goatnetwork/goatx402-mpp-middleware-go"
-	receiptspec "github.com/goatnetwork/goatx402-mpp-middleware-go/receiptspec"
+	mppmiddleware "github.com/goatnetwork/goatflow-mpp-middleware-go"
+	receiptspec "github.com/goatnetwork/goatflow-mpp-middleware-go/receiptspec"
 )
 
 // Example demonstrates the canonical wiring for a Go merchant resource

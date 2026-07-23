@@ -22,7 +22,8 @@ The authenticated order API follows this sequence:
    receiving address.
 5. The merchant backend polls the order status or receives a deployment-defined
    webhook.
-6. After confirmation, the merchant can request the signed order proof.
+6. After confirmation, the merchant can request the server-issued payment
+   record and independently verify its transaction hash on-chain.
 
 The server SDK treats HTTP 402 as the expected create-order response and
 normalizes the challenge into an `Order` for the browser SDK.
@@ -78,7 +79,7 @@ The manifest can advertise:
 - fixed-price Products identified by `product_key`
 - MPP routes with chain, token, and amount metadata
 
-The `goatx402-quickpay` library and CLI validate the manifest, derive all API
+The `goatflow-quickpay` library and CLI validate the manifest, derive all API
 endpoints from the trusted URL origin, and verify fresh session payment terms
 before the configured payer backend submits a direct transfer.
 

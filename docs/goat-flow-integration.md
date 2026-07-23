@@ -27,7 +27,8 @@ contracts.
 GOAT Flow is the product name. x402 is the payment-challenge protocol used by
 the order surfaces. [MPP](https://mpp.dev/overview) is a separate, independent
 open protocol. The GOAT Flow MPP components implement the current integration
-profile; existing package names and code identifiers retain `goatx402`.
+profile. Public packages use `goatflow-*`; repository directories, protocol
+fields, and fixed environment variables may retain `goatx402`.
 
 ```text
 Merchant backend
@@ -62,11 +63,11 @@ Security boundaries:
 
 | Package/module | Role | Current manifest/runtime |
 | --- | --- | --- |
-| `goatx402-sdk-server` | TypeScript merchant backend | `0.2.1`, Node >= 18 |
-| `github.com/goatnetwork/goatx402-sdk-server` | Go merchant backend | Go 1.25 |
+| `goatflow-sdk-server` | TypeScript merchant backend | `0.3.0`, Node >= 18 |
+| `github.com/goatnetwork/goatflow-sdk-server` | Go merchant backend | Go 1.25, source-only |
 | `goatflow-sdk` | Browser wallet, ERC-20, MPP | `0.2.1`, ethers `^6.9.0` |
-| `goatx402-checkout` | Hosted Checkout opener | `0.1.0` |
-| `goatx402-quickpay` | Public payer/agent library and CLI | `0.2.3`, Node >= 18 |
+| `goatflow-checkout` | Hosted Checkout opener | `0.1.0` |
+| `goatflow-quickpay` | Public payer/agent library and CLI | `0.3.0`, Node >= 18 |
 | `@goatnetwork/mpp-middleware` | Merchant MPP middleware | `0.1.0` |
 
 Use package manifests and exported types as the version source of truth. Do not
@@ -116,9 +117,9 @@ Flow identifier: `ERC20_DIRECT`.
 ### 5.1 TypeScript client
 
 ```ts
-import { GoatX402Client } from 'goatx402-sdk-server'
+import { GoatFlowClient } from 'goatflow-sdk-server'
 
-const client = new GoatX402Client({
+const client = new GoatFlowClient({
   baseUrl: process.env.GOATX402_API_URL ?? 'https://flow-api.goat.network',
   apiKey: process.env.GOATX402_API_KEY!,
   apiSecret: process.env.GOATX402_API_SECRET!,
@@ -141,41 +142,10 @@ const order = await client.createOrder({
 `createOrder()` accepts the successful HTTP `402` response and normalizes the
 first x402 payment option. Use `createOrderRaw()` for the literal x402 object.
 
-The following callback fields are compatibility reference for an explicitly
-operator-provisioned DELEGATE environment; they are not part of public merchant
-onboarding. Include `callbackCalldata` only under that deployment contract:
-
-```ts
-const order = await client.createOrder({
-  dappOrderId: `order_${Date.now()}`,
-  chainId: 2345,
-  tokenSymbol: 'USDC',
-  tokenContract: '0xToken',
-  fromAddress: '0xPayer',
-  amountWei: '10000000',
-  callbackCalldata: '0x...',
-})
-```
-
-The authoritative response may use `ERC20_3009` or
-`ERC20_APPROVE_XFER`, return a delegated/TSS `payToAddress`, and include
-`calldataSignRequest`. It may also advertise
-`extensions.goatx402.signatureEndpoint`.
-
-The browser signs the returned EIP-712 request, then the backend submits it:
-
-```ts
-await client.submitCalldataSignature(order.orderId, signature)
-```
-
-This calls `POST /api/v1/orders/{order_id}/calldata-signature` with
-`{ "signature": "0x..." }`. Do not rebuild or selectively copy the returned
-EIP-712 domain, types, `primaryType`, or message.
-
-The returned EIP-712 `domain.chainId` can differ from the transfer source
-chain. Switch the wallet to the callback chain for the signature, then return
-to `order.fromChainId` before broadcasting the token transfer. The browser SDK
-does not switch either chain for the application.
+Operator-provisioned callback orders are outside public merchant onboarding.
+When a deployment contract explicitly enables one, follow the complete fields,
+EIP-712 signing, signature-submission endpoint, and chain-switching rules in
+the [API Reference appendix](./goat-flow-api-reference.md#appendix-a-operator-provisioned-callback-compatibility).
 
 Read status and proof:
 
@@ -184,7 +154,7 @@ const orderStatus = await client.getOrderStatus(order.orderId)
 
 const fulfillable =
   orderStatus.status === 'PAYMENT_CONFIRMED' ||
-  (deploymentTreatsInvoicedAsSuccess && orderStatus.status === 'INVOICED')
+  orderStatus.status === 'INVOICED'
 
 if (fulfillable) {
   const proof = await client.getOrderProof(order.orderId)
@@ -204,36 +174,32 @@ if (orderStatus.status === 'CHECKOUT_VERIFIED') {
 ### 5.2 TypeScript errors
 
 ```ts
+import { GoatFlowError } from 'goatflow-sdk-server'
+
 try {
   await client.createOrder(params)
 } catch (error) {
-  if (error instanceof Error) {
-    const apiError = error as Error & {
-      status?: number
-      code?: string
-      responseBody?: string
-    }
-    console.error(apiError.status, apiError.code, apiError.responseBody)
+  if (error instanceof GoatFlowError) {
+    console.error(error.status, error.code, error.responseBody)
   }
 }
 ```
 
 For authenticated HTTP failures, the client parses `error` or `message`,
 attaches `status`, optional `code`, and runtime `responseBody`, and names the
-error `GoatX402Error`. It currently constructs a plain `Error` and casts it, so
-do not rely on `instanceof GoatX402Error`. Fetch failures may remain native
-errors.
+runtime-exported error `GoatFlowError`. `instanceof GoatFlowError` is supported.
+Fetch failures may remain native errors.
 
 ### 5.3 Go client
 
 ```go
-client := goatx402.NewClient(goatx402.Config{
+client := goatflow.NewClient(goatflow.Config{
     BaseURL:   os.Getenv("GOATX402_API_URL"),
     APIKey:    os.Getenv("GOATX402_API_KEY"),
     APISecret: os.Getenv("GOATX402_API_SECRET"),
 })
 
-order, err := client.CreateOrder(ctx, goatx402.CreateOrderParams{
+order, err := client.CreateOrder(ctx, goatflow.CreateOrderParams{
     DappOrderID:  "order_123",
     ChainID:      2345,
     TokenSymbol:  "USDC",
@@ -242,7 +208,7 @@ order, err := client.CreateOrder(ctx, goatx402.CreateOrderParams{
     AmountWei:    "10000000",
 })
 if err != nil {
-    var apiErr *goatx402.APIError
+    var apiErr *goatflow.APIError
     if errors.As(err, &apiErr) {
         log.Printf(
             "status=%d code=%s body=%s",
@@ -266,7 +232,7 @@ The Go client also exposes:
 - `WaitForConfirmation`
 - `SetHTTPClient`
 
-Go HTTP failures are returned as `*goatx402.APIError`; use `errors.As`.
+Go HTTP failures are returned as `*goatflow.APIError`; use `errors.As`.
 Transport and JSON failures are wrapped Go errors.
 
 ### 5.4 Polling and HTTP compatibility differences
@@ -274,22 +240,16 @@ Transport and JSON failures are wrapped Go errors.
 | Behavior | TypeScript | Go |
 | --- | --- | --- |
 | First status read | Immediate | After the first interval tick |
-| Status-read error while polling | Propagated immediately | Suppressed and retried |
+| Status-read error while polling | Transient errors retried; deterministic 4xx surfaced | Suppressed and retried |
 | Status callback | `onStatusChange` | None |
-| Cancellation | Timer checked between requests; no in-flight abort | Timeout or `context.Context` |
-| Built-in terminal states | `PAYMENT_CONFIRMED`, `FAILED`, `EXPIRED`, `CANCELLED` | Same |
-| `INVOICED` | Not terminal | Not terminal |
-| Authenticated HTTP success | Any `2xx`, plus compatibility `402` | Exactly `200`, plus compatibility `402` |
+| Cancellation | Overall timeout plus per-request deadline | Timeout or `context.Context` |
+| Built-in terminal states | `PAYMENT_CONFIRMED`, `INVOICED`, `FAILED`, `EXPIRED`, `CANCELLED` | Same |
+| First-party request deadline | 30 seconds, bounded by remaining wait timeout | 30-second default HTTP client; replaceable |
+| Authenticated HTTP success | Any `2xx`; `402` only for order creation | Exactly `200`; `402` only for order creation |
 
-Both shared authenticated request helpers currently accept `402` on every
-authenticated endpoint. Only order creation defines that as success. Treat a
-`402` from status, proof, checkout, signature, or cancellation as an unexpected
-deployment/version response and validate the body rather than relying on the
-helper's broad compatibility behavior.
-
-The TypeScript timeout is not a hard wall-clock deadline: an in-flight
-`getOrderStatus()` request has no `AbortSignal` and can outlive the configured
-timeout.
+TypeScript retries request timeouts, network failures, `408`, `429`, and server
+errors within the overall wait deadline; other deterministic 4xx errors are
+surfaced immediately. Go currently retries all status-read errors.
 
 ## 6. Browser order integration
 
@@ -309,7 +269,7 @@ The browser SDK `Order` requires:
 Map a minimal object:
 
 ```ts
-import type { Order as ServerOrder } from 'goatx402-sdk-server'
+import type { Order as ServerOrder } from 'goatflow-sdk-server'
 import type { Order as ClientOrder } from 'goatflow-sdk'
 
 export function toClientOrder(
@@ -426,7 +386,7 @@ Use `ERC20Token.setApproval()` when the reset transaction hash is also needed.
 ### 7.1 Fixed product
 
 ```ts
-import { GoatCheckout } from 'goatx402-checkout'
+import { GoatCheckout } from 'goatflow-checkout'
 
 const goat = GoatCheckout({ origin: 'https://flow-quickpay.goat.network' })
 
@@ -459,23 +419,11 @@ goat.open({ checkoutId: session.checkoutId })
 
 The SDK serializes nested values into signed JSON strings.
 
-The response type exposes `checkoutType: string` (Go:
-`CheckoutType string`). Known current values are `DIRECT` and `DELEGATE`;
-handle an unknown future value explicitly.
-
-For an explicitly operator-provisioned DELEGATE deployment, the compatibility
-input surface is:
-
-- cross-chain price form: `checkoutType`, `price`, optional
-  `callbackCalldata`
-- legacy fixed-wei form: `checkoutType`, `chainId`, `fixedAmountWei`,
-  `acceptableTokens`, optional `callbackCalldata`
-- either form may also include `successUrl`, `cancelUrl`,
-  `clientReferenceId`, `expiresIn`, `lineItems`, `publicMetadata`, and
-  `privateMetadata`
-
-The hosted DELEGATE page may submit the returned callback signature to
-`POST /checkout/v1/sessions/{checkout_id}/signature`.
+The response exposes `checkoutType` as `string`; handle unknown future values
+explicitly. Public integrations create `DIRECT` sessions. Operator-provisioned
+compatibility fields, deprecated wrappers, signature submission, and the
+`callback_template` trust boundary are documented in the
+[API Reference appendix](./goat-flow-api-reference.md#appendix-a-operator-provisioned-callback-compatibility).
 
 ### 7.3 Hosted security model
 
@@ -503,7 +451,7 @@ The package:
 5. Derives session/MPP endpoints from the same origin.
 
 ```ts
-import { QuickPayClient, EthersPaymentBackend } from 'goatx402-quickpay'
+import { QuickPayClient, EthersPaymentBackend } from 'goatflow-quickpay'
 
 const quickpay = new QuickPayClient(
   'https://flow-quickpay.goat.network/quickpay/merchant_123/agent.md',
@@ -537,15 +485,22 @@ and `payer_addr` from the payment backend. There is currently no
 CLI:
 
 ```bash
-npx goatx402-quickpay inspect <quickpay-url>
-npx goatx402-quickpay pay-x402 <quickpay-url> --amount 10 --token USDC --chain 2345
-npx goatx402-quickpay pay-product <quickpay-url> --product mug --token USDC --chain 2345
-npx goatx402-quickpay pay-mpp <quickpay-url> --route GET:api:data
+npx goatflow-quickpay inspect <quickpay-url>
+npx goatflow-quickpay pay-x402 <quickpay-url> --amount 10 --token USDC --chain 2345
+npx goatflow-quickpay pay-product <quickpay-url> --product mug --token USDC --chain 2345
+npx goatflow-quickpay pay-mpp <quickpay-url> --route GET:api:data
 ```
 
 Product mode uses the manifest's decimal `price` and the chosen token decimals.
 Custom amount mode is untrusted for automatic fulfillment unless the backend
 reconciles the actual paid amount.
+
+QuickPay session terminal states are `PAYMENT_CONFIRMED`, `EXPIRED`, `FAILED`,
+and `CANCELLED`; they are separate from Server SDK order states. Status polling
+uses `pollTimeoutMs` as a hard cap, retains known transaction hashes across
+transient failures, and performs five bounded grace polls when a known
+transaction is reported `EXPIRED`. Reconcile by session ID and transaction hash
+instead of rebroadcasting after an ambiguous failure.
 
 ## 9. MPP
 
@@ -706,13 +661,13 @@ Recommended application classification:
 | Class | Status |
 | --- | --- |
 | Pending | `CHECKOUT_VERIFIED` |
-| Confirmed success | `PAYMENT_CONFIRMED` |
-| Deployment-defined | `INVOICED` |
+| Confirmed success | `PAYMENT_CONFIRMED`, `INVOICED` |
 | Failure/closed | `FAILED`, `EXPIRED`, `CANCELLED` |
 
-`INVOICED` is present in the current type union, but the SDK does not define
-whether it is successful, terminal, or intermediate. Apply the deployed
-fulfillment contract. Do not assume every deployment exposes each transition.
+Server SDK order waiters treat `INVOICED` as a successful terminal state. Core
+can advance a DIRECT order from `PAYMENT_CONFIRMED` to `INVOICED` inside one
+watcher transaction, so polling code must not require observing both states.
+Do not assume every deployment exposes each transition.
 
 `cancelOrder()` is documented for `CHECKOUT_VERIFIED`. Reservation restoration,
 fee refunds, and automatic-expiration effects are not part of the public SDK
@@ -734,13 +689,12 @@ contract; confirm them with the active API before relying on them.
 Do not blindly retry order creation without a stable merchant
 `dappOrderId`/idempotency strategy.
 
-The current server SDK helpers are more permissive than this table and accept
-unexpected authenticated `402` responses. That is a compatibility caveat, not a
-recommended API contract.
-
-Neither server SDK automatically retries an individual merchant API method;
-the application must implement any bounded retry policy. This differs from the
-MPP verifier, which has built-in bounded retries for eligible responses.
+Both server SDKs fail closed on unexpected authenticated `402` responses.
+Individual merchant API calls do not retry automatically.
+`waitForConfirmation()` retries eligible status-read failures within its
+overall deadline; Go `WaitForConfirmation` currently retries all status-read
+errors. This differs from the MPP verifier, which has its own bounded retry
+policy.
 
 ### 12.2 Browser order payment
 
@@ -789,8 +743,8 @@ phase callbacks non-throwing or catch their errors locally.
 3. Derive amount/token/chain from server-side product/cart data.
 4. Map server orders to browser orders with an explicit allowlist.
 5. Validate chain, payer, and expiry before `PaymentHelper.pay()`.
-6. Treat `PAYMENT_CONFIRMED` as confirmed; classify `INVOICED` only according to
-   the deployed fulfillment contract.
+6. Treat authenticated `PAYMENT_CONFIRMED` and `INVOICED` order states as
+   successful terminals, while validating all expected order fields.
 7. Fulfill idempotently from trusted server evidence.
 8. Cancel abandoned `CHECKOUT_VERIFIED` orders.
 9. Monitor merchant fee-balance errors.
@@ -801,41 +755,34 @@ phase callbacks non-throwing or catch their errors locally.
 
 ## 14. Known compatibility notes
 
-### 14.1 Polling differences and `INVOICED`
+### 14.1 Polling differences
 
-Both polling helpers stop on `PAYMENT_CONFIRMED`, `FAILED`, `EXPIRED`, or
-`CANCELLED`, but not `INVOICED`. TypeScript performs the first read immediately
-and propagates read errors; Go waits one interval and retries read errors until
-timeout/context cancellation. Use explicit polling for a cross-language policy.
+Both polling helpers stop on `PAYMENT_CONFIRMED`, `INVOICED`, `FAILED`,
+`EXPIRED`, or `CANCELLED`. TypeScript performs the first read immediately and
+selectively retries transient failures; Go waits one interval and retries every
+status-read error until timeout/context cancellation. Use explicit polling when
+an application needs one cross-language retry policy.
 
-### 14.2 Unexpected authenticated `402`
-
-Both server SDK request helpers accept authenticated `402` responses on every
-endpoint for compatibility with order creation. Only create-order defines `402`
-as success. Other endpoints can consequently parse, return, or ignore a
-challenge/error body instead of reporting the expected HTTP error. Validate
-endpoint-specific response fields and treat this as version skew.
-
-### 14.3 Merchant token-list field
+### 14.2 Merchant token-list field
 
 The TypeScript `getMerchant()` implementation reads `wallets[]` and maps it to
 `supportedTokens`. The Go `MerchantInfo` type expects `supported_tokens`.
 Verify the target deployment response before using the Go field.
 
-### 14.4 Browser compatibility
+### 14.3 Browser compatibility
 
 No tested minimum-version browser matrix is currently published. The browser path
 requires an EIP-1193 wallet/provider and modern features used by ethers and the
 SDK (`BigInt`, `fetch`, `URL`, Promises, and Web Crypto/browser primitives).
 
-### 14.5 Runtime capability
+### 14.4 Runtime capability
 
 Supported chains, tokens, fee configuration, redirect allowlists, and merchant
 payment capabilities are deployment-specific. Discover them from trusted
 runtime responses or operator configuration rather than a static documentation
 table.
 
-### 14.6 Generated declaration examples
+### 14.5 Generated declaration examples
 
 Current generated declaration files contain outdated example origins:
 `goatx402-sdk-server-ts/dist/index.d.ts` mentions `api.goatx402.io`, and
@@ -843,7 +790,7 @@ Current generated declaration files contain outdated example origins:
 active deployment origins and must not be copied into integrations. The
 current origins are listed in the [documentation hub](./README.md#service-origins).
 
-### 14.7 MPP interoperability
+### 14.6 MPP interoperability
 
 The current `MPPClient` and middleware do not implement the standard MPP
 HTTP Challenge/Credential/Receipt exchange. They use GOAT Flow JSON

@@ -51,16 +51,16 @@ currently proxies equivalent routes.
 ## npm Packages
 
 The following packages are published to the public npm Registry. The `latest`
-versions below were verified on July 21, 2026; query npm and use a lockfile when
+versions below were verified against the Registry on July 23, 2026; query npm and use a lockfile when
 selecting an exact production version. All four packages require Node.js 18 or
 later.
 
 | Package | `latest` | Primary use | Install |
 | --- | ---: | --- | --- |
 | [`goatflow-sdk`](https://www.npmjs.com/package/goatflow-sdk) | `0.2.1` | Browser wallet transfers and the current GOAT Flow MPP adapter | `npm install goatflow-sdk` |
-| [`goatx402-sdk-server`](https://www.npmjs.com/package/goatx402-sdk-server) | `0.2.1` | TypeScript merchant backend and HMAC-authenticated APIs | `npm install goatx402-sdk-server goatflow-sdk` |
-| [`goatx402-checkout`](https://www.npmjs.com/package/goatx402-checkout) | `0.1.0` | Hosted Checkout browser integration | `npm install goatx402-checkout` |
-| [`goatx402-quickpay`](https://www.npmjs.com/package/goatx402-quickpay) | `0.2.3` | QuickPay payer/agent library and CLI | `npm install goatx402-quickpay` |
+| [`goatflow-sdk-server`](https://www.npmjs.com/package/goatflow-sdk-server) | `0.3.0` | TypeScript merchant backend and HMAC-authenticated APIs | `npm install goatflow-sdk-server` |
+| [`goatflow-checkout`](https://www.npmjs.com/package/goatflow-checkout) | `0.1.0` | Hosted Checkout browser integration | `npm install goatflow-checkout` |
+| [`goatflow-quickpay`](https://www.npmjs.com/package/goatflow-quickpay) | `0.3.0` | QuickPay payer/agent library and CLI | `npm install goatflow-quickpay` |
 
 The TypeScript MPP middleware package name
 `@goatnetwork/mpp-middleware`, the Go modules, contracts, and demo are not

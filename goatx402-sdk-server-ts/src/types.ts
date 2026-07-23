@@ -1,12 +1,12 @@
 /**
- * GoatX402 Server SDK Type Definitions
+ * GOAT Flow Server SDK Type Definitions
  */
 
 // ============================================================================
 // Configuration Types
 // ============================================================================
 
-export interface GoatX402Config {
+export interface GoatFlowConfig {
   /** API base URL */
   baseUrl: string
   /** Merchant API Key */
@@ -42,7 +42,7 @@ export interface CreateOrderParams {
 }
 
 export interface Order {
-  /** Order ID from GoatX402 */
+  /** Order ID from GOAT Flow */
   orderId: string
   /** Payment flow type */
   flow: PaymentFlow
@@ -80,7 +80,7 @@ export type OrderStatus =
 
 /**
  * Parameters for creating a server-authoritative unified hosted-checkout session
- * via {@link GoatX402Client.createCheckoutSession}. One subsystem covers both
+ * via {@link GoatFlowClient.createCheckoutSession}. One subsystem covers both
  * DIRECT and DELEGATE merchants — the buyer picks ONLY a token on the hosted page;
  * the amount is always pinned server-side (never from the browser).
  *
@@ -107,9 +107,21 @@ export interface CreateCheckoutSessionParams {
   price?: string
   /** Legacy fixed-wei DELEGATE only — pinned source EVM chain ID. Omit for cross-chain price mode. */
   chainId?: number
-  /** DELEGATE only — pinned payment amount in wei (string for big numbers) — body field `fixed_amount_wei`. */
+  /** Legacy fixed-wei DELEGATE only — pinned payment amount in wei (string for big numbers) — body field `fixed_amount_wei`. */
   fixedAmountWei?: string
-  /** DELEGATE only — non-empty hex calldata (with or without 0x) for the merchant callback contract — body field `callback_calldata`. */
+  /**
+   * Legacy fixed-wei DELEGATE only — optional hex calldata (with or without 0x)
+   * for the merchant callback contract — body field `callback_calldata`. A
+   * create-time calldata is server-authoritative and is the ONLY way to
+   * guarantee specific callback bytes. Cross-chain price mode REJECTS
+   * create-time calldata (the buyer's source chain/token is unknown yet);
+   * there the hosted page MAY submit per-buyer calldata at bind, ABI-encoded
+   * from `publicMetadata.callback_template` — but the template is only a UI
+   * encoding hint, NOT a server-enforced constraint. Bind calldata is
+   * BUYER-CONTROLLED input: it can be omitted or replaced and is not
+   * re-validated against the template, so the callback contract must itself
+   * gate selectors, parameters, and permissions.
+   */
   callbackCalldata?: string
   /**
    * Legacy fixed-wei DELEGATE only — token contracts accepted for the fixed
@@ -152,7 +164,7 @@ export interface CheckoutSession {
 /**
  * @deprecated Use {@link CreateCheckoutSessionParams} with `checkoutType: 'DELEGATE'`.
  *
- * Parameters for the deprecated {@link GoatX402Client.createDelegateCheckoutSession}
+ * Parameters for the deprecated {@link GoatFlowClient.createDelegateCheckoutSession}
  * wrapper, kept for one version. It now forwards to the unified
  * `POST /api/v1/checkout/sessions` endpoint. The single `tokenContract` is wrapped
  * into `acceptableTokens: [tokenContract]` (unless `acceptableTokens` is given
@@ -253,6 +265,17 @@ export interface OrderProof {
   confirmedAt?: string
 }
 
+/**
+ * Server-issued payment record for a completed order.
+ *
+ * NOTE: `signature` is NOT signed by anyone — it is a bare Keccak256 hash of
+ * seven payload fields concatenated without separators, in this exact order:
+ * `order_id`, `tx_hash`, `log_index`, `from_addr`, `to_addr`, `amount_wei`,
+ * `from_chain_id`. It does NOT cover `status` (or any field outside that
+ * list), so it is an integrity checksum of those fields only — recomputable
+ * by anybody, not a cryptographic attestation and not a hash of the whole
+ * record. Verify `payload.tx_hash` on-chain if you need independent proof.
+ */
 export interface OrderProofResponse {
   payload: {
     order_id: string
@@ -261,8 +284,8 @@ export interface OrderProofResponse {
     from_addr: string
     to_addr: string
     amount_wei: string
-    chain_id: number
-    flow: string
+    from_chain_id: number
+    status: string
   }
   signature: string
 }
@@ -285,15 +308,17 @@ export interface MerchantToken {
 // Error Types
 // ============================================================================
 
-export class GoatX402Error extends Error {
+export class GoatFlowError extends Error {
   code?: string
   status?: number
+  responseBody?: string
 
-  constructor(message: string, code?: string, status?: number) {
+  constructor(message: string, code?: string, status?: number, responseBody?: string) {
     super(message)
-    this.name = 'GoatX402Error'
+    this.name = 'GoatFlowError'
     this.code = code
     this.status = status
+    this.responseBody = responseBody
   }
 }
 
@@ -335,13 +360,13 @@ export interface X402PaymentOption {
   }
 }
 
-/** GoatX402-specific extension in x402 response */
+/** GOAT Flow-specific extension in x402 response */
 export interface X402GoatExtension {
   /** Destination chain in CAIP-2 format */
   destinationChain: string
   /** Expiration timestamp (unix seconds) */
   expiresAt: number
-  /** Endpoint to submit signature (only present for EIP-3009 flow) */
+  /** Endpoint to submit a required calldata signature (EIP-3009 or Permit2 callback) */
   signatureEndpoint?: string
   /** Payment method: "transfer" for direct transfer, "eip3009-signature" for gasless */
   paymentMethod: 'transfer' | 'eip3009-signature'

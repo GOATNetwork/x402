@@ -28,20 +28,24 @@ QuickPay product links and Hosted Checkout do not expose merchant credentials in
 the browser. Dynamic Hosted Checkout terms are still created by the merchant
 backend.
 
+The runnable examples below use GOAT Testnet3. Move to Mainnet only after the
+same merchant, chain, token, receiving address, and service-fee configuration
+have been verified there; switch every origin and chain ID together.
+
 ## Install
 
 ```bash
 # Authenticated backend API
-npm install goatx402-sdk-server
+npm install goatflow-sdk-server
 
 # Custom browser wallet flow
 npm install goatflow-sdk
 
 # Hosted payment window
-npm install goatx402-checkout
+npm install goatflow-checkout
 
 # Agent / CLI payer
-npm install goatx402-quickpay
+npm install goatflow-quickpay
 ```
 
 The TypeScript packages declare Node.js >= 18 where Node is used. The Go SDK
@@ -52,9 +56,11 @@ module currently declares Go 1.25.
 ### Fixed product
 
 ```ts
-import { GoatCheckout } from 'goatx402-checkout'
+import { GoatCheckout } from 'goatflow-checkout'
 
-const goat = GoatCheckout({ origin: 'https://flow-quickpay.goat.network' })
+const goat = GoatCheckout({
+  origin: 'https://flow-quickpay.testnet3.goat.network',
+})
 
 payButton.addEventListener('click', () => {
   goat.open({
@@ -90,15 +96,15 @@ goat.open({ checkoutId: session.checkoutId })
 This quick start covers the public DIRECT path. Operator-provisioned session
 variants are documented as compatibility reference in the
 [Hosted Checkout guide](./goat-flow-checkout.md) and
-[API Reference](./goat-flow-api-reference.md); do not select them unless the target
-merchant and environment have an explicit deployment contract.
+[API Reference](./goat-flow-api-reference.md); do not select them unless the
+target merchant and environment have an explicit deployment contract.
 
 ## Path B: Custom order and wallet UI
 
 ### 1. Configure the backend
 
 ```bash
-GOATX402_API_URL=https://flow-api.goat.network
+GOATX402_API_URL=https://flow-api.testnet3.goat.network
 GOATX402_API_KEY=your_api_key
 GOATX402_API_SECRET=your_api_secret
 ```
@@ -112,12 +118,12 @@ Map the object explicitly before returning it to the frontend.
 
 ```ts
 import {
-  GoatX402Client,
+  GoatFlowClient,
   type Order as ServerOrder,
-} from 'goatx402-sdk-server'
+} from 'goatflow-sdk-server'
 import type { Order as ClientOrder } from 'goatflow-sdk'
 
-const client = new GoatX402Client({
+const client = new GoatFlowClient({
   baseUrl: process.env.GOATX402_API_URL!,
   apiKey: process.env.GOATX402_API_KEY!,
   apiSecret: process.env.GOATX402_API_SECRET!,
@@ -141,7 +147,7 @@ function toClientOrder(order: ServerOrder, fromAddress: string): ClientOrder {
 export async function createOrder(fromAddress: string): Promise<ClientOrder> {
   const order = await client.createOrder({
     dappOrderId: `order_${Date.now()}`,
-    chainId: 2345,
+    chainId: 48816,
     tokenSymbol: 'USDC',
     tokenContract: '0xToken',
     fromAddress,
@@ -155,9 +161,8 @@ export async function createOrder(fromAddress: string): Promise<ClientOrder> {
 Under the hood, successful order creation returns HTTP `402 Payment Required`.
 The server SDK treats it as success and normalizes the x402 body.
 
-Current server-SDK compatibility behavior also accepts `402` from other
-authenticated endpoints. That is not protocol success; reject an unexpected
-`402` unless the called endpoint explicitly defines a challenge response.
+The server SDK accepts `402` as success only for order creation. An unexpected
+`402` from status, proof, checkout, signature, or cancellation fails closed.
 
 ### 3. Validate and pay in the browser
 
@@ -191,7 +196,7 @@ export async function payOrder(order: Order): Promise<string> {
     )
   }
 
-const result = await payment.pay(order)
+  const result = await payment.pay(order)
   if (!result.success || !result.txHash) {
     throw new Error(result.error ?? 'Payment failed')
   }
@@ -221,7 +226,7 @@ const orderStatus = await client.getOrderStatus(orderId)
 
 const fulfillable =
   orderStatus.status === 'PAYMENT_CONFIRMED' ||
-  (deploymentTreatsInvoicedAsSuccess && orderStatus.status === 'INVOICED')
+  orderStatus.status === 'INVOICED'
 
 if (fulfillable) {
   const proof = await client.getOrderProof(orderId)
@@ -238,9 +243,11 @@ Current SDK status values are:
 - `EXPIRED`
 - `CANCELLED`
 
-`INVOICED` is a known SDK value, but its success/terminal meaning is defined by
-the target deployment. Current TypeScript and Go polling helpers do not stop on
-it. Use explicit `getOrderStatus()` polling when the deployment uses that state.
+Server SDK order waiters treat `PAYMENT_CONFIRMED` and `INVOICED` as successful
+terminal states. Core can advance a DIRECT order from `PAYMENT_CONFIRMED` to
+`INVOICED` in one watcher transaction, so a poller may observe only
+`INVOICED`. Before fulfillment, still validate the authenticated order's
+merchant context, chain, token, amount, recipient, and transaction identity.
 
 Cancel an abandoned order only while it remains `CHECKOUT_VERIFIED`:
 
@@ -253,18 +260,25 @@ await client.cancelOrder(orderId)
 QuickPay accepts only canonical same-origin links:
 
 ```bash
-npx goatx402-quickpay inspect \
-  https://flow-quickpay.goat.network/quickpay/merchant_123/agent.md
+npx goatflow-quickpay inspect \
+  https://flow-quickpay.testnet3.goat.network/quickpay/merchant_123/agent.md
 
-npx goatx402-quickpay pay-product \
-  https://flow-quickpay.goat.network/quickpay/merchant_123/agent.md \
+npx goatflow-quickpay pay-product \
+  https://flow-quickpay.testnet3.goat.network/quickpay/merchant_123/agent.md \
   --product mug \
   --token USDC \
-  --chain 2345
+  --chain 48816
 ```
 
 The library derives the manifest and session endpoints from the trusted link
 origin; it rejects remote `http` URLs and cross-origin endpoint substitution.
+
+QuickPay sessions have their own terminal set: `PAYMENT_CONFIRMED`, `EXPIRED`,
+`FAILED`, and `CANCELLED`. Polling is bounded by `pollTimeoutMs`, retains a
+known transaction hash across transient failures, and performs five bounded
+grace polls when a known transaction is reported `EXPIRED`. Reconcile by
+session ID and transaction hash instead of rebroadcasting after an ambiguous
+post-broadcast failure.
 
 Library options are camelCase. For example, `payX402()` accepts `amount`,
 `chainId`, `tokenSymbol`/`tokenContract`, `memo`, and `idempotencyKey`; it
@@ -283,7 +297,7 @@ the official MPP SDKs is currently published.
 import { MPPClient, MPPError } from 'goatflow-sdk'
 
 const mpp = new MPPClient({
-  coreUrl: 'https://flow-api.goat.network', // no trailing slash
+  coreUrl: 'https://flow-api.testnet3.goat.network', // no trailing slash
   signer,
 })
 
@@ -345,8 +359,8 @@ enabled transfer capabilities remain deployment/merchant-specific.
 - Confirm merchant fee balance.
 - Confirm the chain/token is enabled for this merchant.
 - Treat HTTP `402` as success only on documented challenge endpoints.
-- If status/proof/checkout/signature/cancel returns `402`, treat it as an
-  unexpected compatibility response, not success.
+- If status/proof/checkout/signature/cancel returns `402`, the Server SDK fails
+  closed; treat it as an endpoint or deployment mismatch.
 
 ### Wallet transfer
 
@@ -358,8 +372,9 @@ enabled transfer capabilities remain deployment/merchant-specific.
 
 - Confirm token contract, recipient, amount, chain, and payer match the order.
 - Allow for the deployment's confirmation/finality requirement.
-- Apply the deployment's documented meaning for `INVOICED`; do not assume it is
-  globally successful or terminal.
+- For Server SDK order polling, `INVOICED` is a successful terminal state.
+- For QuickPay session polling, use its separate terminal set; it does not
+  include `INVOICED`.
 
 ### GOAT Flow MPP transfer broadcast but verify failed
 

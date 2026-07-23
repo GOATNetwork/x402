@@ -87,8 +87,9 @@ HTTP 402 is the expected success path for `POST /api/v1/orders`. The response is
 an x402 payment challenge with `x402Version`, `accepts[]`, order metadata, and
 GOAT-specific extensions.
 
-The TypeScript server SDK deliberately does not treat HTTP 402 as an error for
-authenticated requests.
+The server SDKs treat HTTP 402 as success only for order creation. An
+unexpected 402 from status, proof, checkout, signature, or cancellation fails
+closed.
 
 ### What payment fields are authoritative?
 
@@ -114,10 +115,10 @@ The public order status union contains:
 - `EXPIRED`
 - `CANCELLED`
 
-The server SDK's `waitForConfirmation(...)` returns on
-`PAYMENT_CONFIRMED`, `FAILED`, `EXPIRED`, or `CANCELLED`. If a deployment uses
-`INVOICED` for additional workflow steps, handle that lifecycle explicitly rather
-than assuming it is equivalent to confirmation.
+The server SDK's `waitForConfirmation(...)` returns on successful
+`PAYMENT_CONFIRMED` or `INVOICED`, and on `FAILED`, `EXPIRED`, or `CANCELLED`.
+Core can move a DIRECT order from `PAYMENT_CONFIRMED` to `INVOICED` in one
+watcher transaction, so a poller may observe only `INVOICED`.
 
 ### Can an order be canceled?
 
@@ -129,14 +130,17 @@ An already-broadcast on-chain token transfer cannot be canceled by the SDK.
 
 ### How should API errors be handled?
 
-Non-402 failures from the server SDK are surfaced as `GoatX402Error` with:
+TypeScript API failures are surfaced as the runtime-exported `GoatFlowError`
+with:
 
 - `message`
 - optional `code`
 - optional HTTP `status`
 
-Branch on stable status/code fields when the deployed API documents them. Avoid
-parsing free-form error messages as a long-term contract.
+Authenticated-request failures also preserve `responseBody`.
+`instanceof GoatFlowError` is supported. Branch on stable status/code fields
+when the deployed API documents them; avoid parsing free-form error messages as
+a long-term contract.
 
 ---
 
@@ -168,9 +172,15 @@ example.
 
 ### Is there an order proof API?
 
-Yes. `getOrderProof(orderId)` returns a signed proof response containing payment
-fields such as order ID, transaction hash, log index, payer, recipient, amount,
-chain, and flow. The SDK documents it as available after payment confirmation.
+Yes. `getOrderProof(orderId)` returns a server-issued payment record containing
+the order ID, transaction hash, log index, payer, recipient, amount, source
+chain, and status.
+
+Its historical `signature` field is not a signature or attestation. It is
+Keccak256 over `order_id`, `tx_hash`, `log_index`, `from_addr`, `to_addr`,
+`amount_wei`, and `from_chain_id`, concatenated in that exact order without
+separators; it does not cover `status`. Verify the transaction hash on-chain
+when independent proof is required.
 
 ---
 
@@ -258,6 +268,12 @@ QuickPay supports `idempotency_key`. The client recognizes reused sessions and
 does not rebroadcast an unpaid reused session unless the caller explicitly
 forces it. For Products, an explicit idempotency key also supports recovery when
 the current manifest has changed.
+
+Status polling applies `pollTimeoutMs` as a hard cap and preserves a known
+transaction hash across transient failures. A known transaction reported
+`EXPIRED` receives five bounded grace polls for a possible late confirmation.
+Reconcile by session ID and transaction hash instead of rebroadcasting after an
+ambiguous post-broadcast failure.
 
 ---
 

@@ -21,7 +21,8 @@ Compatibility rules:
 - Keep `GOATX402_API_SECRET` and merchant signing on the backend.
 - Treat browser callbacks as UX events, not fulfillment proof.
 - Read payment terms and supported capabilities from runtime responses.
-- Preserve existing `goatx402` package and environment-variable names.
+- Use the current `goatflow-*` public package names. Preserve fixed protocol
+  fields and `GOATX402_*` environment-variable names.
 
 Update the canonical documents above instead of adding detailed integration
 instructions to this compatibility page.

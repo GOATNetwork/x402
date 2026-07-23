@@ -116,12 +116,12 @@ experiences.
 
 ## Hosted Checkout
 
-Install `goatx402-checkout`. Configure a bare trusted origin: HTTPS in deployed
+Install `goatflow-checkout`. Configure a bare trusted origin: HTTPS in deployed
 environments, or HTTP only for loopback development. Reject origins containing
 credentials, a path, query, or fragment.
 
 ```ts
-import { GoatCheckout } from 'goatx402-checkout'
+import { GoatCheckout } from 'goatflow-checkout'
 
 const checkout = GoatCheckout({ origin: checkoutOrigin })
 ```
@@ -176,8 +176,8 @@ actual paid amount on the server before granting anything of value.
 
 ## Authenticated Order API
 
-Install `goatx402-sdk-server` on the backend and `goatflow-sdk` in the browser.
-Create `GoatX402Client` only in server code.
+Install `goatflow-sdk-server` on the backend and `goatflow-sdk` in the browser.
+Create `GoatFlowClient` only in server code.
 
 ```ts
 const order = await client.createOrder({
@@ -191,17 +191,15 @@ const order = await client.createOrder({
 ```
 
 HTTP 402 is the expected successful response only for order creation. The
-current TypeScript server SDK's shared authenticated request helper also
-accepts 402 for other methods. Validate every returned shape and fail closed on
-an unexpected 402 or malformed result from Checkout, status, proof, signature,
-or cancellation calls.
+current server SDKs fail closed on an unexpected 402 from Checkout, status,
+proof, signature, or cancellation calls.
 
 The server and browser `Order` types differ. Map them explicitly; do not pass a
 server order to `PaymentHelper` without adding the payer address and converting
 `fromChainId` to `chainId`.
 
 ```ts
-import type { Order as ServerOrder } from 'goatx402-sdk-server'
+import type { Order as ServerOrder } from 'goatflow-sdk-server'
 import type { Order as BrowserOrder } from 'goatflow-sdk'
 
 function toBrowserOrder(
@@ -249,22 +247,30 @@ It also treats any `tx.wait()` exception as failure without classifying
 `TRANSACTION_REPLACED`; reconcile wallet speed-ups and backend status before
 another transfer.
 
-Treat `PAYMENT_CONFIRMED`, `FAILED`, `EXPIRED`, and `CANCELLED` as the terminal
-states implemented by the TypeScript and Go waiters. `INVOICED` is a known
-state, but its fulfillment meaning is deployment-controlled and it is not a
-terminal state in the current waiters. Cancel only a stale
-`CHECKOUT_VERIFIED` order.
+Treat `PAYMENT_CONFIRMED` and `INVOICED` as successful Server SDK order
+terminals; `FAILED`, `EXPIRED`, and `CANCELLED` are closed outcomes. Core can
+advance a DIRECT order to `INVOICED` before a poller observes
+`PAYMENT_CONFIRMED`. Cancel only a stale `CHECKOUT_VERIFIED` order.
 
-The TypeScript waiter's timeout is checked between requests and does not abort
-an in-flight fetch. Do not treat it as a hard wall-clock deadline.
+The TypeScript waiter performs an immediate read, retries transient failures,
+and applies a 30-second per-request deadline bounded by the remaining overall
+timeout. The Go waiter starts after one interval and currently retries every
+status-read error. Preserve that policy difference when designing portable
+polling.
 
-The TypeScript client currently creates plain `Error` objects and structurally
-adds `name`, `status`, and `code`. Preserve those fields, but do not rely on
-`instanceof GoatX402Error`.
+TypeScript API failures use the runtime-exported `GoatFlowError`; preserve its
+`status`, `code`, and authenticated-request `responseBody`, and use
+`instanceof GoatFlowError` when needed.
+
+Treat `getOrderProof()` as a server-issued payment record, not a signed
+attestation. Its historical `signature` field is Keccak256 over `order_id`,
+`tx_hash`, `log_index`, `from_addr`, `to_addr`, `amount_wei`, and
+`from_chain_id`, concatenated without separators in that order; it does not
+cover `status`. Verify the transaction hash on-chain for independent proof.
 
 ## QuickPay Library and CLI
 
-Install `goatx402-quickpay` for public payer or agent automation. Prefer Hosted
+Install `goatflow-quickpay` for public payer or agent automation. Prefer Hosted
 Checkout for an interactive browser DApp unless the application already owns a
 safe wallet backend.
 
@@ -282,12 +288,10 @@ discovery and preflight data. Treat the returned x402 session or MPP challenge
 as the current payment instruction.
 
 Validate generated `agent.md` commands against the installed package metadata.
-The current Testnet3 file may say `npx goatflow-quickpay`, while the supported
-package and binary are `goatx402-quickpay`; do not execute the unverified
-generated name.
+The current package and CLI binary are both `goatflow-quickpay`.
 
 ```ts
-import { QuickPayClient } from 'goatx402-quickpay'
+import { QuickPayClient } from 'goatflow-quickpay'
 
 const quickpay = new QuickPayClient(sharedMerchantLink)
 const manifest = await quickpay.loadManifest()
@@ -313,15 +317,21 @@ do not mix the two interfaces.
 
 Check `result.ok`, `result.status`, `result.session_id`, and `result.tx_hash`.
 The terminal session states are `PAYMENT_CONFIRMED`, `EXPIRED`, `FAILED`, and
-`CANCELLED`; `INVOICED` is not an assumed success state. A reused session is
-polled rather than rebroadcast. Pass literal `force: true` only when it is
-proven that no transfer was broadcast.
+`CANCELLED`; this session model is separate from Server SDK order states and
+does not include `INVOICED`. A reused session is polled rather than
+rebroadcast. Pass literal `force: true` only when it is proven that no transfer
+was broadcast.
 
 Use an explicit idempotency key for durable Product recovery when product,
-token, or rail configuration may change. If QuickPay MPP reports a transaction
-hash without a signed receipt header, do not run the payment again; reconcile
-the transaction and resume verification only when the challenge handle is
-available.
+token, or rail configuration may change. `pollTimeoutMs` is a hard status-poll
+cap; sleeps and status requests are bounded by the remaining time. Preserve a
+known transaction hash across polling failures. A fresh payment may adopt a
+server-confirmed replacement hash, but a forced reused session must not replace
+its local hash with an unrelated prior value. When a known transaction is
+reported `EXPIRED`, allow the client's five bounded grace polls. If QuickPay
+MPP reports a transaction hash without a signed receipt header, do not run the
+payment again; reconcile the transaction and resume verification with the
+preserved challenge context.
 
 ## Standalone GOAT Flow MPP Adapter
 
@@ -424,7 +434,7 @@ app.get(
 
 For Fastify, import `fastifyPreHandler` or `fastifyPlugin` from
 `@goatnetwork/mpp-middleware/fastify`. For Go, bind
-`github.com/goatnetwork/goatx402-mpp-middleware-go` to the local source
+`github.com/goatnetwork/goatflow-mpp-middleware-go` to the local source
 directory with a `replace` directive before importing it.
 
 Configure `merchantId`, `routeCanonical`, and either `ed25519Public` for
@@ -469,7 +479,8 @@ Verify all of the following that apply:
 - server orders are explicitly mapped to browser orders
 - `PaymentHelper.pay()` failure results are handled
 - unexpected authenticated HTTP 402 results fail closed
-- `INVOICED` is not treated as success without a deployment contract
+- Server SDK order handling treats `INVOICED` as a successful terminal while
+  QuickPay session handling uses its separate terminal set
 - browser callbacks cannot fulfill an order by themselves
 - repeated clicks, retries, reloads, and reused sessions cannot double-pay
 - QuickPay uses same-origin endpoints and explicit recovery identifiers

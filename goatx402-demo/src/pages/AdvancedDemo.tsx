@@ -2,14 +2,14 @@
  * Advanced demo — "build your own order".
  *
  * This is the original self-built integration: the app connects the wallet itself
- * and uses goatx402-sdk's PaymentHelper + a backend that creates orders via the
+ * and uses goatflow-sdk's PaymentHelper + a backend that creates orders via the
  * HMAC server SDK. It keeps BOTH the Classic and MPP sub-tabs unchanged. Use this
  * as the reference when you need to construct orders / drive the wallet yourself.
  * For drop-in collection, prefer the Checkout SDK tab.
  */
 import { useState, useCallback } from 'react'
 import { useWallet } from '../hooks/useWallet'
-import { useGoatX402 } from '../hooks/useGoatX402'
+import { useGoatFlow } from '../hooks/useGoatFlow'
 import { useConfig } from '../hooks/useConfig'
 import { useMPP } from '../hooks/useMPP'
 import { ConnectWallet } from '../components/ConnectWallet'
@@ -21,7 +21,7 @@ type Tab = 'classic' | 'mpp'
 
 export function AdvancedDemo() {
   const wallet = useWallet()
-  const goatx402 = useGoatX402(wallet.signer)
+  const goatx402 = useGoatFlow(wallet.signer)
   const { merchantConfig, loading: configLoading, error: configError } = useConfig()
   const mpp = useMPP(wallet.signer)
   const [activeTab, setActiveTab] = useState<Tab>('classic')

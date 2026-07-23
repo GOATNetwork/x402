@@ -4,10 +4,6 @@ Use this guide to register a merchant, configure receiving addresses and
 developer access, manage orders and team members, and publish QuickPay products
 or paid API routes.
 
-Screenshots are illustrative and may show either Mainnet or Testnet3. Always
-confirm the active portal origin, chain, token, address, limits, fees, and
-capabilities before saving configuration or enabling production fulfillment.
-
 ---
 
 ## Table of Contents
@@ -68,8 +64,8 @@ and for standalone MPP only when that Core origin is explicitly configured.
 
 - Keep Mainnet and Testnet3 merchant IDs, credentials, wallets, webhook secrets,
   receiving addresses, and configuration separate.
-- Treat values shown in screenshots as examples. Use the active portal,
-  manifest, challenge, or API response as the source of current configuration.
+- Use the active portal, manifest, challenge, or API response as the source of
+  current configuration.
 - Never share API secrets, webhook secrets, private keys, TOTP setup data,
   recovery codes, active invite codes, or unredacted personal and wallet data.
 
@@ -86,7 +82,8 @@ receipt-verification flow; MPP itself is not limited to this payment method.
 - Mechanism: ERC-20 `transfer`
 - Best for: Tips, donations, simple checkout, QuickPay links, and agent (MPP) purchases
 - Requirements: A receiving address for each supported chain/token pair
-- Records: Confirmed orders can expose transfer proof for operations and reconciliation
+- Records: Confirmed orders can expose a server-issued payment record for
+  operations and reconciliation
 
 **Example:** A content service configures a GOAT Mainnet USDC receiving address.
 A buyer sends USDC to that same-chain merchant address, and GOAT Flow observes
@@ -109,9 +106,8 @@ Use these runtime sources:
 - **Authenticated integration:** order and checkout responses returned by the
   active API deployment.
 
-Screenshots and examples may show Testnet3 values. They do not imply that the
-same chains, token contracts, limits, fees, or merchant capabilities are enabled
-on Mainnet.
+Testnet3 configuration does not imply that the same chains, token contracts,
+limits, fees, or merchant capabilities are enabled on Mainnet.
 
 ---
 
@@ -563,8 +559,9 @@ tokens move directly to the merchant receiving address.
 
 ![Order Detail](./images/35-order-detail.png)
 
-The example shows a Testnet3 DIRECT transfer displayed as `INVOICED`. Do not use
-that example as a universal fulfillment rule.
+The example shows a Testnet3 DIRECT transfer displayed as `INVOICED`, the
+successful terminal state commonly visible after Core records the direct
+transfer and invoice.
 
 ### 11.1 Order status and fulfillment
 
@@ -577,18 +574,24 @@ Current SDK order status values include:
 - `EXPIRED`
 - `CANCELLED`
 
-The TypeScript `waitForConfirmation()` and Go `WaitForConfirmation` helpers do
-not currently stop on `INVOICED`. Use explicit `getOrderStatus()` /
-`GetOrderStatus` polling if the deployed service may advance directly to that
-state between polls.
+The TypeScript `waitForConfirmation()` and Go `WaitForConfirmation` helpers
+return on successful `PAYMENT_CONFIRMED` or `INVOICED`, and on `FAILED`,
+`EXPIRED`, or `CANCELLED`. Core can advance a DIRECT order from
+`PAYMENT_CONFIRMED` to `INVOICED` in one watcher transaction, so a poller may
+observe only `INVOICED`.
 
-Do not treat `INVOICED` by itself as permission to
-fulfill. The target deployment must define whether `PAYMENT_CONFIRMED`,
-`INVOICED`, or another authenticated signal authorizes delivery. Before
-fulfillment, verify the merchant and order identifiers, expected chain, token,
-amount, receiving address, transaction identity, and final accepted status.
-Make fulfillment idempotent so a webhook retry or repeated status poll cannot
-ship twice.
+A terminal status is only one fulfillment input. Read it through an
+authenticated backend call or verified webhook, then verify the merchant and
+order identifiers, expected chain, token, amount, receiving address, and
+transaction identity. Make fulfillment idempotent so a webhook retry or
+repeated status poll cannot ship twice.
+
+`getOrderProof()` / `GetOrderProof()` returns a server-issued payment record.
+Its historical `signature` field is an unsigned Keccak256 digest of
+`order_id`, `tx_hash`, `log_index`, `from_addr`, `to_addr`, `amount_wei`, and
+`from_chain_id`, concatenated without separators in that order. It does not
+cover `status`; verify the transaction hash on-chain when independent proof is
+required.
 
 ### 11.2 Order Reconciliation
 
@@ -755,25 +758,25 @@ For custom amounts, `POST /quickpay/v1/x402/sessions` accepts `merchant_id`, `pa
 For product sessions, send `product_key` with `merchant_id`, `payer_addr`, `chain_id`, `token_contract`, and optional `idempotency_key`.
 
 Browser merchants can open these fixed-price products with
-`goatx402-checkout` and no merchant secret in the page. Dynamic DIRECT carts use
+`goatflow-checkout` and no merchant secret in the page. Dynamic DIRECT carts use
 an HMAC-created Checkout Session instead; see
 [Hosted Checkout](goat-flow-checkout.md).
 
 Agent/CLI entry points:
 
 ```bash
-npx goatx402-quickpay inspect \
+npx goatflow-quickpay inspect \
   https://flow-quickpay.goat.network/quickpay/<merchant_id>/agent.md --json
 
-npx goatx402-quickpay pay-x402 https://flow-quickpay.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatflow-quickpay pay-x402 https://flow-quickpay.goat.network/quickpay/<merchant_id>/agent.md \
   --amount <amount> --token-contract <token_contract> --chain <chain_id> \
   --idempotency-key <payment_intent_id>
 
-npx goatx402-quickpay pay-product https://flow-quickpay.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatflow-quickpay pay-product https://flow-quickpay.goat.network/quickpay/<merchant_id>/agent.md \
   --product <product_key> --token-contract <token_contract> --chain <chain_id> \
   --idempotency-key <payment_intent_id>
 
-npx goatx402-quickpay pay-mpp https://flow-quickpay.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatflow-quickpay pay-mpp https://flow-quickpay.goat.network/quickpay/<merchant_id>/agent.md \
   --route GET:api:data
 ```
 
@@ -790,13 +793,17 @@ Operational rules:
   was broadcast for the reused session.
 - Retain the returned session/order ID and transaction hash, then reconcile the
   trusted backend status before fulfillment.
+- QuickPay session terminal states are `PAYMENT_CONFIRMED`, `EXPIRED`, `FAILED`,
+  and `CANCELLED`; this is separate from the Server SDK order model, which also
+  treats `INVOICED` as a successful terminal state.
+- Polling is bounded by a hard overall timeout. A known transaction hash is
+  retained across poll failures, and `EXPIRED` with a known hash receives five
+  bounded grace polls for a possible late confirmation. Never rebroadcast solely
+  because status polling or receipt verification failed.
 
 Agents should use `manifest.json` as the machine-readable capability and pricing
 surface and validate every command shown by `agent.md` against the installed
-package. The current Testnet3 `agent.md` may show the nonexistent command
-`npx goatflow-quickpay`; the supported package and binary are
-`goatx402-quickpay`. Use the commands above until the generator is corrected,
-and do not execute an unverified replacement package name.
+`goatflow-quickpay` package.
 
 ### 12.4 Paid API Routes (MPP)
 
@@ -1012,7 +1019,7 @@ transfers:
 
 ```bash
 # Install SDKs
-npm install goatflow-sdk goatx402-sdk-server
+npm install goatflow-sdk goatflow-sdk-server
 
 # Backend configuration
 GOATX402_API_URL=https://flow-api.goat.network

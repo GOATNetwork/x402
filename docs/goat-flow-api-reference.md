@@ -66,10 +66,9 @@ Do not expose the API secret or HMAC code in the browser.
 
 ## 3. Merchant endpoint summary
 
-The current public merchant contract uses DIRECT. Rows and fields labeled
-DELEGATE below are compatibility reference for environments explicitly
-provisioned by the GOAT operator; their presence in an SDK does not enable them
-for a merchant.
+The current public merchant contract uses DIRECT. Operator callback rows are
+compatibility reference for environments explicitly provisioned by the GOAT
+operator; their presence in an SDK does not enable them for a merchant.
 
 | Method | Endpoint | Auth | Success |
 | --- | --- | --- | --- |
@@ -77,19 +76,16 @@ for a merchant.
 | Create Hosted Checkout Session | `POST /api/v1/checkout/sessions` | HMAC | `200` |
 | Read order | `GET /api/v1/orders/{order_id}` | HMAC | `200` |
 | Read proof | `GET /api/v1/orders/{order_id}/proof` | HMAC | `200` |
-| Submit DELEGATE calldata signature | `POST /api/v1/orders/{order_id}/calldata-signature` | HMAC | `200` |
+| Submit operator callback signature | `POST /api/v1/orders/{order_id}/calldata-signature` | HMAC | `200` |
 | Cancel order | `POST /api/v1/orders/{order_id}/cancel` | HMAC | `200` |
 | Read merchant | `GET /merchants/{merchant_id}` | Public | `200` |
 
 HTTP `402` is a success only where the endpoint defines a payment challenge
 (create order and the GOAT Flow MPP profile's challenge endpoint).
 
-Compatibility note: the shared authenticated request helpers in both current
-server SDKs currently accept `402` for every authenticated endpoint, not only
-order creation. This is broader than the protocol contract. Do not rely on an
-unexpected `402` from status, proof, checkout, signature, or cancellation calls
-as success; validate the endpoint-specific response shape and treat it as a
-deployment/version mismatch.
+Both current server SDKs accept `402` as success only for order creation.
+Status, proof, checkout, signature, and cancellation calls fail closed on an
+unexpected `402`.
 
 ## 4. Create order
 
@@ -156,48 +152,8 @@ PAYMENT-REQUIRED: <base64-x402-json>
 The documented flow is `ERC20_DIRECT`. The browser transfers the ERC-20 token
 to the merchant receiving address returned as `payTo`.
 
-For an explicitly operator-provisioned DELEGATE merchant, the same request may include
-`callback_calldata`. The authoritative challenge can then return:
-
-- `flow: "ERC20_3009"` or `"ERC20_APPROVE_XFER"`
-- a delegated/TSS `accepts[0].payTo`
-- `extensions.goatx402.receiveType: "DELEGATE"`
-- optional `extensions.goatx402.signatureEndpoint`
-- optional `calldata_sign_request`
-
-`calldata_sign_request` contains:
-
-```json
-{
-  "domain": {
-    "name": "...",
-    "version": "...",
-    "chainId": 2345,
-    "verifyingContract": "0x..."
-  },
-  "types": {
-    "EIP712Domain": [{ "name": "name", "type": "string" }],
-    "Eip3009CallbackData": [{ "name": "token", "type": "address" }]
-  },
-  "primaryType": "Eip3009CallbackData",
-  "message": {
-    "token": "0x...",
-    "owner": "0x...",
-    "payer": "0x...",
-    "amount": "10000000",
-    "orderId": "0x...",
-    "calldataNonce": "1",
-    "deadline": "1780000000",
-    "calldataHash": "0x...",
-    "permit2": "0x..."
-  }
-}
-```
-
-The exact `types` array is challenge-defined. `primaryType` is
-`Eip3009CallbackData` or `Permit2CallbackData`; `permit2` is present only for
-the Permit2 form. Sign the returned domain, types, primary type, and message
-without rebuilding them.
+Operator-provisioned callback fields and signature submission are retained as
+compatibility reference in [Appendix A](#appendix-a-operator-provisioned-callback-compatibility).
 
 ### Normalized server `Order`
 
@@ -242,31 +198,6 @@ function toClientOrder(serverOrder: ServerOrder, fromAddress: string): ClientOrd
 }
 ```
 
-### DELEGATE callback signature
-
-When the normalized order has `calldataSignRequest`:
-
-1. The browser calls `PaymentHelper.signCalldata(order)`.
-2. The browser sends the resulting signature to the merchant backend.
-3. The backend calls `submitCalldataSignature(orderId, signature)` or
-   `SubmitCalldataSignature(...)`.
-
-The returned EIP-712 `domain.chainId` can differ from the transfer source
-chain. The wallet must sign on that callback chain and then return to the order
-source chain before `PaymentHelper.pay()`. The SDK does not switch chains.
-
-The merchant API request is:
-
-```http
-POST /api/v1/orders/{order_id}/calldata-signature
-Content-Type: application/json
-
-{ "signature": "0x..." }
-```
-
-For `ERC20_3009`, `extensions.goatx402.signatureEndpoint` may advertise this
-same endpoint. Keep merchant HMAC credentials on the backend.
-
 ## 5. Read order status
 
 ```http
@@ -298,18 +229,18 @@ Current SDK status values:
 - `EXPIRED`
 - `CANCELLED`
 
-`PAYMENT_CONFIRMED` is the SDK's explicit payment-confirmed state. `INVOICED` is
-a known type value, but whether it is terminal, successful, or intermediate is
-defined by the deployed order/fulfillment contract. Do not classify
-`INVOICED` globally without that contract.
+`PAYMENT_CONFIRMED` and `INVOICED` are successful terminal states for the
+Server SDK order waiters. Core can advance a DIRECT order from
+`PAYMENT_CONFIRMED` to `INVOICED` inside one watcher transaction, so a poller
+may observe only `INVOICED`.
 
-Compatibility caveat: both polling helpers omit `INVOICED` from their terminal
-state checks. Their error behavior also differs: TypeScript polls immediately
-and propagates a `getOrderStatus()` error; Go waits for the first interval and
-suppresses status-read errors until a later poll, timeout, or context
-cancellation. Use explicit polling when you need one portable policy.
-The TypeScript `timeout` is checked between status requests; it does not abort
-an in-flight `fetch`, so it is not a hard wall-clock deadline.
+The polling helpers differ in timing and retry policy. TypeScript reads
+immediately, retries network failures, request timeouts, `408`, `429`, and
+server errors, and surfaces other deterministic 4xx errors. Each request has a
+30-second deadline bounded by the remaining overall timeout. Go waits one
+interval before its first read and retries status-read errors until a later
+poll, timeout, or context cancellation; its default HTTP client also has a
+30-second timeout.
 
 ## 6. Read proof
 
@@ -326,14 +257,25 @@ GET /api/v1/orders/{order_id}/proof
     "from_addr": "0x...",
     "to_addr": "0x...",
     "amount_wei": "10000000",
-    "chain_id": 2345,
-    "flow": "ERC20_DIRECT"
+    "from_chain_id": 2345,
+    "status": "INVOICED"
   },
   "signature": "0x..."
 }
 ```
 
 Retrieve proof after a trusted successful order status.
+
+The historical field name `signature` is misleading: this value is not a
+signature or attestation. It is Keccak256 over these seven payload fields,
+concatenated without separators in this exact order:
+
+```text
+order_id || tx_hash || log_index || from_addr || to_addr || amount_wei || from_chain_id
+```
+
+The digest does not cover `status` or any other field. Anyone can recompute it.
+Verify `payload.tx_hash` on-chain when independent proof is required.
 
 ## 7. Cancel order
 
@@ -364,7 +306,7 @@ Because these two clients expect different token-list field names,
 verify the response shape of your target deployment before relying on the Go
 `SupportedTokens` field.
 
-## 9. Unified Hosted Checkout
+## 9. Hosted Checkout Sessions
 
 ```http
 POST /api/v1/checkout/sessions
@@ -385,27 +327,12 @@ Create a DIRECT session:
 }
 ```
 
-Operator-provisioned compatibility example:
-
-```json
-{
-  "checkout_type": "DELEGATE",
-  "price": "9.99",
-  "callback_calldata": "0x...",
-  "client_reference_id": "cart-123"
-}
-```
-
-The complete server-SDK field mapping is:
+The public DIRECT field mapping is:
 
 | Wire field | TypeScript | Go | Use |
 | --- | --- | --- | --- |
-| `checkout_type` | `checkoutType` | `CheckoutType` | Required: `DIRECT` or `DELEGATE` |
-| `price` | `price` | `Price` | DIRECT or cross-chain DELEGATE decimal price |
-| `chain_id` | `chainId` | `ChainID` | Legacy fixed-wei DELEGATE source chain |
-| `fixed_amount_wei` | `fixedAmountWei` | `FixedAmountWei` | Legacy fixed-wei DELEGATE amount |
-| `callback_calldata` | `callbackCalldata` | `CallbackCalldata` | Optional DELEGATE callback calldata |
-| `acceptable_tokens` | `acceptableTokens` | `AcceptableTokens` | JSON-stringified token addresses for legacy DELEGATE |
+| `checkout_type` | `checkoutType` | `CheckoutType` | Use `DIRECT` for public merchant checkout |
+| `price` | `price` | `Price` | Decimal product or cart price |
 | `success_url` | `successUrl` | `SuccessURL` | Optional allowlisted success redirect |
 | `cancel_url` | `cancelUrl` | `CancelURL` | Optional allowlisted cancel redirect |
 | `client_reference_id` | `clientReferenceId` | `ClientReferenceID` | Optional correlation/idempotency reference |
@@ -414,19 +341,12 @@ The complete server-SDK field mapping is:
 | `public_metadata_json` | `publicMetadata` | `PublicMetadata` | JSON-stringified public metadata |
 | `private_metadata_json` | `privateMetadata` | `PrivateMetadata` | JSON-stringified merchant-only metadata |
 
-The operator-provisioned DELEGATE compatibility contract has two forms:
-
-- decimal price: `checkout_type: "DELEGATE"` plus `price`; Core derives
-  eligible source-chain/token candidates
-- legacy fixed wei: `checkout_type: "DELEGATE"` plus `chain_id`,
-  `fixed_amount_wei`, and `acceptable_tokens`
-
 Use the server SDK so nested values are serialized consistently with HMAC.
 
-The TypeScript `createDelegateCheckoutSession()` and Go
-`CreateDelegateCheckoutSession()` helpers remain as deprecated compatibility
-wrappers around the unified create method. New integrations should call
-`createCheckoutSession()` / `CreateCheckoutSession()` with an explicit type.
+Operator-provisioned fields, deprecated wrappers, and callback trust boundaries
+are isolated in
+[Appendix A](#appendix-a-operator-provisioned-callback-compatibility). They are
+not part of public merchant onboarding.
 
 ### Response
 
@@ -455,8 +375,8 @@ The public page normally owns:
 - `GET /checkout/v1/sessions/{checkout_id}`
 - `GET /checkout/v1/sessions/{checkout_id}/status`
 - `POST /checkout/v1/sessions/{checkout_id}/bind`
-- `POST /checkout/v1/sessions/{checkout_id}/signature` for a DELEGATE callback
-  signature when required
+- `POST /checkout/v1/sessions/{checkout_id}/signature` for an
+  operator-provisioned callback signature when required
 
 Treat the checkout ID as a bearer capability. Browser `onSuccess` is not proof
 for fulfillment.
@@ -474,7 +394,7 @@ QuickPay links are public and same-origin:
 | Create x402 session | `POST /quickpay/v1/x402/sessions` |
 | Read x402 session | `GET /quickpay/v1/x402/sessions/{session_id}` |
 
-The `goatx402-quickpay` package accepts only canonical
+The `goatflow-quickpay` package accepts only canonical
 `/quickpay/{merchant_id}` links over HTTPS (or HTTP loopback for local
 development) and derives all called endpoints from that trusted origin.
 
@@ -520,11 +440,20 @@ replacement for server validation.
 CLI commands:
 
 ```bash
-npx goatx402-quickpay inspect <quickpay-url>
-npx goatx402-quickpay pay-x402 <quickpay-url> --amount 10 --token USDC --chain 2345
-npx goatx402-quickpay pay-product <quickpay-url> --product mug --token USDC --chain 2345
-npx goatx402-quickpay pay-mpp <quickpay-url> --route GET:api:data
+npx goatflow-quickpay inspect <quickpay-url>
+npx goatflow-quickpay pay-x402 <quickpay-url> --amount 10 --token USDC --chain 2345
+npx goatflow-quickpay pay-product <quickpay-url> --product mug --token USDC --chain 2345
+npx goatflow-quickpay pay-mpp <quickpay-url> --route GET:api:data
 ```
+
+QuickPay session terminal states are `PAYMENT_CONFIRMED`, `EXPIRED`, `FAILED`,
+and `CANCELLED`; this is distinct from the Server SDK order model. Session
+polling applies `pollTimeoutMs` as a hard cap, retains known transaction hashes
+across transient status errors, can adopt a server-confirmed replacement hash
+for a fresh payment, and performs five bounded grace polls when a known
+transaction is reported `EXPIRED`. A forced reused session does not replace its
+local hash with an unrelated prior server hash. Reconcile by session ID and
+transaction hash rather than rebroadcasting after an ambiguous failure.
 
 ## 11. GOAT Flow MPP integration endpoints
 
@@ -652,17 +581,15 @@ the original/replacement transaction and the backend order first.
 
 ## 13. Error model
 
-TypeScript authenticated HTTP failures are thrown as an `Error` named
-`GoatX402Error`, with runtime `status`, optional `code`, and `responseBody`
-properties. The client currently constructs a plain `Error` and casts it, so
-do not depend on `instanceof GoatX402Error`. Fetch/network failures may remain
-native errors.
+TypeScript API failures throw the runtime-exported `GoatFlowError`, so
+`instanceof GoatFlowError` is supported. The error preserves optional `code`
+and `status`; authenticated-request failures also preserve the raw
+`responseBody`. Fetch/network failures may remain native errors.
 
 Go returns `*APIError` for non-success HTTP responses, preserving status,
 optional code, and raw body; transport and JSON errors use wrapped Go errors.
 The TypeScript authenticated helper accepts any `2xx` response, while Go
-accepts exactly `200` (plus the broad `402` compatibility behavior noted
-above).
+accepts exactly `200`. Both accept `402` only for order creation.
 
 Browser order payment errors are returned in `PaymentResult`. MPP methods throw
 `MPPError` with stable `code`, optional `httpStatus`, original `cause`, and
@@ -688,10 +615,63 @@ Current package manifests:
 | Package | Version | Runtime |
 | --- | --- | --- |
 | `goatflow-sdk` | `0.2.1` | Node >= 18 outside browser |
-| `goatx402-sdk-server` | `0.2.1` | Node >= 18 |
-| `goatx402-quickpay` | `0.2.3` | Node >= 18 |
-| `goatx402-checkout` | `0.1.0` | Node >= 18 for tooling |
+| `goatflow-sdk-server` | `0.3.0` | Node >= 18 |
+| `goatflow-quickpay` | `0.3.0` | Node >= 18 |
+| `goatflow-checkout` | `0.1.0` | Node >= 18 for tooling |
 | Go server SDK | module source | Go 1.25 |
 
 Package manifests, exported types, and release notes are the version source of
 truth.
+
+## Appendix A: Operator-provisioned callback compatibility
+
+This appendix is not part of public DIRECT onboarding. Use it only when the
+target merchant and environment have an explicit operator deployment contract.
+
+Checkout Session compatibility supports either a decimal `price`, or the
+legacy fixed-wei combination of `chain_id`, `fixed_amount_wei`, and
+`acceptable_tokens`. For these explicitly provisioned sessions,
+`checkout_type` is `DELEGATE`. The additional server-SDK field mapping is:
+
+| Wire field | TypeScript | Go | Use |
+| --- | --- | --- | --- |
+| `chain_id` | `chainId` | `ChainID` | Legacy fixed-wei source chain |
+| `fixed_amount_wei` | `fixedAmountWei` | `FixedAmountWei` | Legacy fixed-wei amount |
+| `acceptable_tokens` | `acceptableTokens` | `AcceptableTokens` | JSON-stringified token addresses |
+| `callback_calldata` | `callbackCalldata` | `CallbackCalldata` | Optional create-time callback calldata |
+
+Only create-time `callback_calldata` in the legacy fixed-wei form is
+server-authoritative and guarantees exact callback bytes. The decimal-price
+form rejects create-time calldata. A
+`public_metadata_json.callback_template` value is only a hosted-UI encoding
+hint: bind-time calldata is buyer-controlled, may be omitted or replaced, and
+is not revalidated against the template. The callback contract must enforce its
+own selector, parameter, and permission policy.
+
+The TypeScript `createDelegateCheckoutSession()` and Go
+`CreateDelegateCheckoutSession()` helpers remain deprecated compatibility
+wrappers around `createCheckoutSession()` / `CreateCheckoutSession()`.
+
+An order-create request may include `callback_calldata`. The authoritative
+challenge can then use `ERC20_3009` or `ERC20_APPROVE_XFER`, return an
+operator-provisioned recipient, and include
+`extensions.goatx402.signatureEndpoint` and `calldata_sign_request`.
+
+The signature request supplies the complete EIP-712 `domain`, `types`,
+`primaryType`, and `message`. `primaryType` is `Eip3009CallbackData` or
+`Permit2CallbackData`; sign the returned structure without rebuilding or
+selectively copying it. Its `domain.chainId` can differ from the transfer
+source chain, and the SDK does not switch either chain for the application.
+
+After the buyer signs, send the signature to the merchant backend. The backend
+submits it with `submitCalldataSignature(orderId, signature)` or
+`SubmitCalldataSignature(...)`:
+
+```http
+POST /api/v1/orders/{order_id}/calldata-signature
+Content-Type: application/json
+
+{ "signature": "0x..." }
+```
+
+Keep merchant HMAC credentials on the backend.

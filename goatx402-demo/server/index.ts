@@ -1,12 +1,12 @@
 /**
- * GoatX402 Demo Backend Server
+ * GOAT Flow Demo Backend Server
  *
- * This server handles GoatX402 API calls securely, keeping API credentials on the backend.
+ * This server handles GOAT Flow API calls securely, keeping API credentials on the backend.
  */
 
 import express from 'express'
 import cors from 'cors'
-import { GoatX402Client } from 'goatx402-sdk-server'
+import { GoatFlowClient } from 'goatflow-sdk-server'
 import 'dotenv/config'
 // `@goatnetwork/mpp-middleware` is loaded LAZILY inside the
 // mppConfigured branch below — see the comment in mountMPPProtectedRoute.
@@ -76,8 +76,8 @@ app.use(express.json())
 
 const GOATX402_API_URL = process.env.GOATX402_API_URL || 'http://localhost:8286'
 
-// Create GoatX402 client
-const goatx402Client = new GoatX402Client({
+// Create GOAT Flow client
+const goatx402Client = new GoatFlowClient({
   baseUrl: GOATX402_API_URL,
   apiKey: process.env.GOATX402_API_KEY || '',
   apiSecret: process.env.GOATX402_API_SECRET || '',
@@ -404,7 +404,7 @@ app.post('/api/create-delegate-checkout', async (req, res) => {
 // bootstrap (see MPP_DEMO_PLAN.md §B-7 + MPP_TEMPO_TESTNET_TESTING.md).
 //
 // The buyer-side flow runs entirely in the browser via MPPClient from
-// goatx402-sdk; this backend's only MPP responsibilities are:
+// goatflow-sdk; this backend's only MPP responsibilities are:
 //   - publish core_url / merchant_id / route options to the frontend
 //     (so the SDK knows where to send /challenge + /verify);
 //   - host Payment-Receipt-protected routes the frontend can hit once

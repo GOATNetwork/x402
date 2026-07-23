@@ -2,7 +2,7 @@
  * Payment Status Component
  */
 
-import { formatUnits, type Order, type PaymentResult } from 'goatx402-sdk'
+import { formatUnits, type Order, type PaymentResult } from 'goatflow-sdk'
 import { config } from '../config'
 
 // Order proof from backend API
