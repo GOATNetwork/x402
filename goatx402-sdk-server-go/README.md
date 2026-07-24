@@ -49,7 +49,6 @@ order, err := client.CreateOrder(ctx, goatflow.CreateOrderParams{
     DappOrderID:  "order-123",
     ChainID:      48816,
     TokenSymbol:  "USDC",
-    TokenContract: "0xToken",
     FromAddress:  "0xPayer",
     AmountWei:    "100000",
 })

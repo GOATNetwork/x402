@@ -84,6 +84,7 @@ arguments:
 
 ```bash
 cp .env.deploy.example .env.deploy
+chmod 600 .env.deploy
 ```
 
 Edit `.env.deploy`:
@@ -109,7 +110,8 @@ you want the helper to add `--verify`.
 For a direct script invocation:
 
 ```bash
-export PRIVATE_KEY=0x...
+read -r -s PRIVATE_KEY
+export PRIVATE_KEY
 export X402_CALLER_ADDRESS=0x...
 forge script script/DeployMerchantCallback.s.sol:DeployMerchantCallback \
   --rpc-url goat_testnet3 --broadcast

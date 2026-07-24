@@ -264,8 +264,11 @@ link origin. In a browser, run this only from an origin allowed by Core CORS;
 the default public deployment is not evidence that any DApp origin is allowed.
 
 Lower-level methods are available when you need to drive the steps yourself:
-`requestChallenge(...)`, `payChallenge(challenge)` (returns the broadcast
-`txHash` immediately), and `verifyChallenge({ challenge, txHash })`.
+`requestChallenge(...)`, `payChallenge(challenge)`, and
+`verifyChallenge(...)`. `payChallenge()` returns `{ txHash, tx }` immediately;
+pass its `txHash` to `verifyChallenge()`. The `tx` value is the ethers
+`TransactionResponse` used to observe a matching fee-bump replacement without
+blocking verification.
 
 ### Error model
 

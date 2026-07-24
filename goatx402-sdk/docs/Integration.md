@@ -59,6 +59,7 @@ interface ServerOrder {
   amountWei: string
   expiresAt: number
   calldataSignRequest?: CalldataSignRequest
+  x402?: X402PaymentRequired
 }
 ```
 

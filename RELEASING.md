@@ -44,11 +44,11 @@ Do not tag or publish while any release blocker remains:
   package-level `packageManager` field, Corepack contract, or equivalent
   machine-enforced version. Record and enforce the reviewed pnpm version before
   treating the workspace gate as reproducible.
-- **Current blocker:** generated declarations that ship in npm tarballs still
-  contain obsolete example origins. `goatx402-sdk-server-ts/dist/index.d.ts`
-  mentions `api.goatx402.io`, and `goatx402-checkout/dist/types.d.ts` mentions
-  `pay.goat.network`. Correct the source comments, rebuild `dist`, and verify the
-  tarballs contain only the active origins from `docs/README.md`.
+- **Current blocker:** a generated declaration that ships in the Checkout npm
+  tarball still contains an obsolete example origin:
+  `goatx402-checkout/dist/types.d.ts` mentions `pay.goat.network`. Correct the
+  source comment, rebuild `dist`, and verify the tarball contains only the
+  active origins from `docs/README.md`.
 - **Per-release blocker:** the candidate must be the exact tip of canonical
   `GOATNetwork/x402` `main`, validated from a clean checkout whose `origin`
   points to that repository.

@@ -129,11 +129,13 @@ const client = new GoatFlowClient({
 Create an order:
 
 ```ts
+// Generate this once per payment intent, persist it, and reuse it on retries.
+const persistedPaymentIntentId = 'payment_intent_01J...'
+
 const order = await client.createOrder({
-  dappOrderId: `order_${Date.now()}`,
+  dappOrderId: persistedPaymentIntentId,
   chainId: 2345,
   tokenSymbol: 'USDC',
-  tokenContract: '0xToken',
   fromAddress: '0xPayer',
   amountWei: '10000000',
 })
@@ -203,7 +205,6 @@ order, err := client.CreateOrder(ctx, goatflow.CreateOrderParams{
     DappOrderID:  "order_123",
     ChainID:      2345,
     TokenSymbol:  "USDC",
-    TokenContract: "0xToken",
     FromAddress:  "0xPayer",
     AmountWei:    "10000000",
 })
@@ -563,8 +564,10 @@ Before broadcasting, `payChallenge()` checks:
 - challenge has not expired
 - provider chain matches challenge chain
 
-It submits the buyer-authorized ERC-20 transfer and returns the broadcast hash
-immediately. It does not wait for a local receipt because
+It submits the buyer-authorized ERC-20 transfer and returns `{ txHash, tx }`
+immediately. Pass `txHash` to `verifyChallenge()`; use the ethers
+`TransactionResponse` in `tx` to observe a matching fee-bump replacement. The
+method does not wait for a local receipt because
 `/mpp/v1/verify` confirms on-chain finality for this integration profile and
 issues its signed receipt. It does not hold or release the transferred tokens.
 
@@ -784,10 +787,9 @@ table.
 
 ### 14.5 Generated declaration examples
 
-Current generated declaration files contain outdated example origins:
-`goatx402-sdk-server-ts/dist/index.d.ts` mentions `api.goatx402.io`, and
-`goatx402-checkout/dist/types.d.ts` mentions `pay.goat.network`. Those are not
-active deployment origins and must not be copied into integrations. The
+The current generated Checkout declaration contains an outdated example
+origin: `goatx402-checkout/dist/types.d.ts` mentions `pay.goat.network`. It is
+not an active deployment origin and must not be copied into integrations. The
 current origins are listed in the [documentation hub](./README.md#service-origins).
 
 ### 14.6 MPP interoperability

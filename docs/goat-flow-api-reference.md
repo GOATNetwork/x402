@@ -518,7 +518,9 @@ be globally identical.
 - checks challenge expiry
 - checks signer provider chain
 - broadcasts `ERC20.transfer(recipient, amountWei)`
-- returns the transaction hash immediately without local confirmation waiting
+- returns `{ txHash, tx }` immediately without local confirmation waiting;
+  pass `txHash` to verification and use the ethers `TransactionResponse` in
+  `tx` for matching transaction-replacement recovery
 
 ### GOAT Flow profile verification
 

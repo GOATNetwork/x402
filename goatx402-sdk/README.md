@@ -138,7 +138,7 @@ Behavior verified by tests:
 
 - `POST /mpp/v1/challenge`: HTTP `402` is success
 - chain and challenge expiry are checked before broadcasting
-- payment returns the broadcast hash without waiting locally for mining
+- `payChallenge()` returns `{ txHash, tx }` without waiting locally for mining
 - `POST /mpp/v1/verify`: `202`, `429`, network errors, and eligible `5xx`
   responses are retried with bounded backoff
 - successful verification requires the GOAT Flow profile's three-segment

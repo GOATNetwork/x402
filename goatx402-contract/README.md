@@ -66,7 +66,8 @@ network. It reads:
 - `TOKEN_DECIMALS` - optional, defaults to `6`
 
 ```bash
-export PRIVATE_KEY=0x...
+read -r -s PRIVATE_KEY
+export PRIVATE_KEY
 TOKEN_DECIMALS=6 forge script script/Deploy.s.sol:DeployScript \
   --rpc-url goat_testnet3 --broadcast
 ```
@@ -115,7 +116,8 @@ contract validates Permit2 signatures. The callback adds authorized-caller
 gating and the exact balance-delta check.
 
 ```bash
-export PRIVATE_KEY=0x...
+read -r -s PRIVATE_KEY
+export PRIVATE_KEY
 export AUTHORIZED_CALLER=0x...
 forge script script/DeployTopupCallback.s.sol:DeployTopupCallback \
   --rpc-url goat_testnet3 --broadcast

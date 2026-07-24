@@ -142,8 +142,9 @@ and `CANCELLED`. This is separate from the Server SDK order model, where
   and agent transcripts, so it warns — prefer the env var or `--wallet-file`.
 - Token: prefer `--token-contract <address>` from the manifest. `--token <SYM>`
   is accepted only when the symbol is unique on that chain.
-- RPC URL (for the on-chain transfer): `--rpc <url>`, or `QUICKPAY_RPC_<chainId>`,
-  or `QUICKPAY_RPC`.
+- RPC URL precedence (highest first): `QUICKPAY_RPC_<chainId>`, `--rpc <url>`,
+  then `QUICKPAY_RPC`. A per-chain environment variable intentionally overrides
+  the explicit flag.
 
 ## Architecture
 

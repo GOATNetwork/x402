@@ -54,7 +54,6 @@ const serverOrder = await client.createOrder({
   dappOrderId: 'my-order-123',
   chainId: 2345,
   tokenSymbol: 'USDC',
-  tokenContract: '0xToken',
   fromAddress,
   amountWei: '1000000',
 })

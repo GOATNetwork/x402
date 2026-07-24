@@ -83,6 +83,12 @@ The operator-supplied mainnet documentation baseline, reviewed July 23, 2026,
 is listed below. It is not encoded as one authoritative matrix in this
 repository; runtime API and portal configuration remain controlling.
 
+The separate [GOAT Network x402 overview](https://docs.goat.network/docs/build/x402)
+may also list Polygon (`137`) and Avalanche (`43114`). They are intentionally
+excluded from this GOAT Flow operator baseline until enabled by the active
+deployment. Do not infer GOAT Flow availability from the protocol overview
+alone.
+
 | Chain | Chain ID | Explorer |
 | --- | ---: | --- |
 | GOAT Network | `2345` | [explorer.goat.network](https://explorer.goat.network) |

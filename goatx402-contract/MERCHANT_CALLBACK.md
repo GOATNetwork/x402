@@ -300,7 +300,8 @@ registration. The canonical source is
 Upgrade commands:
 
 ```bash
-export PRIVATE_KEY=0x...
+read -r -s PRIVATE_KEY
+export PRIVATE_KEY
 export PROXY_ADDRESS=0x...
 
 forge script script/DeployMerchantCallback.s.sol:UpgradeMerchantCallback \

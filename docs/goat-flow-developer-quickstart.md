@@ -39,7 +39,7 @@ have been verified there; switch every origin and chain ID together.
 npm install goatflow-sdk-server
 
 # Custom browser wallet flow
-npm install goatflow-sdk
+npm install goatflow-sdk ethers
 
 # Hosted payment window
 npm install goatflow-checkout
@@ -144,12 +144,14 @@ function toClientOrder(order: ServerOrder, fromAddress: string): ClientOrder {
   }
 }
 
-export async function createOrder(fromAddress: string): Promise<ClientOrder> {
+export async function createOrder(
+  dappOrderId: string,
+  fromAddress: string,
+): Promise<ClientOrder> {
   const order = await client.createOrder({
-    dappOrderId: `order_${Date.now()}`,
+    dappOrderId,
     chainId: 48816,
     tokenSymbol: 'USDC',
-    tokenContract: '0xToken',
     fromAddress,
     amountWei: '10000000',
   })
@@ -157,6 +159,10 @@ export async function createOrder(fromAddress: string): Promise<ClientOrder> {
   return toClientOrder(order, fromAddress)
 }
 ```
+
+Generate `dappOrderId` once for the cart or payment intent, persist it before
+the request, and reuse the same value for a retry. Do not derive it from the
+current timestamp inside `createOrder()`.
 
 Under the hood, successful order creation returns HTTP `402 Payment Required`.
 The server SDK treats it as success and normalizes the x402 body.

@@ -96,7 +96,7 @@ const session = await client.createCheckoutSession({
   price: '19.95',
   clientReferenceId: 'cart_9f31',
   lineItems: [
-    { name: 'Coffee mug', quantity: 1, unit_price: '19.95' },
+    { name: 'Coffee mug', quantity: 1, amount: '19.95' },
   ],
   publicMetadata: { campaign: 'summer' },
   privateMetadata: { internal_customer_id: 'cus_42' },
