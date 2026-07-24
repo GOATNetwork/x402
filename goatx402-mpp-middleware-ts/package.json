@@ -22,8 +22,11 @@
   },
   "files": [
     "dist",
-    "src"
+    "src/*.ts"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

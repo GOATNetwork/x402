@@ -125,6 +125,9 @@ URL is `https://flow-api.goat.network`.
 ## License
 
 No single repository-wide license has been declared. The four release-managed
-npm packages each include their own MIT `LICENSE` file. Other directories may
-carry package-level license metadata; review the relevant module before reuse
-or redistribution.
+npm packages, the two merchant-side MPP receipt middleware packages
+(`goatx402-mpp-middleware-ts/`, `goatx402-mpp-middleware-go/`), and the
+Solidity contracts package (`goatx402-contract/`) each include their own MIT
+`LICENSE` file. Each package's MIT license covers that package only.
+Directories without their own `LICENSE` file remain all-rights-reserved;
+review the relevant module before reuse or redistribution.
