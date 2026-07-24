@@ -20,9 +20,9 @@ import (
 //
 // Field semantics:
 //
-//   - ReceiptID: deterministic identifier derived via DeriveReceiptID.
-//     Used by merchants for idempotent receipt storage and lost-response
-//     recovery.
+//   - ReceiptID: deterministic identifier derived by the issuing
+//     platform per the MPP receipt spec. Used by merchants for
+//     idempotent receipt storage and lost-response recovery.
 //   - ChallengeID: the MPP challenge nonce the buyer redeemed.
 //   - OrderID: x402d order identifier this receipt finalizes.
 //   - MerchantID: opaque merchant identifier; scopes the receipt so a
@@ -90,8 +90,9 @@ var ErrInvalidReceipt = errors.New("receiptspec: invalid receipt")
 //
 // Validate does NOT verify the signature; use VerifyEd25519 / VerifyHMAC
 // for that. It also does NOT check that ReceiptID matches the
-// deterministic derivation — callers that need that check should call
-// DeriveReceiptID and compare explicitly (constant-time comparison is
+// deterministic derivation — callers that need that check should
+// re-derive the identifier per the MPP receipt spec and compare
+// explicitly (constant-time comparison is
 // only required when comparing untrusted receipt_ids in a security
 // boundary; see constantTimeEqual).
 func (r Receipt) Validate() error {

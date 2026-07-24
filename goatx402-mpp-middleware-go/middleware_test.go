@@ -51,7 +51,7 @@ func validReceipt(merchantID, routeCanonical string) receiptspec.Receipt {
 // priv. Fatal-errors the test on any encoding failure.
 func signedHeaderEd25519(t *testing.T, r receiptspec.Receipt, priv ed25519.PrivateKey) string {
 	t.Helper()
-	sig := receiptspec.SignEd25519(priv, r)
+	sig := testSignEd25519(priv, r)
 	hdr, err := receiptspec.EncodeHeader(r, sig, receiptspec.AlgEd25519)
 	if err != nil {
 		t.Fatalf("EncodeHeader: %v", err)
@@ -63,7 +63,7 @@ func signedHeaderEd25519(t *testing.T, r receiptspec.Receipt, priv ed25519.Priva
 // secret under HMAC-SHA256.
 func signedHeaderHMAC(t *testing.T, r receiptspec.Receipt, secret []byte) string {
 	t.Helper()
-	sig := receiptspec.SignHMAC(secret, r)
+	sig := testSignHMAC(secret, r)
 	hdr, err := receiptspec.EncodeHeader(r, sig, receiptspec.AlgHMACSHA256)
 	if err != nil {
 		t.Fatalf("EncodeHeader: %v", err)
@@ -592,7 +592,7 @@ func TestMiddleware_Concurrent(t *testing.T) {
 			r.LogIndex = uint(i)
 			// Re-derive ReceiptID so we don't accidentally collide
 			// across iterations.
-			r.ReceiptID = receiptspec.DeriveReceiptID(r.ChallengeID, r.OrderID, r.TxHash, r.LogIndex)
+			r.ReceiptID = testDeriveReceiptID(r.ChallengeID, r.OrderID, r.TxHash, r.LogIndex)
 			hdr := signedHeaderEd25519(t, r, priv)
 			req := httptest.NewRequest("GET", "/r", nil)
 			req.Header.Set(HeaderName, hdr)
@@ -641,8 +641,9 @@ func TestMiddleware_PanicsOnBadConfig(t *testing.T) {
 }
 
 func TestVerify_CrossValidation_HelpersFromReceiptSpec(t *testing.T) {
-	// Sanity: build a receipt using ONLY receiptspec helpers
-	// (DeriveReceiptID, SignEd25519, EncodeHeader) and feed it
+	// Sanity: build a receipt using the local test issuance helpers
+	// (testDeriveReceiptID, testSignEd25519) plus receiptspec.EncodeHeader
+	// and feed it
 	// through verify(). This pins that the middleware contract still
 	// matches the spec contract — any drift here breaks cross-module
 	// interop.
@@ -654,7 +655,7 @@ func TestVerify_CrossValidation_HelpersFromReceiptSpec(t *testing.T) {
 	const route = "GET:/x"
 	r := validReceipt(merchant, route)
 	r.LogIndex = 7
-	r.ReceiptID = receiptspec.DeriveReceiptID(r.ChallengeID, r.OrderID, r.TxHash, r.LogIndex)
+	r.ReceiptID = testDeriveReceiptID(r.ChallengeID, r.OrderID, r.TxHash, r.LogIndex)
 	if err := r.Validate(); err != nil {
 		t.Fatalf("validReceipt fixture should validate: %v", err)
 	}

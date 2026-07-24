@@ -1,15 +1,18 @@
-// Package receiptspec defines the canonical on-wire format, deterministic
-// identifier derivation, and signature primitives for the GOAT Flow MPP
+// Package receiptspec defines the canonical on-wire format and the
+// signature-verification primitives for the GOAT Flow MPP
 // (Merchant Payment Protocol) Payment-Receipt.
 //
 // # Bundling note
 //
 // This package is bundled with the source-only Go middleware module so an
 // application needs only one local `replace` directive for the x402 repository
-// checkout. It is the Go source of the receipt contract used by this middleware.
+// checkout. It is the verification-side subset of the receipt contract used
+// by this middleware: wire layout, decoding, and verification primitives are
+// included, while issuance-side signing APIs are intentionally not part of
+// this public module.
 //
-// The signing-bytes layout, field order, and ID derivation are by
-// design immutable until the protocol version is bumped.
+// The signing-bytes layout and field order are by design immutable
+// until the protocol version is bumped.
 // TestSigningBytes_GoldenFixture (sign_golden_test.go) pins this package's
 // SigningBytes output to the hand-verified golden hex used by the TS
 // cross-validation fixture, so a drift fails the build here rather than
@@ -34,7 +37,8 @@
 //
 //   - The set and order of binding fields in Receipt (see receipt.go).
 //   - The length-prefixed framing layout in signingBytes (see sign.go).
-//   - The DeriveReceiptID hash construction (see id.go).
+//   - The receipt-identifier derivation defined by the MPP receipt
+//     spec (issuance-side; not exported by this verification-side copy).
 //   - The wire encodings EncodeHeader / EncodeEnvelope (see encode.go).
 //
 // # Module Boundary

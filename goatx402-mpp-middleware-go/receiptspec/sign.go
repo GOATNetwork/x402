@@ -73,9 +73,9 @@ func signingBytes(w io.Writer, r Receipt) {
 // SigningBytes returns the canonical signing-byte sequence for r as a
 // freshly allocated slice. This is convenient for tests, debugging,
 // and callers that want to feed the bytes into a non-streaming
-// primitive. Production signing/verification should prefer the
-// streaming helpers (SignEd25519, SignHMAC, VerifyEd25519,
-// VerifyHMAC) which avoid the intermediate allocation.
+// primitive. Production verification should prefer the streaming
+// helpers (VerifyEd25519, VerifyHMAC) which avoid the intermediate
+// allocation.
 func SigningBytes(r Receipt) []byte {
 	buf := &byteBuffer{}
 	signingBytes(buf, r)
@@ -112,26 +112,18 @@ func (bb *byteBuffer) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// SignEd25519 returns an ed25519 signature over r's canonical signing
-// bytes. The bytes are first hashed with SHA-256 and then fed to
-// ed25519.Sign; ed25519 itself hashes again internally, so the outer
-// SHA-256 is purely a domain-separation / message-size measure (it
-// bounds the message ed25519 sees to a fixed 32 bytes regardless of
-// receipt size, which makes batch-verify cost predictable).
-//
-// priv MUST be a valid 64-byte ed25519 private key. Passing a nil or
-// wrong-length key will panic inside ed25519.Sign — callers are
-// responsible for key validation at config-load time.
-func SignEd25519(priv ed25519.PrivateKey, r Receipt) []byte {
-	h := sha256.New()
-	signingBytes(h, r)
-	return ed25519.Sign(priv, h.Sum(nil))
-}
-
 // VerifyEd25519 returns true iff sig is a valid ed25519 signature over
-// r's canonical signing bytes under pub. ed25519.Verify is itself
-// constant-time with respect to the public key and signature, so no
-// additional timing hardening is required here.
+// r's canonical signing bytes under pub. The signing bytes are first
+// hashed with SHA-256 and the fixed 32-byte digest is the message
+// ed25519 verifies; ed25519 itself hashes again internally, so the
+// outer SHA-256 is purely a domain-separation / message-size measure
+// (it bounds the message ed25519 sees to 32 bytes regardless of
+// receipt size, which makes batch-verify cost predictable). The
+// issuing platform signs the same construction.
+//
+// ed25519.Verify is itself constant-time with respect to the public
+// key and signature, so no additional timing hardening is required
+// here.
 //
 // pub MUST be a valid 32-byte ed25519 public key. A nil or
 // wrong-length key returns false (ed25519.Verify returns false rather
@@ -142,14 +134,14 @@ func VerifyEd25519(pub ed25519.PublicKey, r Receipt, sig []byte) bool {
 	return ed25519.Verify(pub, h.Sum(nil), sig)
 }
 
-// SignHMAC computes HMAC-SHA256(secret, signingBytes(r)). Use this
-// when a per-merchant shared-secret model is desired instead of the
-// platform-wide ed25519 public key. The MAC is 32 bytes.
-//
-// secret MAY be of any length; HMAC-SHA256 internally rehashes
+// hmacSum computes HMAC-SHA256(secret, signingBytes(r)); the MAC is 32
+// bytes. secret MAY be of any length; HMAC-SHA256 internally rehashes
 // over-long keys and zero-pads short ones, but operationally callers
 // SHOULD use at least 32 random bytes.
-func SignHMAC(secret []byte, r Receipt) []byte {
+//
+// Unexported on purpose: this public copy of the receipt spec is
+// verification-side only and does not expose issuance/signing APIs.
+func hmacSum(secret []byte, r Receipt) []byte {
 	mac := hmac.New(sha256.New, secret)
 	signingBytes(mac, r)
 	return mac.Sum(nil)
@@ -157,9 +149,10 @@ func SignHMAC(secret []byte, r Receipt) []byte {
 
 // VerifyHMAC returns true iff sig equals HMAC-SHA256(secret,
 // signingBytes(r)). Comparison uses hmac.Equal, which is
-// constant-time with respect to the secret-derived MAC.
+// constant-time with respect to the secret-derived MAC. The issuing
+// platform computes the same construction.
 func VerifyHMAC(secret []byte, r Receipt, sig []byte) bool {
-	expected := SignHMAC(secret, r)
+	expected := hmacSum(secret, r)
 	return hmac.Equal(expected, sig)
 }
 

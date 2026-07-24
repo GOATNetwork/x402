@@ -3,6 +3,9 @@ package mppmiddleware_test
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -50,7 +53,7 @@ func Example() {
 	// --- Stub the buyer side so the example runs end-to-end. ---
 	issued := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	rcpt := receiptspec.Receipt{
-		ReceiptID:        receiptspec.DeriveReceiptID("chal", "ord", "0xabc", 1),
+		ReceiptID:        exampleDeriveReceiptID("chal", "ord", "0xabc", 1),
 		ChallengeID:      "chal",
 		OrderID:          "ord",
 		MerchantID:       merchantID,
@@ -67,7 +70,7 @@ func Example() {
 		ReceiptIssuedAt:  issued,
 		ReceiptExpiresAt: issued.Add(time.Hour),
 	}
-	sig := receiptspec.SignEd25519(priv, rcpt)
+	sig := exampleSignEd25519(priv, rcpt)
 	hdr, err := receiptspec.EncodeHeader(rcpt, sig, receiptspec.AlgEd25519)
 	if err != nil {
 		panic(err)
@@ -98,4 +101,27 @@ func Example() {
 	fmt.Println(w.Code, w.Body.String())
 
 	// Output: 200 paid for tx=0xabc amount=1000000
+}
+
+// exampleSignEd25519 / exampleDeriveReceiptID replicate the platform
+// issuer's constructions so the Example stays self-contained: the
+// bundled receiptspec package is verification-side only and does not
+// export signing or receipt-id derivation APIs. In production these
+// values arrive from the platform inside the Payment-Receipt header —
+// merchants never sign receipts themselves.
+
+func exampleSignEd25519(priv ed25519.PrivateKey, r receiptspec.Receipt) []byte {
+	sum := sha256.Sum256(receiptspec.SigningBytes(r))
+	return ed25519.Sign(priv, sum[:])
+}
+
+func exampleDeriveReceiptID(challengeID, orderID, txHash string, logIndex uint) string {
+	h := sha256.New()
+	h.Write([]byte(challengeID))
+	h.Write([]byte(orderID))
+	h.Write([]byte(txHash))
+	var li [8]byte
+	binary.BigEndian.PutUint64(li[:], uint64(logIndex))
+	h.Write(li[:])
+	return base64.RawURLEncoding.EncodeToString(h.Sum(nil)[:16])
 }
