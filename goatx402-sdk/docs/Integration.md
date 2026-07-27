@@ -10,7 +10,7 @@ For the complete GOAT Flow API guide, see
 ## 1. Install and runtime boundary
 
 ```bash
-npm install goatflow-sdk
+npm install goatflow-sdk ethers
 ```
 
 The package manifest declares:
