@@ -73,6 +73,52 @@ func TestGetOrderProofDecodesCurrentWireShape(t *testing.T) {
 	}
 }
 
+func TestIdentifiersAreEncodedAsSinglePathSegments(t *testing.T) {
+	var requestURIs []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestURIs = append(requestURIs, r.RequestURI)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	client := testClient(server)
+	ctx := context.Background()
+	unsafeID := "victim/../cancel?#%"
+
+	if _, err := client.GetOrderStatus(ctx, unsafeID); err != nil {
+		t.Fatalf("GetOrderStatus returned error: %v", err)
+	}
+	if _, err := client.GetOrderProof(ctx, unsafeID); err != nil {
+		t.Fatalf("GetOrderProof returned error: %v", err)
+	}
+	if err := client.SubmitCalldataSignature(ctx, unsafeID, "0xsig"); err != nil {
+		t.Fatalf("SubmitCalldataSignature returned error: %v", err)
+	}
+	if err := client.CancelOrder(ctx, unsafeID); err != nil {
+		t.Fatalf("CancelOrder returned error: %v", err)
+	}
+	if _, err := client.GetMerchant(ctx, unsafeID); err != nil {
+		t.Fatalf("GetMerchant returned error: %v", err)
+	}
+
+	want := []string{
+		"/api/v1/orders/victim%2F..%2Fcancel%3F%23%25",
+		"/api/v1/orders/victim%2F..%2Fcancel%3F%23%25/proof",
+		"/api/v1/orders/victim%2F..%2Fcancel%3F%23%25/calldata-signature",
+		"/api/v1/orders/victim%2F..%2Fcancel%3F%23%25/cancel",
+		"/merchants/victim%2F..%2Fcancel%3F%23%25",
+	}
+	if len(requestURIs) != len(want) {
+		t.Fatalf("request count = %d, want %d: %v", len(requestURIs), len(want), requestURIs)
+	}
+	for i := range want {
+		if requestURIs[i] != want[i] {
+			t.Errorf("request %d URI = %q, want %q", i, requestURIs[i], want[i])
+		}
+	}
+}
+
 func TestWaitForConfirmationTreatsInvoicedAsTerminal(t *testing.T) {
 	// Core flips DIRECT orders PAYMENT_CONFIRMED -> INVOICED inside one watcher
 	// transaction, so a poller may only ever observe INVOICED. Without this

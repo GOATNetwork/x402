@@ -205,16 +205,24 @@ function decodeReceiptPayload(headerValue: string): {
     '='.repeat((4 - (segments[0].length % 4)) % 4)
   let json: string
   try {
+    let bytes: Uint8Array
     if (typeof globalThis.atob === 'function') {
-      json = globalThis.atob(padded)
+      const binary = globalThis.atob(padded)
+      bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
     } else {
       // Node.js fallback (tests). Buffer is not always typed here.
-      const B = (globalThis as { Buffer?: { from(s: string, enc: string): { toString(enc: string): string } } }).Buffer
+      const B = (globalThis as { Buffer?: { from(s: string, enc: string): Uint8Array } }).Buffer
       if (!B) throw new Error('no base64 decoder available')
-      json = B.from(padded, 'base64').toString('utf-8')
+      bytes = B.from(padded, 'base64')
     }
+    json = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
   } catch (err) {
-    throw new MPPError('Payment-Receipt payload is not valid base64url', 'receipt_malformed', undefined, err)
+    throw new MPPError(
+      'Payment-Receipt payload is not valid base64url-encoded UTF-8',
+      'receipt_malformed',
+      undefined,
+      err
+    )
   }
   let body: unknown
   try {

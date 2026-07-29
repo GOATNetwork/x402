@@ -107,6 +107,10 @@ Every protected request includes:
 
 The signature covers top-level body fields plus `api_key`, `timestamp`, and
 `nonce`, sorted and joined as `key=value&...`, then HMAC-SHA256 hex encoded.
+This legacy delimiter format is ambiguous when unrestricted values contain
+`&` or `=`. See the
+[API Reference security note](../docs/goat-flow-api-reference.md#2-hmac-authentication);
+Core and both server SDKs must migrate the canonicalization contract together.
 
 ## API surface
 

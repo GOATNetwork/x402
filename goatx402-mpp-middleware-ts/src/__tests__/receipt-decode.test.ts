@@ -111,6 +111,25 @@ describe("receipt decode integer validation", () => {
 });
 
 describe("receipt decode timestamp validation", () => {
+  it.each([
+    "2023-02-29T00:00:00Z",
+    "2024-02-30T00:00:00Z",
+    "2023-04-31T00:00:00Z",
+  ])("rejects impossible calendar date %s", (timestamp) => {
+    const raw = { ...validReceipt(), block_timestamp: timestamp };
+    expect(() => decodeHeader(buildHeaderFromRaw(raw))).toThrow(/block_timestamp/);
+  });
+
+  it("accepts a valid leap day and numeric offset", () => {
+    const raw = {
+      ...validReceipt(),
+      block_timestamp: "2024-02-29T23:59:59+05:30",
+    };
+    expect(decodeHeader(buildHeaderFromRaw(raw)).receipt.block_timestamp).toBe(
+      "2024-02-29T23:59:59+05:30",
+    );
+  });
+
   it("rejects unparseable block_timestamp", () => {
     const raw = { ...validReceipt(), block_timestamp: "not-a-date" };
     expect(() => decodeHeader(buildHeaderFromRaw(raw))).toThrow(/block_timestamp/);

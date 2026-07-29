@@ -49,6 +49,12 @@ Do not tag or publish while any release blocker remains:
   `goatx402-checkout/dist/types.d.ts` mentions `pay.goat.network`. Correct the
   source comment, rebuild `dist`, and verify the tarball contains only the
   active origins from `docs/README.md`.
+- **Coordinated security blocker:** the current merchant HMAC format joins
+  unescaped `key=value` pairs with `&`. It is not injective for arbitrary
+  scalar values containing `&` or `=`. A complete correction requires one
+  versioned canonicalization contract deployed together in Core and both
+  server SDKs. Do not publish a server SDK that claims unrestricted scalar
+  signing until that coordinated migration is implemented and tested.
 - **Per-release blocker:** the candidate must be the exact tip of canonical
   `GOATNetwork/x402` `main`, validated from a clean checkout whose `origin`
   points to that repository.
@@ -169,6 +175,48 @@ Also run the package-specific smoke tests against the built output:
 Do not treat a successful TypeScript compile as proof that the package tarball
 contains these files. The actual `npm pack --json` file list and `.tgz` are the
 authoritative pre-publish artifacts.
+
+### 3a. Validate candidate dependency combinations
+
+When `goatflow-sdk` and `goatflow-quickpay` are released together, test their
+exact candidate tarballs together before creating or pushing any tag. A frozen
+QuickPay lockfile only proves the previous SDK resolution; it does not prove
+the version that QuickPay's `^0.2.0` range will select after publication.
+
+```bash
+sdk_tgz="/tmp/x402-release-tarballs/<goatflow-sdk-filename>"
+quickpay_tgz="/tmp/x402-release-tarballs/<goatflow-quickpay-filename>"
+combo_dir="$(mktemp -d /tmp/x402-candidate-combo.XXXXXX)"
+cd "$combo_dir"
+npm init -y >/dev/null
+npm install --ignore-scripts --no-audit --no-fund \
+  "$sdk_tgz" "$quickpay_tgz"
+npm ls goatflow-quickpay goatflow-sdk --depth=1
+
+node --input-type=module <<'NODE'
+const sdk = await import('goatflow-sdk')
+const quickpay = await import('goatflow-quickpay')
+const backend = await import(
+  './node_modules/goatflow-quickpay/dist/backend-mpp-sdk.js'
+)
+const resolvedSdk = await backend.loadMppSdk()
+
+if (typeof sdk.MPPClient !== 'function') {
+  throw new Error('candidate goatflow-sdk does not export MPPClient')
+}
+if (typeof quickpay.SdkMppBackend !== 'function') {
+  throw new Error('candidate goatflow-quickpay does not export SdkMppBackend')
+}
+if (resolvedSdk.MPPClient !== sdk.MPPClient) {
+  throw new Error('QuickPay did not resolve the installed candidate SDK')
+}
+NODE
+```
+
+Record `npm ls` and the smoke-test result with the tarball checksums. Any
+resolution to a registry copy, workspace link, or different SDK version fails
+the pre-publish gate. A post-publish smoke test remains mandatory, but it is
+evidence after an irreversible action and cannot replace this gate.
 
 ### 4. Check npm identity, versions, and tags
 

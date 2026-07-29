@@ -86,6 +86,10 @@ http.Redirect(w, r, session.URL, http.StatusFound)
 ```
 
 Nested checkout values are JSON-stringified by the client before HMAC signing.
+The current delimiter-based scalar canonicalization is ambiguous when
+unrestricted values contain `&` or `=`. See the
+[API Reference security note](../docs/goat-flow-api-reference.md#2-hmac-authentication);
+Core and both server SDKs must migrate the canonicalization contract together.
 `CheckoutSession.CheckoutType` is a string; the current public merchant path
 uses `DIRECT`. The types retain compatibility-only fields and
 `CreateDelegateCheckoutSession` as a deprecated wrapper for explicitly

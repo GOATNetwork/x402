@@ -44,6 +44,15 @@ function makeReceipt(payload: Record<string, unknown>): string {
   return `${b64}.sig.alg`
 }
 
+function makeReceiptFromBytes(payload: Uint8Array): string {
+  const b64 = Buffer.from(payload)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+  return `${b64}.sig.alg`
+}
+
 interface QueuedResponse {
   status: number
   body?: unknown
@@ -88,6 +97,42 @@ describe('MPPClient.verifyChallenge', () => {
     expect(result.receiptBody.receipt_id).toBe('r1')
     expect(result.challengeId).toBe(CHALLENGE.challengeId)
     expect(sleep).not.toHaveBeenCalled()
+  })
+
+  it('decodes non-ASCII receipt JSON as UTF-8', async () => {
+    const sleep = vi.fn().mockResolvedValue(undefined)
+    const receiptHeader = makeReceipt({ receipt_id: 'r1', product_name: '商品', note: '你好' })
+    const { fn: fetchImpl } = queuedFetch([
+      { status: 200, body: {}, headers: { 'Payment-Receipt': receiptHeader } },
+    ])
+    const client = new MPPClient({
+      coreUrl: 'http://core.test',
+      signer: mockSigner(),
+      fetchImpl,
+      sleep,
+    })
+
+    const result = await client.verifyChallenge({ challenge: CHALLENGE, txHash: '0xtx' })
+    expect(result.receiptBody.product_name).toBe('商品')
+    expect(result.receiptBody.note).toBe('你好')
+  })
+
+  it('rejects malformed UTF-8 in the receipt payload', async () => {
+    const sleep = vi.fn().mockResolvedValue(undefined)
+    const receiptHeader = makeReceiptFromBytes(new Uint8Array([0xc3, 0x28]))
+    const { fn: fetchImpl } = queuedFetch([
+      { status: 200, body: {}, headers: { 'Payment-Receipt': receiptHeader } },
+    ])
+    const client = new MPPClient({
+      coreUrl: 'http://core.test',
+      signer: mockSigner(),
+      fetchImpl,
+      sleep,
+    })
+
+    await expect(
+      client.verifyChallenge({ challenge: CHALLENGE, txHash: '0xtx' })
+    ).rejects.toMatchObject({ code: 'receipt_malformed' })
   })
 
   it('polls past 202 + Retry-After then succeeds, never calling real sleep', async () => {

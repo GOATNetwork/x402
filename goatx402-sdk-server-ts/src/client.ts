@@ -209,6 +209,7 @@ export class GoatFlowClient {
    * Get order status and details (for polling)
    */
   async getOrderStatus(orderId: string, opts?: { timeoutMs?: number }): Promise<OrderProof> {
+    const encodedOrderId = encodeURIComponent(orderId)
     const data = await this.request<{
       order_id: string
       merchant_id: string
@@ -221,7 +222,7 @@ export class GoatFlowClient {
       status: string
       tx_hash?: string
       confirmed_at?: string
-    }>('GET', `/api/v1/orders/${orderId}`, undefined, { timeoutMs: opts?.timeoutMs })
+    }>('GET', `/api/v1/orders/${encodedOrderId}`, undefined, { timeoutMs: opts?.timeoutMs })
 
     return {
       orderId: data.order_id,
@@ -248,7 +249,7 @@ export class GoatFlowClient {
    * `payload.tx_hash` on-chain if you need independent verification.
    */
   async getOrderProof(orderId: string): Promise<OrderProofResponse> {
-    return this.request('GET', `/api/v1/orders/${orderId}/proof`)
+    return this.request('GET', `/api/v1/orders/${encodeURIComponent(orderId)}/proof`)
   }
 
   /**
@@ -257,7 +258,7 @@ export class GoatFlowClient {
   async submitCalldataSignature(orderId: string, signature: string): Promise<void> {
     await this.request<{ status: string; order_id: string }>(
       'POST',
-      `/api/v1/orders/${orderId}/calldata-signature`,
+      `/api/v1/orders/${encodeURIComponent(orderId)}/calldata-signature`,
       { signature }
     )
   }
@@ -269,7 +270,7 @@ export class GoatFlowClient {
   async cancelOrder(orderId: string): Promise<void> {
     await this.request<{ status: string; order_id: string }>(
       'POST',
-      `/api/v1/orders/${orderId}/cancel`,
+      `/api/v1/orders/${encodeURIComponent(orderId)}/cancel`,
       {}
     )
   }
@@ -278,6 +279,7 @@ export class GoatFlowClient {
    * Get merchant information (public API, no authentication required)
    */
   async getMerchant(merchantId: string): Promise<MerchantInfo> {
+    const encodedMerchantId = encodeURIComponent(merchantId)
     const data = await this.publicRequest<{
       merchant_id: string
       name?: string
@@ -289,7 +291,7 @@ export class GoatFlowClient {
         token_symbol: string
         token_contract: string
       }>
-    }>(`/merchants/${merchantId}`)
+    }>(`/merchants/${encodedMerchantId}`)
 
     return {
       merchantId: data.merchant_id,

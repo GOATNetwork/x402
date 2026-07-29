@@ -51,6 +51,14 @@ The server SDK algorithm is:
 5. Join as `key=value&key=value`.
 6. HMAC-SHA256 with the API secret and hex encode.
 
+This legacy delimiter format is not injective for arbitrary values containing
+`&` or `=`. Do not treat it as safely binding unrestricted scalar input. A
+complete correction requires a versioned canonicalization contract deployed
+together in Core and both server SDKs; changing only a client would make its
+signatures incompatible with the current verifier. Until that migration is
+complete, the active deployment must enforce an identical allowed-value policy
+before authentication and request handling.
+
 Current authenticated SDK `GET` methods have no query parameters and therefore
 sign only the authentication fields.
 
