@@ -1,6 +1,6 @@
 // Package receiptspec defines the canonical on-wire format, deterministic
 // identifier derivation, and signature primitives for the GOAT Flow MPP
-// (Merchant Payment Protocol) Payment-Receipt.
+// (Machine Payments Protocol) Payment-Receipt.
 //
 // # Bundling note
 //

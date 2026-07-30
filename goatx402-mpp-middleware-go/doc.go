@@ -1,5 +1,5 @@
 // Package mppmiddleware provides a Go HTTP middleware for verifying
-// GOAT Flow MPP (Merchant Payment Protocol) Payment-Receipt headers on
+// GOAT Flow MPP (Machine Payments Protocol) Payment-Receipt headers on
 // merchant resource servers.
 //
 // # Purpose

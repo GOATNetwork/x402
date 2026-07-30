@@ -33,10 +33,6 @@ In the current GOAT Flow profile, the buyer transfers tokens **directly to the
 merchant's recipient address**. The transfer does not pass through GOAT Flow or
 an intermediary contract, and there is no merchant API key on the buyer side.
 
-> **Note on naming:** MPP means **Machine Payments Protocol**. The Go middleware
-> package comment that expands it as "Merchant Payment Protocol" is a stale
-> source label, not the protocol name.
-
 > **Terminology:** some API and SDK identifiers use `settled` or `settlement`
 > for an observed transfer event or block. In this integration, those terms mean
 > verified on-chain finality. Buyer funds still move directly to the merchant
