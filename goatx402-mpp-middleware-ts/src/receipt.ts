@@ -363,7 +363,49 @@ export function decodeEnvelope(data: string | Uint8Array | Buffer): DecodedHeade
 // either `Z` or a numeric offset `[+-]HH:MM`. Lower-case `t`/`z`
 // separators are NOT accepted by Go's parser, so we don't accept them
 // here either. Round-36 codex P2.
-const RFC3339_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+const RFC3339_TIMESTAMP_RE =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?(Z|[+-](\d{2}):(\d{2}))$/;
+
+function isLeapYear(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
+function isValidRFC3339CalendarValue(value: string): boolean {
+  const match = RFC3339_TIMESTAMP_RE.exec(value);
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const offsetHour = match[9] === undefined ? 0 : Number(match[9]);
+  const offsetMinute = match[10] === undefined ? 0 : Number(match[10]);
+
+  if (month < 1 || month > 12 || hour > 23 || minute > 59 || second > 59) {
+    return false;
+  }
+  if (offsetHour > 23 || offsetMinute > 59) {
+    return false;
+  }
+
+  const daysPerMonth = [
+    31,
+    isLeapYear(year) ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ];
+  return day >= 1 && day <= daysPerMonth[month - 1];
+}
 
 // Closed set of permitted receipt keys. Kept in lock-step with the
 // Receipt interface above; if you add a field there, add it here AND
@@ -460,7 +502,7 @@ function parseReceipt(v: unknown): Receipt {
     // same JSON would be rejected by a Go verifier. Enforce the
     // canonical shape before parsing so cross-language verification
     // is bytewise-consistent.
-    if (!RFC3339_TIMESTAMP_RE.test(s)) {
+    if (!isValidRFC3339CalendarValue(s)) {
       throw new ReceiptDecodeError(`field ${key} must be RFC3339 (e.g. 2026-01-01T00:00:00Z)`);
     }
     const ms = Date.parse(s);

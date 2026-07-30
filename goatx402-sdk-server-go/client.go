@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -255,7 +256,7 @@ func (c *Client) CreateDelegateCheckoutSession(ctx context.Context, params Creat
 // GetOrderStatus retrieves order status and details (for polling)
 func (c *Client) GetOrderStatus(ctx context.Context, orderID string) (*OrderStatus, error) {
 	var status OrderStatus
-	err := c.request(ctx, "GET", "/api/v1/orders/"+orderID, nil, &status)
+	err := c.request(ctx, "GET", "/api/v1/orders/"+url.PathEscape(orderID), nil, &status)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +273,7 @@ func (c *Client) GetOrderStatus(ctx context.Context, orderID string) (*OrderStat
 // on-chain if you need independent verification.
 func (c *Client) GetOrderProof(ctx context.Context, orderID string) (*OrderProofResponse, error) {
 	var proof OrderProofResponse
-	err := c.request(ctx, "GET", "/api/v1/orders/"+orderID+"/proof", nil, &proof)
+	err := c.request(ctx, "GET", "/api/v1/orders/"+url.PathEscape(orderID)+"/proof", nil, &proof)
 	if err != nil {
 		return nil, err
 	}
@@ -287,20 +288,20 @@ func (c *Client) SubmitCalldataSignature(ctx context.Context, orderID, signature
 	}
 
 	var result map[string]any
-	return c.request(ctx, "POST", "/api/v1/orders/"+orderID+"/calldata-signature", body, &result)
+	return c.request(ctx, "POST", "/api/v1/orders/"+url.PathEscape(orderID)+"/calldata-signature", body, &result)
 }
 
 // CancelOrder cancels an order that is in CHECKOUT_VERIFIED status
 // This will restore any reserved balance and refund fees
 func (c *Client) CancelOrder(ctx context.Context, orderID string) error {
 	var result map[string]any
-	return c.request(ctx, "POST", "/api/v1/orders/"+orderID+"/cancel", map[string]any{}, &result)
+	return c.request(ctx, "POST", "/api/v1/orders/"+url.PathEscape(orderID)+"/cancel", map[string]any{}, &result)
 }
 
 // GetMerchant retrieves public merchant information (no authentication required)
 func (c *Client) GetMerchant(ctx context.Context, merchantID string) (*MerchantInfo, error) {
 	var merchant MerchantInfo
-	err := c.publicRequest(ctx, "/merchants/"+merchantID, &merchant)
+	err := c.publicRequest(ctx, "/merchants/"+url.PathEscape(merchantID), &merchant)
 	if err != nil {
 		return nil, err
 	}

@@ -1,99 +1,136 @@
-# GOAT Flow (`goat-x402`)
+# GOAT Flow
 
-This repository is the public integration reference for **GOAT Flow**, GOAT
-Network's x402 payment platform.
+This repository contains the public SDKs, examples, and supporting components
+for integrating GOAT Flow x402 payments and its current MPP adapter on GOAT
+Network.
 
-## What x402 Is Used For
+## Current Public Product
 
-x402 is a payment standard for crypto-native applications.  
-It allows an app or API to request token payment in a structured way, so users can complete payment from their wallet and the service can verify settlement.
+The current public merchant path is **DIRECT**:
 
-In short, GOAT Flow makes blockchain payments a standard part of application
-access, checkout, and service flows.
+- the payer transfers an ERC-20 token to the merchant's configured receiving
+  address;
+- GOAT Flow software creates and tracks the order record; and
+- the merchant confirms fulfillment from server-side order status or webhooks.
 
-## What This Project Provides
-
-This project demonstrates how to integrate x402 in practice, including:
-
-- drop-in hosted checkout for DIRECT and DELEGATE merchants
-- order creation and browser wallet payment workflows
-- TypeScript and Go server SDK integration
-- QuickPay payer/agent tooling and MPP receipt middleware
-- callback/settlement contracts and a runnable demo
-
-## Choose an Integration
+For the smallest integration, use a merchant-configured QuickPay product with
+the hosted checkout. For a custom wallet and order UI, combine the browser SDK
+with a server SDK so API credentials remain on the backend.
 
 | Need | Start here |
 | --- | --- |
-| Hosted browser checkout | [`docs/x402-checkout.md`](docs/x402-checkout.md) and `goatflow-checkout` |
-| Custom wallet/order UI | `goatflow-sdk` + `goatflow-sdk-server` (TypeScript package or [Go source](goatx402-sdk-server-go/README.md)) |
+| Hosted DIRECT checkout | [`docs/goat-flow-checkout.md`](docs/goat-flow-checkout.md) and `goatflow-checkout` |
+| Custom wallet/order UI | `goatflow-sdk` plus `goatflow-sdk-server` or the Go server SDK |
 | Agent or CLI payment | `goatflow-quickpay` |
-| Verify MPP receipts in an API | `@goatnetwork/mpp-middleware` or [Go source](goatx402-mpp-middleware-go/README.md) |
-| Callback contracts | `goatx402-contract` |
+| Merchant onboarding | [`docs/goat-flow-onboarding-guide.md`](docs/goat-flow-onboarding-guide.md) |
+| Merchant operations | [`docs/merchant-guide.md`](docs/merchant-guide.md) |
 
-Hosted Checkout has two server-authoritative forms under one Checkout Sessions
-API: DIRECT uses a decimal `price`; DELEGATE uses either cross-chain decimal
-`price` mode or the compatibility single-chain `fixed_amount_wei` mode. Fixed
-DIRECT QuickPay products can also be opened without a merchant backend.
+Hosted checkout and QuickPay identify a product by merchant and product key.
+Price, accepted tokens, receiving addresses, and other payment configuration
+remain server-authoritative.
 
-## Public Modules
+## Optional And Internal Components
 
-| Package / module | Source | Purpose |
+The repository also contains components that are not required for the public
+DIRECT merchant flow:
+
+- [`MerchantCallback.sol`](goatx402-contract/src/MerchantCallback.sol) is a
+  reference UUPS receiver for an optional, operator-provisioned callback
+  transfer flow. Its
+  `withCalldata` self-call has no selector allowlist; review the
+  [security model](goatx402-contract/MERCHANT_CALLBACK.md#calldata-execution-semantics).
+- [`TopupCallback.sol`](goatx402-contract/src/TopupCallback.sol) is dedicated
+  to the internal `topup-service`; it is not a general merchant contract.
+- [`USDC.sol`](goatx402-contract/src/USDC.sol) and
+  [`USDT.sol`](goatx402-contract/src/USDT.sol) are configurable test tokens,
+  not production token deployments.
+- [MPP](https://mpp.dev/overview) is an independent open protocol, not a GOAT
+  Flow protocol. The MPP clients and middleware in this repository implement
+  GOAT Flow's current JSON-endpoint and signed-receipt profile, require an
+  enabled Core environment, and have no checked-in interoperability test with
+  official MPP SDKs.
+- The demo contains config-gated advanced and MPP examples in addition to its
+  default DIRECT checkout path.
+
+Do not deploy a callback contract merely to use DIRECT checkout.
+
+## Repository Map
+
+| Module | Purpose | Distribution status |
 | --- | --- | --- |
-| `goatflow-checkout` | [`goatx402-checkout`](goatx402-checkout) | Framework-free popup/tab/redirect browser SDK |
-| `goatflow-sdk` | [`goatx402-sdk`](goatx402-sdk) | Low-level EVM wallet payment and MPP client primitives |
-| `goatflow-sdk-server` | [`goatx402-sdk-server-ts`](goatx402-sdk-server-ts) | HMAC-authenticated TypeScript server SDK |
-| Go server SDK (source-only) | [`goatx402-sdk-server-go`](goatx402-sdk-server-go/README.md) | HMAC-authenticated Go SDK; clone this repo and use a local `replace` |
-| `goatflow-quickpay` | [`goatx402-quickpay`](goatx402-quickpay) | Manifest-driven payer/agent library and CLI |
-| `@goatnetwork/mpp-middleware` | [`goatx402-mpp-middleware-ts`](goatx402-mpp-middleware-ts) | Express/Fastify MPP receipt verification |
-| Go MPP middleware (source-only) | [`goatx402-mpp-middleware-go`](goatx402-mpp-middleware-go/README.md) | Go HTTP receipt verification; clone this repo and use a local `replace` |
-| Contracts | [`goatx402-contract`](goatx402-contract) | MerchantCallback, TopupCallback, and test tokens |
-| Demo | [`goatx402-demo`](goatx402-demo) | Hosted Checkout plus advanced Classic/MPP examples |
+| [`goatflow-checkout`](goatx402-checkout/README.md) | Framework-free hosted-checkout browser SDK | Release-managed npm package |
+| [`goatflow-sdk`](goatx402-sdk/README.md) | EVM buyer-wallet transfer and GOAT Flow MPP-profile client primitives | Release-managed npm package |
+| [`goatflow-sdk-server`](goatx402-sdk-server-ts/README.md) | HMAC-authenticated TypeScript server SDK | Release-managed npm package |
+| [`github.com/goatnetwork/goatflow-sdk-server`](goatx402-sdk-server-go/README.md) | HMAC-authenticated Go server SDK | Go module source |
+| [`goatflow-quickpay`](goatx402-quickpay/README.md) | Manifest-driven payer/agent library and CLI | Release-managed npm package |
+| [`@goatnetwork/mpp-middleware`](goatx402-mpp-middleware-ts/README.md) | Express/Fastify verification for the GOAT Flow MPP receipt extension | Source package; not in the npm release runbook |
+| [`github.com/goatnetwork/goatflow-mpp-middleware-go`](goatx402-mpp-middleware-go/README.md) | Go HTTP verification for the GOAT Flow MPP receipt extension | Go module source |
+| [`goatx402-contract`](goatx402-contract/README.md) | Optional/internal callbacks and local test tokens | Foundry project |
+| [`goatx402-demo`](goatx402-demo/README.md) | DIRECT checkout plus optional advanced and MPP examples | Private local demo |
 
-## Chain Support
+The npm release procedure covers exactly the four packages marked
+"Release-managed npm package"; see [`RELEASING.md`](RELEASING.md).
 
-GOAT Flow supports configured **EVM mainnet** chains. Each merchant still needs
-per-chain token, fee, receiving-address, and callback-contract configuration
-before taking payments on a chain.
+## Chain And Token Configuration
 
-| Chain | Chain ID | DIRECT | DELEGATE |
-| --- | ---: | --- | --- |
-| Ethereum | `1` | Yes | Yes |
-| Polygon | `137` | Yes | Yes |
-| BSC | `56` | Yes | Yes |
-| Arbitrum | `42161` | Yes | Yes |
-| Optimism | `10` | Yes | Yes |
-| Avalanche | `43114` | Yes | Yes |
-| Base | `8453` | Yes | Yes |
-| Berachain | `80094` | Yes | Yes |
-| X Layer | `196` | Yes | Yes |
-| GOAT | `2345` | Yes | Yes |
-| Metis | `1088` | Yes | No |
-| Tempo | `4217` | Yes | No |
+Runtime chain and token availability is configuration-driven. A merchant should
+use the chains and tokens returned by the merchant API or shown in the Merchant
+Portal rather than relying on a hard-coded repository list.
 
-DIRECT means the payer transfers ERC-20 tokens directly to the merchant receiving
-address. DELEGATE means EIP-3009 or Permit2 settlement through the merchant
-callback contract and TSS submission. The table describes merchant settlement
-chains: Metis and Tempo are DIRECT-only there. Eligible cross-chain DELEGATE
-source payments are derived from live token/TSS configuration.
+### Supported Mainnet Chains
+
+The operator-supplied mainnet documentation baseline, reviewed July 23, 2026,
+is listed below. It is not encoded as one authoritative matrix in this
+repository; runtime API and portal configuration remain controlling.
+
+The separate [GOAT Network x402 overview](https://docs.goat.network/docs/build/x402)
+may also list Polygon (`137`) and Avalanche (`43114`). They are intentionally
+excluded from this GOAT Flow operator baseline until enabled by the active
+deployment. Do not infer GOAT Flow availability from the protocol overview
+alone.
+
+| Chain | Chain ID | Explorer |
+| --- | ---: | --- |
+| GOAT Network | `2345` | [explorer.goat.network](https://explorer.goat.network) |
+| Ethereum | `1` | [etherscan.io](https://etherscan.io) |
+| BSC | `56` | [bscscan.com](https://bscscan.com) |
+| Arbitrum | `42161` | [arbiscan.io](https://arbiscan.io) |
+| Optimism | `10` | [optimistic.etherscan.io](https://optimistic.etherscan.io) |
+| Base | `8453` | [basescan.org](https://basescan.org) |
+| Berachain | `80094` | [berascan.com](https://berascan.com) |
+| X Layer | `196` | [X Layer Explorer](https://web3.okx.com/explorer/x-layer/evm) |
+| Metis | `1088` | [andromeda-explorer.metis.io](https://andromeda-explorer.metis.io) |
+| Tempo | `4217` | [explore.tempo.xyz](https://explore.tempo.xyz) |
+
+This table is a documentation baseline, not a per-merchant entitlement. Confirm
+the enabled chain/token pairs and receiving addresses in the target environment
+before integration or launch.
+
+For DIRECT, each enabled `(chain, token)` needs a valid merchant receiving
+address and the deployment's associated service-fee/token configuration. Testnet aliases
+inside `goatx402-contract/foundry.toml` are development conveniences and do not
+describe the public production matrix.
 
 ## Development Documentation
 
-Use `docs/README.md` as the canonical documentation hub.
+Use [`docs/README.md`](docs/README.md) as the documentation hub.
 
 Quick references:
-- `DEVELOPER_FAST.md` - concise SDK/backend integration guide.
-- `API.md` - Core API and HMAC authentication reference.
-- `docs/x402-checkout.md` - hosted Checkout Sessions and browser SDK.
-- `docs/README.md` - structured public docs index, including QuickPay, Checkout, MPP, and agent integration paths.
 
-Production API base URL: `https://flow-api.goat.network`.
+- [Developer Quick Start](docs/goat-flow-developer-quickstart.md) - concise integration path.
+- [API Reference](docs/goat-flow-api-reference.md) - Core API and HMAC authentication.
+- [`docs/goat-flow-checkout.md`](docs/goat-flow-checkout.md) - hosted checkout.
+- [`goatx402-demo/README.md`](goatx402-demo/README.md) - runnable demo modes.
+- [`goatx402-contract/README.md`](goatx402-contract/README.md) - contract scope,
+  tests, and deployment tooling.
+
+The complete Mainnet and Testnet3 service-origin map is maintained in
+[`docs/README.md`](docs/README.md#service-origins). The production API base
+URL is `https://flow-api.goat.network`.
 
 ## License
 
-No license has been declared for this repository as a whole. Unless and until
-one is added, all rights are reserved by the project owners (GOAT Network);
-contact them before any external use or redistribution. Exception: the four
-npm packages — `goatflow-sdk`, `goatflow-sdk-server`,
-`goatflow-quickpay`, and `goatflow-checkout` — are each MIT-licensed (see the
-`LICENSE` file inside their source directories).
+No single repository-wide license has been declared. The four release-managed
+npm packages each include their own MIT `LICENSE` file. Other directories may
+carry package-level license metadata; review the relevant module before reuse
+or redistribution.

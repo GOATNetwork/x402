@@ -86,6 +86,35 @@ describe('request boundaries', () => {
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit
     expect(init.signal).toBeInstanceOf(AbortSignal)
   })
+
+  it('encodes order and merchant IDs as single URL path segments', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(orderStatus('PAYMENT_CONFIRMED')))
+      .mockResolvedValueOnce(jsonResponse({}))
+      .mockResolvedValueOnce(jsonResponse({ status: 'ok', order_id: 'order_1' }))
+      .mockResolvedValueOnce(jsonResponse({ status: 'ok', order_id: 'order_1' }))
+      .mockResolvedValueOnce(
+        jsonResponse({ merchant_id: 'merchant_1', receive_type: 'DIRECT', wallets: [] })
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const unsafeId = 'victim/../cancel?#%'
+    const goat = client()
+    await goat.getOrderStatus(unsafeId)
+    await goat.getOrderProof(unsafeId)
+    await goat.submitCalldataSignature(unsafeId, '0xsig')
+    await goat.cancelOrder(unsafeId)
+    await goat.getMerchant(unsafeId)
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      'https://api.example.com/api/v1/orders/victim%2F..%2Fcancel%3F%23%25',
+      'https://api.example.com/api/v1/orders/victim%2F..%2Fcancel%3F%23%25/proof',
+      'https://api.example.com/api/v1/orders/victim%2F..%2Fcancel%3F%23%25/calldata-signature',
+      'https://api.example.com/api/v1/orders/victim%2F..%2Fcancel%3F%23%25/cancel',
+      'https://api.example.com/merchants/victim%2F..%2Fcancel%3F%23%25',
+    ])
+  })
 })
 
 describe('waitForConfirmation', () => {
