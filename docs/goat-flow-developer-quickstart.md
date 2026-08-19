@@ -10,6 +10,7 @@ For deeper details, see the [Integration Guide](./goat-flow-integration.md) and
 | Goal | Start here |
 | --- | --- |
 | GOAT Flow-hosted wallet/transfer UI | Hosted Checkout |
+| Embedded checkout or payment controls in React | QuickPay React SDK |
 | Custom merchant wallet/transfer UI | Server SDK + `PaymentHelper` |
 | Agent or CLI payment | QuickPay |
 | Paid API route | GOAT Flow MPP profile |
@@ -291,7 +292,40 @@ Library options are camelCase. For example, `payX402()` accepts `amount`,
 derives the wire `merchant_id` and `payer_addr`. Do not pass raw API fields such
 as `amount_wei`, `merchant_id`, or `payer_addr` to the library methods.
 
-## Path D: GOAT Flow MPP profile
+## Path D: QuickPay React SDK
+
+Use the React SDK when the host application wants to embed QuickPay UI instead
+of redirecting the buyer to a hosted page.
+
+After your team has access to the React SDK package for the target environment:
+
+```tsx
+import {
+  QuickPayProvider,
+  QuickPayPaymentElement,
+} from '@goatx402/quickpay-react'
+import '@goatx402/quickpay-react/styles.css'
+
+export function Payment({ checkoutId }: { checkoutId: string }) {
+  return (
+    <QuickPayProvider apiBase="https://flow-quickpay.testnet3.goat.network">
+      <QuickPayPaymentElement
+        source={{ type: 'checkout-session', checkoutId, checkoutType: 'direct' }}
+        onPaymentSuccess={(event) => {
+          // UX only. Fulfill from backend status or authenticated webhook.
+          console.log(event.checkoutId, event.status)
+        }}
+      />
+    </QuickPayProvider>
+  )
+}
+```
+
+The SDK exposes Hosted Page links, Embedded Checkout, and Payment Element. A
+checkout session is a payment source, not a fourth UI surface. See the
+[QuickPay React SDK guide](./quickpay-react-sdk.md).
+
+## Path E: GOAT Flow MPP profile
 
 [MPP](https://mpp.dev/overview) is an independent open protocol. The example
 below uses the current GOAT Flow adapter: deployment-specific JSON
@@ -394,6 +428,7 @@ enabled transfer capabilities remain deployment/merchant-specific.
 - [Integration Guide](./goat-flow-integration.md)
 - [API Reference](./goat-flow-api-reference.md)
 - [Hosted Checkout](./goat-flow-checkout.md)
+- [QuickPay React SDK](./quickpay-react-sdk.md)
 - [GOAT Flow MPP Integration](./mpp.md)
 - [Merchant Guide](./merchant-guide.md)
 - [Onboarding Guide](./goat-flow-onboarding-guide.md)

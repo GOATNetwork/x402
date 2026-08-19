@@ -8,6 +8,7 @@ GOAT Flow provides four related integration surfaces:
 
 - authenticated x402 order creation and status/proof APIs
 - hosted checkout for server-created sessions and QuickPay products
+- embedded QuickPay React components for checkout and payment elements
 - public QuickPay discovery and payer-transfer tooling
 - GOAT Flow's current integration profile for the open Machine Payments
   Protocol (MPP), including challenges, receipts, and merchant middleware
@@ -85,9 +86,10 @@ do not infer Registry availability from a local `package.json`.
 1. [Developer Quick Start](./goat-flow-developer-quickstart.md)
 2. [API Reference](./goat-flow-api-reference.md)
 3. [Hosted Checkout](./goat-flow-checkout.md)
-4. [Integration Guide](./goat-flow-integration.md)
-5. [GOAT Flow MPP Integration](./mpp.md)
-6. [DApp Integration Skill](./goat-flow-dapp-integration/SKILL.md)
+4. [QuickPay React SDK](./quickpay-react-sdk.md)
+5. [Integration Guide](./goat-flow-integration.md)
+6. [GOAT Flow MPP Integration](./mpp.md)
+7. [DApp Integration Skill](./goat-flow-dapp-integration/SKILL.md)
 
 The root-level [`API.md`](../API.md) and
 [`DEVELOPER_FAST.md`](../DEVELOPER_FAST.md) files redirect historical links to
@@ -125,6 +127,7 @@ public SDK types do not define their complete policy.
 | Create and track a backend payment | Server SDK order API | HTTP 402 is the expected create-order challenge |
 | Fixed-price public item | QuickPay Product + Checkout SDK | Product price is server-authoritative |
 | Dynamic or server-priced purchase | Hosted Checkout Session | Backend creates the amount and terms |
+| Embedded React checkout | QuickPay React SDK | UI surface is separate from payment source |
 | Custom amount, tip, or donation | QuickPay custom-amount flow | Browser-supplied amount is untrusted for fulfillment |
 | Agent payment for a protected API route | Current GOAT Flow MPP profile | Success requires the profile's signed `Payment-Receipt` |
 
@@ -170,6 +173,7 @@ continuing to the handler.
 | [Developer Quick Start](./goat-flow-developer-quickstart.md) | Developers | First integration |
 | [API Reference](./goat-flow-api-reference.md) | Developers | API contract |
 | [Hosted Checkout](./goat-flow-checkout.md) | Frontend and backend developers | Product and session checkout |
+| [QuickPay React SDK](./quickpay-react-sdk.md) | React developers | Embedded Checkout, Payment Element, and checkout-session source integration |
 | [Integration Guide](./goat-flow-integration.md) | Developers, technical PMs | Detailed architecture and SDK usage |
 | [GOAT Flow MPP Integration](./mpp.md) | Agent and API developers | Protocol boundary plus GOAT-specific challenge, transfer, receipt, and middleware |
 | [DApp Integration Skill](./goat-flow-dapp-integration/SKILL.md) | Coding agents | Integration workflow, deliverables, and acceptance criteria |

@@ -7,12 +7,18 @@ completion UX inside its own application.
 The browser package is `goatflow-checkout`. It opens a GOAT Flow-hosted, top-level
 checkout page; the server packages create authenticated Checkout Sessions.
 
+If the merchant application wants to keep the buyer inside its own React page,
+use the [QuickPay React SDK](./quickpay-react-sdk.md) for Embedded Checkout or
+Payment Element.
+
 ## Choose the right path
 
 | Use case | Recommended path | Merchant backend required |
 | --- | --- | --- |
 | Fixed DIRECT catalog item | QuickPay product + `open({ merchant, productKey })` | No |
 | Dynamic DIRECT cart/amount | Unified Checkout Session + `open({ checkoutId })` | Yes |
+| React embedded checkout block | QuickPay React SDK + checkout-session source | Yes for dynamic sessions |
+| React payment-only panel | QuickPay React SDK Payment Element | Yes for dynamic sessions |
 | Donation or buyer-entered amount | `openCustom({ merchant, amount })` | No, but server-side reconciliation is required |
 | Fully custom wallet/order UI | `goatflow-sdk` + `goatflow-sdk-server` | Yes |
 
@@ -201,6 +207,25 @@ Nested create fields (`acceptableTokens`, `lineItems`, `publicMetadata`, and
 `privateMetadata`) are JSON-stringified by the server SDK before HMAC signing
 because the current signing format accepts scalar fields.
 Do not reproduce that encoding manually when an SDK is available.
+
+## React embedded surfaces
+
+Hosted Checkout, Embedded Checkout, and Payment Element are UI surfaces.
+Checkout sessions, merchant products, and custom amounts are payment sources.
+
+For React applications, pass the same backend-created `checkoutId` to the
+QuickPay React SDK:
+
+```tsx
+<QuickPayPaymentElement
+  source={{ type: 'checkout-session', checkoutId, checkoutType: 'direct' }}
+/>
+```
+
+The React SDK still uses GOAT Flow session status for payment completion. Host
+callbacks are for UI state; fulfillment requires backend status or an
+authenticated webhook. See the
+[QuickPay React SDK guide](./quickpay-react-sdk.md) for props and examples.
 
 ## Fulfillment and security
 
