@@ -14,13 +14,14 @@ contracts.
 5. [Server SDK integration](#5-server-sdk-integration)
 6. [Browser order integration](#6-browser-order-integration)
 7. [Hosted Checkout](#7-hosted-checkout)
-8. [QuickPay](#8-quickpay)
-9. [MPP](#9-mpp)
-10. [Authentication](#10-authentication)
-11. [Order lifecycle](#11-order-lifecycle)
-12. [Errors and retries](#12-errors-and-retries)
-13. [Production checklist](#13-production-checklist)
-14. [Known compatibility notes](#14-known-compatibility-notes)
+8. [QuickPay React SDK](#8-quickpay-react-sdk)
+9. [QuickPay](#9-quickpay)
+10. [MPP](#10-mpp)
+11. [Authentication](#11-authentication)
+12. [Order lifecycle](#12-order-lifecycle)
+13. [Errors and retries](#13-errors-and-retries)
+14. [Production checklist](#14-production-checklist)
+15. [Known compatibility notes](#15-known-compatibility-notes)
 
 ## 1. System boundaries
 
@@ -93,7 +94,17 @@ Use for public payer links, products, custom amounts, agents, and CLI payments.
 The payer discovers a same-origin manifest and does not need merchant API
 credentials.
 
-### 3.4 MPP
+### 3.4 QuickPay React SDK
+
+Use when a React merchant application wants to embed QuickPay UI. The SDK
+exposes Hosted Page links, Embedded Checkout, and Payment Element. These are UI
+surfaces; checkout sessions, merchant products, and custom amounts are payment
+sources.
+
+For dynamic or server-priced purchases, the merchant backend creates a Checkout
+Session and the React page receives only the opaque `checkoutId`.
+
+### 3.5 MPP
 
 Use the current GOAT Flow MPP profile for paid API routes. The buyer obtains the
 profile's JSON challenge, submits a direct transfer, asks Core to verify the
@@ -435,7 +446,38 @@ compatibility fields, deprecated wrappers, signature submission, and the
 - Product and checkout-session prices are server-authoritative.
 - Browser callbacks are non-sensitive UX events, not proof of payment.
 
-## 8. QuickPay
+## 8. QuickPay React SDK
+
+The React SDK is for applications that want QuickPay inside their own React UI.
+It provides:
+
+- Hosted Page link helpers
+- Embedded Checkout
+- Payment Element
+
+The same payment source can be rendered through different UI surfaces:
+
+```tsx
+<QuickPayPaymentElement
+  source={{ type: 'checkout-session', checkoutId, checkoutType: 'direct' }}
+/>
+```
+
+`QuickPayProvider` accepts `apiBase` for third-party embedded hosts. If omitted,
+the host must provide same-origin reverse proxies for the QuickPay public API
+paths.
+
+Callbacks such as `onPaymentBroadcast`, `onStatusChange`, `onError`, and
+`onPaymentSuccess` are host UI hooks. Fulfillment must still use backend status
+or an authenticated webhook.
+
+See the [QuickPay React SDK guide](./quickpay-react-sdk.md) for the full
+component contract.
+
+## 9. QuickPay
+
+Use this section for CLI, agent, and public QuickPay link integrations. For
+React UI components, see [QuickPay React SDK](#8-quickpay-react-sdk).
 
 The canonical public link shape is:
 
@@ -503,14 +545,14 @@ transient failures, and performs five bounded grace polls when a known
 transaction is reported `EXPIRED`. Reconcile by session ID and transaction hash
 instead of rebroadcasting after an ambiguous failure.
 
-## 9. MPP
+## 10. MPP
 
 MPP itself is an independent, payment-method-agnostic open protocol. This
 section documents the current GOAT Flow adapter, not a generic or official
 MPP SDK. Its `/mpp/v1/challenge` and `/mpp/v1/verify` JSON endpoints and signed
 three-segment receipt are deployment-specific contracts.
 
-### 9.1 High-level flow
+### 10.1 High-level flow
 
 ```ts
 import { MPPClient } from 'goatflow-sdk'
@@ -537,7 +579,7 @@ Core/API origin for the deployment. The QuickPay `pay-mpp` adapter instead sets
 QuickPay link origin so manifest, challenge, and verify stay same-origin. Do not
 assume those two deployment origins are universally the same.
 
-### 9.2 Challenge
+### 10.2 Challenge
 
 The GOAT Flow profile's `POST /mpp/v1/challenge` returns HTTP `402` on success.
 
@@ -556,7 +598,7 @@ These challenge fields are authoritative for the payment. Route data in a
 manifest is discovery metadata; after challenge issuance, do not override the
 amount, chain, token, recipient, expiry, MAC, or pricing version.
 
-### 9.3 Broadcast
+### 10.3 Broadcast
 
 Before broadcasting, `payChallenge()` checks:
 
@@ -571,7 +613,7 @@ method does not wait for a local receipt because
 `/mpp/v1/verify` confirms on-chain finality for this integration profile and
 issues its signed receipt. It does not hold or release the transferred tokens.
 
-### 9.4 Verify and retry
+### 10.4 Verify and retry
 
 `POST /mpp/v1/verify` behavior:
 
@@ -590,7 +632,7 @@ The transfer replacement watcher follows only a replacement with the same
 destination and calldata. A user cancellation or unrelated same-nonce
 transaction is not treated as the challenged transfer.
 
-### 9.5 Recovery after broadcast
+### 10.5 Recovery after broadcast
 
 ```ts
 import { MPPError } from 'goatflow-sdk'
@@ -614,7 +656,7 @@ Browser Core CORS must allow the DApp origin and expose the `Payment-Receipt`
 response header. The protected resource must allow that origin and the
 `Payment-Receipt` request header.
 
-## 10. Authentication
+## 11. Authentication
 
 The server SDKs produce:
 
@@ -645,7 +687,7 @@ Operational rules:
 - Never log the API secret or full credential set.
 - Avoid custom signing unless cross-validated against both SDK tests.
 
-## 11. Order lifecycle
+## 12. Order lifecycle
 
 Current TypeScript status values include:
 
@@ -676,9 +718,9 @@ Do not assume every deployment exposes each transition.
 fee refunds, and automatic-expiration effects are not part of the public SDK
 contract; confirm them with the active API before relying on them.
 
-## 12. Errors and retries
+## 13. Errors and retries
 
-### 12.1 Merchant API
+### 13.1 Merchant API
 
 | HTTP | Treatment |
 | --- | --- |
@@ -699,7 +741,7 @@ overall deadline; Go `WaitForConfirmation` currently retries all status-read
 errors. This differs from the MPP verifier, which has its own bounded retry
 policy.
 
-### 12.2 Browser order payment
+### 13.2 Browser order payment
 
 `PaymentHelper.pay()` returns payment failures:
 
@@ -713,7 +755,7 @@ if (!result.success) {
 Wallet user rejection, RPC errors, transfer reverts, and failed receipts are
 converted to the `error` string.
 
-### 12.3 MPP
+### 13.3 MPP
 
 MPP methods throw `MPPError`. Branch on `code`, not message. Important codes
 include:
@@ -739,7 +781,7 @@ Application `onPhase` callbacks can throw outside the SDK's error wrapper and
 replace the expected `MPPError`, including during the `failed` phase. Keep
 phase callbacks non-throwing or catch their errors locally.
 
-## 13. Production checklist
+## 14. Production checklist
 
 1. Keep merchant credentials in a backend secret store.
 2. Use separate credentials and origins per environment.
@@ -756,9 +798,9 @@ phase callbacks non-throwing or catch their errors locally.
     expose the response `Payment-Receipt`, allow that request header, and retain
     recoverable verify context after broadcast.
 
-## 14. Known compatibility notes
+## 15. Known compatibility notes
 
-### 14.1 Polling differences
+### 15.1 Polling differences
 
 Both polling helpers stop on `PAYMENT_CONFIRMED`, `INVOICED`, `FAILED`,
 `EXPIRED`, or `CANCELLED`. TypeScript performs the first read immediately and
@@ -766,33 +808,33 @@ selectively retries transient failures; Go waits one interval and retries every
 status-read error until timeout/context cancellation. Use explicit polling when
 an application needs one cross-language retry policy.
 
-### 14.2 Merchant token-list field
+### 15.2 Merchant token-list field
 
 The TypeScript `getMerchant()` implementation reads `wallets[]` and maps it to
 `supportedTokens`. The Go `MerchantInfo` type expects `supported_tokens`.
 Verify the target deployment response before using the Go field.
 
-### 14.3 Browser compatibility
+### 15.3 Browser compatibility
 
 No tested minimum-version browser matrix is currently published. The browser path
 requires an EIP-1193 wallet/provider and modern features used by ethers and the
 SDK (`BigInt`, `fetch`, `URL`, Promises, and Web Crypto/browser primitives).
 
-### 14.4 Runtime capability
+### 15.4 Runtime capability
 
 Supported chains, tokens, fee configuration, redirect allowlists, and merchant
 payment capabilities are deployment-specific. Discover them from trusted
 runtime responses or operator configuration rather than a static documentation
 table.
 
-### 14.5 Generated declaration examples
+### 15.5 Generated declaration examples
 
 The current generated Checkout declaration contains an outdated example
 origin: `goatx402-checkout/dist/types.d.ts` mentions `pay.goat.network`. It is
 not an active deployment origin and must not be copied into integrations. The
 current origins are listed in the [documentation hub](./README.md#service-origins).
 
-### 14.6 MPP interoperability
+### 15.6 MPP interoperability
 
 The current `MPPClient` and middleware do not implement the standard MPP
 HTTP Challenge/Credential/Receipt exchange. They use GOAT Flow JSON

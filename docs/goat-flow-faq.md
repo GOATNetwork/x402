@@ -241,6 +241,16 @@ goat.open({ merchant, productKey })
 The browser URL contains the merchant and product key, not the product price.
 The product must already exist in the merchant's QuickPay configuration.
 
+### Can I embed QuickPay in my own React page?
+
+Yes. Use the [QuickPay React SDK](./quickpay-react-sdk.md) when you want
+Embedded Checkout or a Payment Element instead of only redirecting to a hosted
+page.
+
+The React SDK uses the same product, custom-amount, and checkout-session payment
+sources. Hosted Page, Embedded Checkout, and Payment Element are UI surfaces.
+`checkoutId` is a payment source, not a fourth component type.
+
 ### What is a dynamic Hosted Checkout Session?
 
 The merchant backend calls `createCheckoutSession(...)` with
@@ -252,6 +262,17 @@ goat.open({ checkoutId })
 ```
 
 The authenticated API key determines the merchant; the request body does not.
+
+The same `checkoutId` can also be passed to the React SDK:
+
+```tsx
+<QuickPayPaymentElement
+  source={{ type: 'checkout-session', checkoutId, checkoutType: 'direct' }}
+/>
+```
+
+Use this when the host owns the surrounding page but wants QuickPay to own the
+payment controls and session polling.
 
 ### What is custom QuickPay?
 
