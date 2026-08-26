@@ -1,163 +1,177 @@
-# GOAT x402 Docs
+# GOAT Flow Docs
 
-This directory is the public documentation hub for **GOAT x402**. It is designed to help different readers quickly find the right material based on their role and use case.
+This is the public documentation hub for **GOAT Flow**, the GOAT Network
+commerce and transfer-verification software for merchants, applications, and
+agents using the x402 protocol.
 
-The documentation here is intended to support four major needs:
-- understanding what GOAT x402 is
-- understanding why it matters
-- onboarding merchants and operators
-- integrating x402 into products, applications, and agent workflows
+GOAT Flow provides four related integration surfaces:
 
----
+- authenticated x402 order creation and status/proof APIs
+- hosted checkout for server-created sessions and QuickPay products
+- public QuickPay discovery and payer-transfer tooling
+- GOAT Flow's current integration profile for the open Machine Payments
+  Protocol (MPP), including challenges, receipts, and merchant middleware
 
-## 1. If you are new to GOAT x402
+GOAT Flow uses the **DIRECT** flow: the buyer transfers an ERC-20 token to the
+merchant receiving address.
 
-Start here if you are seeing GOAT x402 for the first time and want the fastest path to understanding the product.
+[MPP](https://mpp.dev/overview) is an independent open protocol, not a GOAT Flow
+protocol. The current MPP client and middleware implement a GOAT-specific
+JSON-endpoint and signed-receipt profile; they are not official MPP SDKs and do
+not establish generic MPP interoperability.
 
-### Recommended reading order
-1. `what-is-x402.md`  
-   A high-level introduction to what x402 is, what problem it solves, and how GOAT x402 fits into the payment flow.
-
-2. `why-x402.md`  
-   Explains the product value, adoption logic, and the business scenarios where GOAT x402 is most useful.
-
-3. `x402-direct-vs-delegate.md`  
-   Explains the two payment modes and when each one should be used.
-
-4. `x402-faq.md`  
-   A quick-answer reference for common questions around payment flow, user experience, fees, wallets, and operational expectations.
+GOAT Flow provides commerce and verification software for this flow. It observes
+and verifies the on-chain transfer; customer funds do not pass through GOAT Flow.
 
 ---
 
-## 2. For developers
+## Service Origins
 
-This section is for developers, technical PMs, integration engineers, and anyone implementing GOAT x402 in a product.
+| Surface | Testnet3 origin | Mainnet origin | Audience |
+| --- | --- | --- | --- |
+| GOAT Flow | — | `https://goat.network/flow` | Public application |
+| Merchant Portal | `https://flow-merchant.testnet3.goat.network` | `https://flow-merchant.goat.network` | Merchants and merchant team members |
+| Admin Portal | `https://flow-admin.testnet3.goat.network` | `https://flow-admin.goat.network` | Authorized GOAT Flow operators only |
+| QuickPay / Hosted Checkout and same-origin public API | `https://flow-quickpay.testnet3.goat.network` | `https://flow-quickpay.goat.network` | Buyers, agents, and checkout integrations |
+| Flow API / standalone MPP Core | `https://flow-api.testnet3.goat.network` | `https://flow-api.goat.network` | Authenticated server and explicitly configured standalone MPP integrations |
 
-### Recommended reading order
-1. `x402-developer-quickstart.md`  
-   The fastest path to understanding the integration flow and getting started with implementation.
+No Testnet3 counterpart to `goat.network/flow` is included in the current
+deployment list. Do not reuse Mainnet credentials, merchant IDs, or
+configuration in Testnet3. The Admin Portal is not a merchant or public API
+integration surface.
 
-2. `x402-api-reference.md`  
-   Covers API semantics, authentication, order creation, payment flow, status handling, and proof retrieval.
-
-3. `x402-agent-integration-guide.md`  
-   Covers agent workflows, AI-assisted implementation patterns, and agent-oriented integration design.
-
-4. `x402-direct-vs-delegate.md`  
-   Important for understanding the operational difference between payment modes and how they affect product behavior.
-
-5. `x402-integration.md`  
-   A deeper integration and architecture reference for developers who need more detail after the quickstart.
-
-### Developer goal
-By reading the documents above, a developer should be able to understand:
-- how orders are created
-- how the frontend and backend coordinate payment flow
-- what DIRECT and DELEGATE mean in practice
-- how proof, callbacks, and settlement fit into integration design
+The QuickPay client derives session and MPP paths from the trusted
+`flow-quickpay` link origin and ignores absolute endpoint substitution from a
+manifest. `flow-api` is the configured merchant API and standalone MPP Core
+origin; do not silently swap these origins in client code even when a deployment
+currently proxies equivalent routes.
 
 ---
 
-## 3. For business, BD, and partnerships
+## npm Packages
 
-This section is for business-facing teammates who need to understand where GOAT x402 fits, how to explain it, and which scenarios it is best suited for.
+The following packages are published to the public npm Registry. The `latest`
+versions below were verified against the Registry on July 23, 2026; query npm and use a lockfile when
+selecting an exact production version. All four packages require Node.js 18 or
+later.
 
-### Recommended reading order
-1. `what-is-x402.md`  
-   Use this to understand the concept clearly and explain GOAT x402 at a high level.
+| Package | `latest` | Primary use | Install |
+| --- | ---: | --- | --- |
+| [`goatflow-sdk`](https://www.npmjs.com/package/goatflow-sdk) | `0.2.1` | Browser wallet transfers and the current GOAT Flow MPP adapter | `npm install goatflow-sdk` |
+| [`goatflow-sdk-server`](https://www.npmjs.com/package/goatflow-sdk-server) | `0.3.0` | TypeScript merchant backend and HMAC-authenticated APIs | `npm install goatflow-sdk-server` |
+| [`goatflow-checkout`](https://www.npmjs.com/package/goatflow-checkout) | `0.1.0` | Hosted Checkout browser integration | `npm install goatflow-checkout` |
+| [`goatflow-quickpay`](https://www.npmjs.com/package/goatflow-quickpay) | `0.3.0` | QuickPay payer/agent library and CLI | `npm install goatflow-quickpay` |
 
-2. `why-x402.md`  
-   Use this to understand the business value, adoption logic, and why GOAT x402 matters in merchant and agent economy contexts.
-
-3. `x402-direct-vs-delegate.md`  
-   Important for explaining the product model and why different merchants may choose different payment modes.
-
-4. `merchant-guide.md`  
-   Useful for understanding the merchant-facing flow in practice, including onboarding, dashboard usage, API key setup, and operational steps.
-
-5. `x402-faq.md`  
-   Useful as a short-form business-facing support document for common questions.
-
-### Business goal
-By reading the documents above, business-facing teammates should be able to understand:
-- what GOAT x402 is
-- how to position it clearly
-- which scenarios fit DIRECT vs DELEGATE
-- how merchant setup and usage look in practice
+The TypeScript MPP middleware package name
+`@goatnetwork/mpp-middleware`, the Go modules, contracts, and demo are not
+public npm packages. Follow their package README files for source-based use;
+do not infer Registry availability from a local `package.json`.
 
 ---
 
-## 4. For operations, onboarding, and merchant support
+## Start Here
 
-This section is for operations teammates, onboarding managers, merchant support staff, and anyone responsible for helping merchants get started and use the system correctly.
-
-### Recommended reading order
-1. `x402-onboarding-guide.md`  
-   Explains the onboarding flow and the steps merchants need to complete before going live.
-
-2. `merchant-guide.md`  
-   A practical merchant operations guide with screenshots, configuration examples, and merchant-side setup steps.
-
-3. `x402-faq.md`  
-   A useful reference for answering common merchant questions and clarifying expected system behavior.
-
-4. `x402-direct-vs-delegate.md`  
-   Useful when a merchant needs help deciding which payment mode is more appropriate.
-
-### Operations goal
-By reading the documents above, operations and support teammates should be able to understand:
-- how merchants register and configure the system
-- what settings and setup steps matter most
-- what common merchant questions look like
-- how to explain payment mode differences in plain language
+1. [What is GOAT Flow](./what-is-goat-flow.md) explains the product, protocol, and
+   current payment surfaces.
+2. [Why GOAT Flow](./why-goat-flow.md) explains the implementation-backed product
+   value and tradeoffs.
+3. [GOAT Flow FAQ](./goat-flow-faq.md) answers common questions about payments, runtime
+   configuration, QuickPay, MPP, errors, and security boundaries.
 
 ---
 
-## 5. By topic
+## Developer Path
 
-### Product understanding
-- `what-is-x402.md`
-- `why-x402.md`
+1. [Developer Quick Start](./goat-flow-developer-quickstart.md)
+2. [API Reference](./goat-flow-api-reference.md)
+3. [Hosted Checkout](./goat-flow-checkout.md)
+4. [Integration Guide](./goat-flow-integration.md)
+5. [GOAT Flow MPP Integration](./mpp.md)
+6. [DApp Integration Skill](./goat-flow-dapp-integration/SKILL.md)
 
-### Payment mode design
-- `x402-direct-vs-delegate.md`
+The root-level [`API.md`](../API.md) and
+[`DEVELOPER_FAST.md`](../DEVELOPER_FAST.md) files redirect historical links to
+the maintained documents above.
 
-### Merchant onboarding and usage
-- `x402-onboarding-guide.md`
-- `merchant-guide.md`
+Package references:
 
-### Technical integration
-- `x402-developer-quickstart.md`
-- `x402-api-reference.md`
-- `x402-integration.md`
-
-### Agent and AI-driven integration
-- `x402-agent-integration-guide.md`
-
-### Quick answers and common questions
-- `x402-faq.md`
+- [Browser payment SDK](../goatx402-sdk/README.md)
+- [Server SDK](../goatx402-sdk-server-ts/README.md)
+- [Go Server SDK](../goatx402-sdk-server-go/README.md)
+- [Hosted Checkout SDK](../goatx402-checkout/README.md)
+- [QuickPay library and CLI](../goatx402-quickpay/README.md)
+- [TypeScript MPP middleware](../goatx402-mpp-middleware-ts/README.md)
+- [Go MPP middleware](../goatx402-mpp-middleware-go/README.md)
 
 ---
 
-## 6. Full document list
+## Merchant and Operations Path
 
-| Document | Primary Audience | Main Purpose |
+1. [Onboarding Guide](./goat-flow-onboarding-guide.md)
+2. [Merchant Guide](./merchant-guide.md)
+3. [GOAT Flow FAQ](./goat-flow-faq.md)
+
+Merchant registration, approval, account recovery, 2FA, API-key rotation, fee
+configuration, and portal permissions are deployment-operated concerns. Follow
+the deployed portal and the merchant-facing guides for those procedures; the
+public SDK types do not define their complete policy.
+
+---
+
+## Choose an Integration Surface
+
+| Need | Recommended surface | Important boundary |
 | --- | --- | --- |
-| `what-is-x402.md` | Everyone | Explains what x402 is and what GOAT x402 does |
-| `why-x402.md` | Business, product, partnerships | Explains why GOAT x402 matters and where it creates value |
-| `x402-direct-vs-delegate.md` | Everyone | Explains the two payment modes and their differences |
-| `x402-onboarding-guide.md` | Operations, onboarding, merchants | Explains the onboarding flow and go-live steps |
-| `merchant-guide.md` | Merchants, operations, support | Practical merchant setup and usage guide with screenshots |
-| `x402-developer-quickstart.md` | Developers | Fastest path to integration |
-| `x402-api-reference.md` | Developers | API semantics, lifecycle, and integration details |
-| `x402-integration.md` | Developers, technical PMs | Deeper architecture and SDK integration reference |
-| `x402-agent-integration-guide.md` | Developers, AI agent builders | Guidance for agent and AI-assisted integration workflows |
-| `x402-faq.md` | Everyone | Common questions and short-form answers |
+| Create and track a backend payment | Server SDK order API | HTTP 402 is the expected create-order challenge |
+| Fixed-price public item | QuickPay Product + Checkout SDK | Product price is server-authoritative |
+| Dynamic or server-priced purchase | Hosted Checkout Session | Backend creates the amount and terms |
+| Custom amount, tip, or donation | QuickPay custom-amount flow | Browser-supplied amount is untrusted for fulfillment |
+| Agent payment for a protected API route | Current GOAT Flow MPP profile | Success requires the profile's signed `Payment-Receipt` |
 
 ---
 
-## 7. Notes
+## Runtime Configuration
 
-- Images referenced by `merchant-guide.md` are stored in `docs/images/`.
-- This `docs/` directory is intended to serve as the public-facing documentation set in the repository.
-- Older root-level files such as `API.md`, `DEVELOPER_FAST.md`, and `ONBOARDING.md` may still exist in the repository. The files in `docs/` are intended to function as the newer structured documentation set.
+Do not hardcode a global chain, token, minimum, or maximum list from narrative
+documentation.
+
+- Authenticated integrations receive payment terms from the x402 challenge.
+- Public QuickPay integrations discover token limits, products, and MPP routes
+  from the merchant manifest.
+- The server SDK's public merchant lookup exposes the merchant's configured
+  receive type and token entries.
+
+Fees, registration approval, account-security policy, and webhook event names
+vary by environment. Confirm them with the active portal and API.
+
+---
+
+## Fulfillment Rule
+
+Checkout browser callbacks are UX signals, not payment proof. Fulfill only after
+a trusted backend status check or an authenticated webhook whose event name,
+signature rules, and payload have been confirmed for the deployment.
+
+In the current GOAT Flow MPP profile, the protected resource validates the
+profile's signed `Payment-Receipt` with the supplied middleware before
+continuing to the handler.
+
+---
+
+## Document Index
+
+| Document | Primary audience | Purpose |
+| --- | --- | --- |
+| [What is GOAT Flow](./what-is-goat-flow.md) | Everyone | Product and protocol overview |
+| [Why GOAT Flow](./why-goat-flow.md) | Product, business, developers | Product value and tradeoffs |
+| [GOAT Flow FAQ](./goat-flow-faq.md) | Everyone | Payments, configuration, errors, and security |
+| [Onboarding Guide](./goat-flow-onboarding-guide.md) | Merchants, operations | Portal onboarding and go-live workflow |
+| [Merchant Guide](./merchant-guide.md) | Merchants, support | Portal configuration and operations |
+| [Developer Quick Start](./goat-flow-developer-quickstart.md) | Developers | First integration |
+| [API Reference](./goat-flow-api-reference.md) | Developers | API contract |
+| [Hosted Checkout](./goat-flow-checkout.md) | Frontend and backend developers | Product and session checkout |
+| [Integration Guide](./goat-flow-integration.md) | Developers, technical PMs | Detailed architecture and SDK usage |
+| [GOAT Flow MPP Integration](./mpp.md) | Agent and API developers | Protocol boundary plus GOAT-specific challenge, transfer, receipt, and middleware |
+| [DApp Integration Skill](./goat-flow-dapp-integration/SKILL.md) | Coding agents | Integration workflow, deliverables, and acceptance criteria |
+
+Support: [Support@goat.network](mailto:Support@goat.network)
