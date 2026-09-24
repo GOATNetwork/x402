@@ -24,7 +24,7 @@ importers:
     optionalDependencies:
       goatflow-sdk:
         specifier: ^0.2.1 || ^0.3.0
-        version: 0.2.1
+        version: 0.3.0
 
 packages:
 
@@ -430,8 +430,8 @@ packages:
     resolution: {integrity: sha512-VaUJspBffn/LMCJVoMvSAdmscJyS1auj5Zulnn5UoYcY531UWmdwhRWkcGKnGU93m5HSXP9LP2usOryrBtQowA==}
     engines: {node: '>=16'}
 
-  goatflow-sdk@0.2.1:
-    resolution: {integrity: sha512-cvLxu2Ykdab6FmMUMlJqhfKYwROg5PhoPMecyAQcY6yS4FmxPOI4Bd8v4WwZY72j8G6rWnwt8mqTWZgrWPCPEw==}
+  goatflow-sdk@0.3.0:
+    resolution: {integrity: sha512-Pe46sYW9soi/S5rKzlC8G8RVLvBCQQOMkh0706n+vOYV9FGYrbQhBYk8P/pXDgut8OWMsCHy2Xah76MxplNIWA==}
     engines: {node: '>=18'}
 
   human-signals@5.0.0:
@@ -987,7 +987,7 @@ snapshots:
 
   get-stream@8.0.1: {}
 
-  goatflow-sdk@0.2.1:
+  goatflow-sdk@0.3.0:
     dependencies:
       ethers: 6.16.0
     transitivePeerDependencies:
