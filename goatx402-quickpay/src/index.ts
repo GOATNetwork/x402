@@ -5,12 +5,15 @@ export type {
   QuickPayPayMppOptions,
   QuickPayPayProductOptions,
   QuickPayPayX402Options,
+  QuickPayCreateFiatCheckoutLinkOptions,
 } from './client.js'
 export { deriveTarget, endpoints, validateManifest, loadManifest } from './manifest.js'
 export { toWei } from './amount.js'
 export { inspect } from './inspect.js'
 export type { InspectResult } from './inspect.js'
 export { payX402, payProduct, payMpp } from './pay.js'
+export { createFiatCheckoutLink } from './fiat.js'
+export type { CreateFiatCheckoutLinkOptions, FiatCheckoutLink } from './fiat.js'
 export type {
   PaymentBackend,
   MppBackend,

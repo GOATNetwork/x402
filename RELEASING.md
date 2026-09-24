@@ -1,16 +1,17 @@
 # Releasing the npm packages
 
-This repo release-manages exactly four npm packages:
+This repo release-manages four npm package lines (PayKit replaces QuickPay):
 
 | npm package | Directory | Required entry artifacts |
 | --- | --- | --- |
 | `goatflow-sdk` | `goatx402-sdk/` | `dist/index.js`, `dist/index.d.ts` |
 | `goatflow-sdk-server` | `goatx402-sdk-server-ts/` | `dist/index.js`, `dist/index.d.ts` |
-| `goatflow-quickpay` | `goatx402-quickpay/` | `dist/index.js`, `dist/index.d.ts`, `dist/cli.js` |
+| `goatflow-paykit` | `goatx402-quickpay/` | `dist/index.js`, `dist/index.d.ts`, `dist/cli.js` |
 | `goatflow-checkout` | `goatx402-checkout/` | `dist/index.js`, `dist/index.d.ts`, `dist/checkout.global.js` |
 
 The private demo, Foundry project, Go modules, and
-`goatx402-mpp-middleware-ts/` are outside this npm runbook. The presence of a
+`goatx402-mpp-middleware-ts/` are outside this npm runbook. PayKit is the explicitly managed rename of the existing QuickPay line, not a
+new independent product. The presence of a
 `package.json`, package name, or `prepublishOnly` script is not authorization to
 publish a new package. Adding another release-managed package requires an
 explicit process change, license/repository metadata review, release gates, and
@@ -23,32 +24,26 @@ from git is the root cause this process exists to prevent.
 
 ## GOAT Flow package identities
 
-The current released identities are `goatflow-sdk@0.2.1`,
+The previous released identities are `goatflow-sdk@0.2.1`,
 `goatflow-sdk-server@0.3.0`, `goatflow-quickpay@0.3.0`, and
-`goatflow-checkout@0.1.0`. Repository directory names remain `goatx402-*` and
+`goatflow-checkout@0.1.0`. The September 2026 release candidates are
+`goatflow-sdk@0.3.0`, `goatflow-paykit@0.4.0` (new package identity), and
+`goatflow-checkout@0.2.0`. `goatflow-sdk-server@0.4.0` remains **unreleased**
+until its coordinated HMAC blocker below is resolved. Repository directory names remain `goatx402-*` and
 must not be mistaken for npm package names.
 
-Deprecating or otherwise modifying an older `goatx402-*` npm package remains a
+The new PayKit package keeps `goatflow-quickpay` as an executable alias.
+Deprecating or otherwise modifying an older `goatx402-*` or `goatflow-quickpay` npm package remains a
 separate, explicit release action. Do not infer authorization from a GOAT Flow
 release or from documentation changes.
 
 ## Current Blockers And Known Issues
 
-Do not tag or publish while any release blocker remains:
+Do not tag or publish a package while a blocker applicable to that package remains:
 
-- **Current blocker:** all four package-local `pnpm-workspace.yaml` files omit
-  `packages`. pnpm `9.15.9` rejects the required install and gate commands with
-  `packages field missing or empty`. Repair and merge the workspace files
-  through a normal PR, then rerun every package gate.
-- **Current blocker:** the repository does not pin pnpm with a root or
-  package-level `packageManager` field, Corepack contract, or equivalent
-  machine-enforced version. Record and enforce the reviewed pnpm version before
-  treating the workspace gate as reproducible.
-- **Current blocker:** a generated declaration that ships in the Checkout npm
-  tarball still contains an obsolete example origin:
-  `goatx402-checkout/dist/types.d.ts` mentions `pay.goat.network`. Correct the
-  source comment, rebuild `dist`, and verify the tarball contains only the
-  active origins from `docs/README.md`.
+- Package-local workspaces explicitly include `.` and each managed package pins
+  pnpm `10.28.0`; frozen installs must use that version without weakening policy.
+- Checkout declarations use the active hosted origin from `docs/README.md`.
 - **Coordinated security blocker:** the current merchant HMAC format joins
   unescaped `key=value` pairs with `&`. It is not injective for arbitrary
   scalar values containing `&` or `=`. A complete correction requires one
@@ -178,26 +173,26 @@ authoritative pre-publish artifacts.
 
 ### 3a. Validate candidate dependency combinations
 
-When `goatflow-sdk` and `goatflow-quickpay` are released together, test their
+When `goatflow-sdk` and `goatflow-paykit` are released together, test their
 exact candidate tarballs together before creating or pushing any tag. A frozen
 QuickPay lockfile only proves the previous SDK resolution; it does not prove
-the version that QuickPay's `^0.2.0` range will select after publication.
+the version that QuickPay's `^0.2.1 || ^0.3.0` range will select after publication.
 
 ```bash
 sdk_tgz="/tmp/x402-release-tarballs/<goatflow-sdk-filename>"
-quickpay_tgz="/tmp/x402-release-tarballs/<goatflow-quickpay-filename>"
+quickpay_tgz="/tmp/x402-release-tarballs/<goatflow-paykit-filename>"
 combo_dir="$(mktemp -d /tmp/x402-candidate-combo.XXXXXX)"
 cd "$combo_dir"
 npm init -y >/dev/null
 npm install --ignore-scripts --no-audit --no-fund \
   "$sdk_tgz" "$quickpay_tgz"
-npm ls goatflow-quickpay goatflow-sdk --depth=1
+npm ls goatflow-paykit goatflow-sdk --depth=1
 
 node --input-type=module <<'NODE'
 const sdk = await import('goatflow-sdk')
-const quickpay = await import('goatflow-quickpay')
+const quickpay = await import('goatflow-paykit')
 const backend = await import(
-  './node_modules/goatflow-quickpay/dist/backend-mpp-sdk.js'
+  './node_modules/goatflow-paykit/dist/backend-mpp-sdk.js'
 )
 const resolvedSdk = await backend.loadMppSdk()
 
@@ -205,7 +200,7 @@ if (typeof sdk.MPPClient !== 'function') {
   throw new Error('candidate goatflow-sdk does not export MPPClient')
 }
 if (typeof quickpay.SdkMppBackend !== 'function') {
-  throw new Error('candidate goatflow-quickpay does not export SdkMppBackend')
+  throw new Error('candidate goatflow-paykit does not export SdkMppBackend')
 }
 if (resolvedSdk.MPPClient !== sdk.MPPClient) {
   throw new Error('QuickPay did not resolve the installed candidate SDK')
@@ -266,11 +261,11 @@ Read the remote tag back with `git ls-remote --tags` and confirm its peeled
 Preserve this order for whichever packages are in the release:
 
 1. `goatflow-sdk`
-2. `goatflow-quickpay`
+2. `goatflow-paykit`
 3. `goatflow-sdk-server`
 4. `goatflow-checkout`
 
-QuickPay currently advertises `goatflow-sdk` through `^0.2.0` as an optional
+QuickPay currently advertises `goatflow-sdk` through `^0.2.1 || ^0.3.0` as an optional
 dependency, so a newly released SDK in that
 range must be visible on npm before QuickPay is published. Checkout and Server
 do not currently depend on the other release-managed packages, but retaining
@@ -339,11 +334,11 @@ Checkout, also evaluate the installed `dist/checkout.global.js` and confirm
 `window.GoatCheckout` exists. Run QuickPay's installed CLI, including:
 
 ```bash
-npx --no-install goatflow-quickpay --help
+npx --no-install goatflow-paykit --help
 ```
 
 Run Checkout's installed browser IIFE as well. When QuickPay and the SDK are
-released together, use `npm ls goatflow-quickpay goatflow-sdk --depth=1` to
+released together, use `npm ls goatflow-paykit goatflow-sdk --depth=1` to
 confirm QuickPay actually resolves the intended SDK version.
 
 Inspect the installed package contents as well as the imports. A local workspace

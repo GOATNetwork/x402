@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0 - 2026-09-24
+
+- Publish as goatflow-paykit, retaining goatflow-quickpay as an executable alias.
+  Existing imports must move to the new package name; QuickPayClient remains.
+- Accept PayKit share links and prefer PAYKIT_* environment variables while
+  retaining QUICKPAY_* compatibility.
+- Add createFiatCheckoutLink and create-card-checkout for same-origin hosted
+  card payments, with manifest and currency/price validation.
+- Resume existing payments after a merchant disables new custom-amount payments.
+- Preserve confirmed/expired payment recovery fixes from the canonical release.
+- Support both SDK 0.2.x and 0.3.x; keep the existing registry lock resolution
+  until the new SDK satisfies the configured minimumReleaseAge policy.
+
 ## 0.3.0 - 2026-07-21
 
 - Renamed the package and CLI `goatx402-quickpay` to `goatflow-quickpay` for

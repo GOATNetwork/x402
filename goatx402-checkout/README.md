@@ -113,9 +113,12 @@ fields and signature endpoint.
 - A strict `Cross-Origin-Opener-Policy` can sever the popup channel; use redirect
   mode when `onError('opener_unavailable')` is reported.
 
-The default server-created-session path is `/checkout`. Product/custom QuickPay
-uses `/quickpay/checkout`; deployments with a different hosted route can set
-`checkoutPath` and `quickpayCheckoutPath`.
+Server-created sessions default to `/paykit/direct` or `/paykit/delegate`.
+Pass `checkoutType: 'DELEGATE'` for the latter; DIRECT is the default.
+Use `checkoutSessionPath` to override both session routes, for example
+`'/checkout'` when migrating an older hosted deployment. Product/custom
+QuickPay keeps `/quickpay/checkout` and the `quickpayCheckoutPath` /
+legacy `checkoutPath` configuration.
 
 ## Develop
 

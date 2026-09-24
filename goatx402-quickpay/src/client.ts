@@ -11,6 +11,11 @@ import {
   type PayX402Result,
 } from './pay.js'
 import type { LoadedManifest } from './types.js'
+import {
+  createFiatCheckoutLink,
+  type CreateFiatCheckoutLinkOptions,
+  type FiatCheckoutLink,
+} from './fiat.js'
 
 export interface QuickPayClientOptions {
   /** QuickPay web, agent.md, or manifest.json URL. */
@@ -28,6 +33,10 @@ export type QuickPayPayProductOptions = Omit<PayProductOptions, 'input' | 'fetch
 }
 
 export type QuickPayPayMppOptions = Omit<PayMppOptions, 'input' | 'fetchImpl'> & {
+  fetchImpl?: typeof fetch
+}
+
+export type QuickPayCreateFiatCheckoutLinkOptions = Omit<CreateFiatCheckoutLinkOptions, 'input' | 'fetchImpl'> & {
   fetchImpl?: typeof fetch
 }
 
@@ -83,6 +92,15 @@ export class QuickPayClient {
 
   payMpp(opts: QuickPayPayMppOptions): Promise<PayMppResult> {
     return payMpp({
+      ...opts,
+      input: this.input,
+      fetchImpl: opts.fetchImpl ?? this.fetchImpl,
+    })
+  }
+
+  /** Creates a hosted card checkout link for a human payer; never handles card credentials. */
+  createFiatCheckoutLink(opts: QuickPayCreateFiatCheckoutLinkOptions): Promise<FiatCheckoutLink> {
+    return createFiatCheckoutLink({
       ...opts,
       input: this.input,
       fetchImpl: opts.fetchImpl ?? this.fetchImpl,

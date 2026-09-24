@@ -270,10 +270,13 @@ async function runX402Session(intent: SessionIntent): Promise<PayX402Result> {
     // outcome without a single successful snapshot would be a guess — callers use this
     // to fail closed instead.
     let gotSnapshot = false
-    // EXPIRED is terminal when no payment evidence exists. With a known tx hash,
-    // however, a pre-expiry transfer may still bind late and revive the order to
-    // PAYMENT_CONFIRMED. Re-poll a bounded number of times before accepting
-    // EXPIRED so callers are not encouraged to pay twice.
+    // EXPIRED is terminal for a session with no payment evidence, but when we
+    // hold a tx hash (local broadcast or server-reported) it is NOT trustworthy
+    // yet: a pre-expiry payment can still bind late and flip the order
+    // EXPIRED -> PAYMENT_CONFIRMED (facade BindPaymentAndAdvance matches on the
+    // chain event time; the web X402Panel applies the same predicate). Grant a
+    // bounded number of grace re-polls before accepting EXPIRED as final, so a
+    // paid session isn't reported as failed — which would invite a double-pay.
     let expiredGracePolls = 5
     const deadline = now() + intent.pollTimeoutMs
     // Every sleep (normal poll, error retry, EXPIRED grace) is clamped to the
@@ -400,6 +403,13 @@ async function runX402Session(intent: SessionIntent): Promise<PayX402Result> {
     // authoritative amount. ALWAYS report it (restoring payX402's original behavior) —
     // never substitute a server value. If the server somehow reports a different
     // (sanitized) amount, surface a drift note but keep the authoritative figure.
+    //
+    // Like the product branch: a CONFIRMED recovery without the server's tx_hash
+    // (e.g. the create response said PAYMENT_CONFIRMED but every status fetch
+    // failed) must not claim ok:true with tx_hash:"" — the result contract's
+    // tx_hash is non-optional and the caller could neither reconcile nor prove
+    // the payment. The missing-snapshot allowance here covers only the AMOUNT
+    // authority, not fabricated payment evidence.
     if (status === 'PAYMENT_CONFIRMED' && !txHash) {
       throw new Error(
         `recovered a CONFIRMED session (session_id ${sessionId}) but the server did not return its ` +
@@ -499,6 +509,8 @@ async function runX402Session(intent: SessionIntent): Promise<PayX402Result> {
   // hash so a prior server-reported tx cannot overwrite what we just sent.
   const { status, txHash: finalTx } = await pollUntilTerminal(initialStatus, txHash, !reused)
   if (status === 'EXPIRED') {
+    // We DID broadcast; an EXPIRED report here means the watcher hasn't bound the
+    // payment (yet). Make the hazard explicit so no caller re-pays.
     return result(status, finalTx || txHash, {
       note:
         'A payment WAS broadcast for this session but it expired before the payment was observed. ' +
@@ -522,8 +534,15 @@ export async function payX402(o: PayX402Options): Promise<PayX402Result> {
   const pollTimeout = o.pollTimeoutMs ?? 180000
 
   const { manifest, origin, merchantId } = await loadManifest(o.input, fetchImpl)
-  if (!manifest.rails.x402.enabled) {
+  // An explicit idempotency key is a resume. Core recovers that session before
+  // it re-checks the merchant's current rails, so a later crypto-off must not
+  // stop the agent from polling a payment it already broadcast.
+  const recovering = !!o.idempotencyKey?.trim()
+  if (!recovering && !manifest.rails.x402.enabled) {
     throw new Error('x402 custom-amount payments are not available for this merchant')
+  }
+  if (!recovering && manifest.rails.x402.custom_amount === false) {
+    throw new Error('custom-amount x402 payments are not available for this merchant')
   }
   // Preflight the merchant's memo requirement (advertised in the manifest) so the
   // agent gets a clear, actionable error instead of a server 400 after building

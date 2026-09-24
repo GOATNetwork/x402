@@ -1,6 +1,6 @@
 {
   "name": "goatflow-checkout",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "GOAT Flow drop-in browser SDK for unified DIRECT and DELEGATE hosted checkout",
   "type": "module",
   "engines": {
@@ -18,8 +18,8 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "unpkg": "dist/checkout.global.js",
@@ -52,5 +52,6 @@
     "payment",
     "sdk"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "packageManager": "pnpm@10.28.0"
 }

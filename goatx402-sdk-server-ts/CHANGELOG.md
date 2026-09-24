@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 - Unreleased
+
+- Add typed paymentRails, fiatCurrency and fiatAmount fields to hosted checkout,
+  including fiat-only sessions and local rail/amount validation.
+- Add opt-in recoverExistingOrder for order recovery.
+- Preserve URL path encoding and request-error handling from canonical main.
+- Publication is deferred: the legacy delimiter-based HMAC contract still needs
+  a coordinated migration with Core and both server SDKs (see RELEASING.md).
+
 ## 0.3.0 - 2026-07-21
 
 - Treat `INVOICED` as a successful terminal state in `waitForConfirmation`:

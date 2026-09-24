@@ -27,6 +27,21 @@ export type PaymentFlow =
 export interface CreateOrderParams {
   /** Unique order ID from DApp */
   dappOrderId: string
+  /**
+   * Opt into exact-replay recovery for a deterministic topup `dapp_order_id`.
+   *
+   * Default (and the only behaviour for ordinary callers): a `dapp_order_id`
+   * that already exists is REJECTED as a duplicate. Set this when the caller
+   * uses the id as a cross-service idempotency key and an exact retry must
+   * return the already-committed order instead — otherwise a crash after Core
+   * commits but before the caller records the id strands a payable order.
+   *
+   * Two server-side conditions gate it, so setting it is not a way around
+   * duplicate rejection: the id must carry the `topup:` prefix, and the retry
+   * must match the committed order exactly (chain, payer, amount…). Anything
+   * else still fails. Mirrors `RecoverExistingOrder` in the Go server SDK.
+   */
+  recoverExistingOrder?: boolean
   /** Source chain ID (where user pays) */
   chainId: number
   /** Token symbol (e.g., 'USDC', 'USDT') */
@@ -81,8 +96,9 @@ export type OrderStatus =
 /**
  * Parameters for creating a server-authoritative unified hosted-checkout session
  * via {@link GoatFlowClient.createCheckoutSession}. One subsystem covers both
- * DIRECT and DELEGATE merchants — the buyer picks ONLY a token on the hosted page;
- * the amount is always pinned server-side (never from the browser).
+ * DIRECT and DELEGATE merchants. Crypto sessions let the buyer pick a token;
+ * fiat sessions continue to hosted card checkout. Every amount is pinned
+ * server-side (never taken from the browser).
  *
  * The merchant is taken from the authenticated API key — never the body. Field
  * names map onto the snake_case body the core handler parses
@@ -99,10 +115,10 @@ export interface CreateCheckoutSessionParams {
   /** Checkout subsystem: `DIRECT` (buyer pays the merchant) or `DELEGATE` (TSS/Permit2/EIP-3009). */
   checkoutType: 'DIRECT' | 'DELEGATE'
   /**
-   * Token-agnostic decimal price (e.g. `"9.99"`) — body field `price`. Used by DIRECT, and by
+   * Crypto-rail token-agnostic decimal price (e.g. `"9.99"`) — body field `price`. Used by DIRECT, and by
    * cross-chain DELEGATE (PRICE_DECIMAL) where the buyer picks any payable (source chain,
    * token) and the amount is `price * 10^decimals`. (Legacy single-chain DELEGATE uses
-   * `fixedAmountWei` instead.)
+   * `fixedAmountWei` instead.) Omit for a fiat-only session.
    */
   price?: string
   /** Legacy fixed-wei DELEGATE only — pinned source EVM chain ID. Omit for cross-chain price mode. */
@@ -135,7 +151,11 @@ export interface CreateCheckoutSessionParams {
   cancelUrl?: string
   /** Optional line items shown on the hosted checkout. Sent JSON-stringified as body field `line_items_json`. */
   lineItems?: unknown[]
-  /** Optional public metadata (surfaced in the public session view). Sent JSON-stringified as body field `public_metadata_json`. */
+  /**
+   * Optional public metadata (surfaced in the public session view). Sent JSON-stringified as body field `public_metadata_json`.
+   * The top-level key `quickpay` is reserved by the platform (the public QuickPay card entry stamps it on the sessions it
+   * creates); sending it, with any value, is refused with 400 `public_metadata: key "quickpay" is reserved`.
+   */
   publicMetadata?: Record<string, unknown>
   /** Optional private metadata (merchant-only; never exposed publicly). Sent JSON-stringified as body field `private_metadata_json`. */
   privateMetadata?: Record<string, unknown>
@@ -143,7 +163,31 @@ export interface CreateCheckoutSessionParams {
   clientReferenceId?: string
   /** Optional session lifetime in seconds — body field `expires_in`. */
   expiresIn?: number
+  /**
+   * Optional payment rails this session offers — a subset of `['crypto','fiat']`
+   * (default `['crypto']`). Sent as the CSV body field `payment_rails`. Declaring
+   * `'fiat'` requires {@link fiatCurrency} + {@link fiatAmount} and a fiat-eligible,
+   * Connect-enabled merchant.
+   *
+   * Typed as {@link PaymentRail}, not `string[]`: the server rejects anything
+   * else, so a typo (`['fiatt']`) should be a compile error rather than a
+   * runtime 400 from a checkout the buyer is already looking at.
+   */
+  paymentRails?: PaymentRail[]
+  /**
+   * Fiat rail presentment currency (ISO-4217) — any currency the merchant's
+   * connected Stripe account supports (e.g. `'USD'`). Body field `fiat_currency`.
+   */
+  fiatCurrency?: string
+  /** Fiat rail pinned decimal amount (e.g. `'12.50'`) — body field `fiat_amount`. */
+  fiatAmount?: string
 }
+
+/**
+ * A payment rail a hosted-checkout session can offer. The server accepts
+ * exactly these two values.
+ */
+export type PaymentRail = 'crypto' | 'fiat'
 
 /** Result of creating a unified hosted-checkout session. */
 export interface CheckoutSession {

@@ -40,6 +40,7 @@ export type {
   CreateOrderParams,
   CreateCheckoutSessionParams,
   CheckoutSession,
+  PaymentRail,
   CreateDelegateCheckoutSessionParams,
   DelegateCheckoutSession,
   Order,

@@ -63,7 +63,7 @@ describe('createCheckoutSession (unified)', () => {
     const { captured, fetchMock } = mockFetch({
       checkout_id: 'cs_abc',
       checkout_type: 'DIRECT',
-      url: 'https://pay.example.com/checkout?cs=cs_abc',
+      url: 'https://pay.example.com/paykit/direct?cs=cs_abc',
       expires_at: 1893456000,
     })
 
@@ -78,7 +78,7 @@ describe('createCheckoutSession (unified)', () => {
     expect(res).toEqual({
       checkoutId: 'cs_abc',
       checkoutType: 'DIRECT',
-      url: 'https://pay.example.com/checkout?cs=cs_abc',
+      url: 'https://pay.example.com/paykit/direct?cs=cs_abc',
       expiresAt: 1893456000,
     })
     expect(fetchMock).toHaveBeenCalledOnce()
@@ -123,7 +123,7 @@ describe('createDelegateCheckoutSession (deprecated wrapper)', () => {
     const { captured, fetchMock } = mockFetch({
       checkout_id: 'cs_abc',
       checkout_type: 'DELEGATE',
-      url: 'https://pay.example.com/checkout?cs=cs_abc',
+      url: 'https://pay.example.com/paykit/delegate?cs=cs_abc',
       expires_at: 1893456000,
     })
 
@@ -141,7 +141,7 @@ describe('createDelegateCheckoutSession (deprecated wrapper)', () => {
     // Deprecated shape maps checkout_id -> handle.
     expect(res).toEqual({
       handle: 'cs_abc',
-      url: 'https://pay.example.com/checkout?cs=cs_abc',
+      url: 'https://pay.example.com/paykit/delegate?cs=cs_abc',
       expiresAt: 1893456000,
     })
 

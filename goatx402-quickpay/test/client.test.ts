@@ -23,6 +23,14 @@ const MAN = {
       enabled: true,
       routes: [{ route_canonical: 'GET:api:data', chain_id: 4217, token_symbol: 'USDC', amount_wei: '100000' }],
     },
+    fiat: {
+      enabled: true,
+      custom_amount: true,
+      human_action_required: true,
+      currency: 'USD',
+      minor_unit_exponent: 2,
+      products: [{ product_key: 'mug', name: 'Coffee Mug', price: '12.50' }],
+    },
   },
 }
 
@@ -114,5 +122,26 @@ describe('QuickPayClient', () => {
         chainId: 4217,
       }),
     )
+  })
+
+  it('creates a hosted card link with the stored QuickPay link', async () => {
+    const { fetch, calls } = recordingFetch((url, init) => {
+      if (url.endsWith('/manifest.json')) return jsonResponse(MAN)
+      if (url.endsWith('/quickpay/v1/fiat/sessions') && init?.method === 'POST') {
+        return jsonResponse({
+          checkout_id: 'cs_1',
+          url: 'https://pay.goat.network/checkout/direct?cs=cs_1',
+          currency: 'USD',
+          expires_at: 1893456000,
+        })
+      }
+      return jsonResponse({ error: 'unexpected' }, 500)
+    })
+    const client = new QuickPayClient('https://pay.goat.network/quickpay/acme', { fetchImpl: fetch })
+
+    const out = await client.createFiatCheckoutLink({ productKey: 'mug' })
+
+    expect(out).toMatchObject({ checkout_id: 'cs_1', product_key: 'mug', human_action_required: true })
+    expect(calls[1].url).toBe('https://pay.goat.network/quickpay/v1/fiat/sessions')
   })
 })

@@ -1,6 +1,6 @@
 {
   "name": "goatflow-sdk",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "TypeScript SDK for GOAT Flow payment integration",
   "type": "module",
   "engines": {
@@ -54,5 +54,6 @@
     "eip3009"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "packageManager": "pnpm@10.28.0"
 }

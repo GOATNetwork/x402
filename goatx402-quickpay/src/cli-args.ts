@@ -6,15 +6,18 @@ export interface ParsedArgs {
   flags: Flags
 }
 
+export const CLI_BIN = 'goatflow-paykit'
+
 export const HELP_TEXT =
   [
-    'Usage: goatflow-quickpay <command> [options]',
+    `Usage: ${CLI_BIN} <command> [options]`,
     '',
     'Commands:',
     '  inspect <agent_md_or_manifest_url>',
     '  pay-x402 <url> --amount <a> (--token <symbol> | --token-contract <address>) --chain <id>',
     '  pay-product <url> --product <key> (--token <symbol> | --token-contract <address>) --chain <id>',
     '  pay-mpp <url> --route <route>',
+    '  create-card-checkout <url> (--product <key> | --amount <amount> [--memo <reference>])',
     '',
     'Options:',
     '  -h, --help  Show this help message',

@@ -23,8 +23,44 @@ import type {
 } from './types.js'
 import { fromCAIP2, GoatFlowError } from './types.js'
 
-// Hard per-request deadline applied to every fetch.
+// Hard per-request deadline applied to every fetch (overridable per call).
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000
+const FIAT_AMOUNT_RE = /^\d{1,40}(?:\.\d+)?$/
+
+function validateCheckoutPaymentRails(params: CreateCheckoutSessionParams): void {
+  const rawRails = params.paymentRails as unknown
+  const hasFiatFields = params.fiatCurrency !== undefined || params.fiatAmount !== undefined
+  if (rawRails === undefined) {
+    if (hasFiatFields) {
+      throw new Error('fiatCurrency/fiatAmount require paymentRails to include fiat')
+    }
+    return
+  }
+  if (!Array.isArray(rawRails) || rawRails.length === 0) {
+    throw new Error('paymentRails must be a non-empty subset of crypto,fiat')
+  }
+  const seen = new Set<string>()
+  for (const rail of rawRails) {
+    if (rail !== 'crypto' && rail !== 'fiat') {
+      throw new Error(`unsupported payment rail: ${String(rail)}`)
+    }
+    if (seen.has(rail)) throw new Error(`duplicate payment rail: ${rail}`)
+    seen.add(rail)
+  }
+  if (!seen.has('fiat')) {
+    if (hasFiatFields) {
+      throw new Error('fiatCurrency/fiatAmount require paymentRails to include fiat')
+    }
+    return
+  }
+  if (typeof params.fiatCurrency !== 'string' || !/^[A-Za-z]{3}$/.test(params.fiatCurrency.trim())) {
+    throw new Error('fiatCurrency must be a 3-letter ISO-4217 code when the fiat rail is enabled')
+  }
+  const amount = typeof params.fiatAmount === 'string' ? params.fiatAmount.trim() : ''
+  if (!FIAT_AMOUNT_RE.test(amount) || !/[1-9]/.test(amount)) {
+    throw new Error('fiatAmount must be a positive decimal string when the fiat rail is enabled')
+  }
+}
 
 export class GoatFlowClient {
   private baseUrl: string
@@ -62,6 +98,12 @@ export class GoatFlowClient {
       amount_wei: params.amountWei,
     }
 
+    // Sent only when opted in, matching the Go server SDK's `omitempty` — the
+    // wire shape stays byte-identical for every ordinary caller.
+    if (params.recoverExistingOrder) {
+      body.recover_existing_order = true
+    }
+
     if (params.tokenContract) {
       body.token_contract = params.tokenContract
     }
@@ -69,8 +111,8 @@ export class GoatFlowClient {
       body.callback_calldata = params.callbackCalldata
     }
 
-    // Order creation is the only endpoint where HTTP 402 is the expected x402
-    // success shape.
+    // Order creation is the ONLY endpoint where HTTP 402 is the expected
+    // success shape (x402 Payment Required carries the payment terms).
     return this.request<X402PaymentRequired>('POST', '/api/v1/orders', body, { expect402: true })
   }
 
@@ -120,10 +162,9 @@ export class GoatFlowClient {
 
   /**
    * Create a server-authoritative unified hosted-checkout session (DIRECT or
-   * DELEGATE). The buyer picks ONLY a token on the hosted page; the amount is
-   * always pinned server-side. DIRECT uses `price`; DELEGATE uses either `price`
-   * for cross-chain decimal-price checkout or `fixedAmountWei` for the legacy
-   * single-chain form.
+   * DELEGATE). A crypto rail lets the buyer pick a token; a fiat rail sends the
+   * buyer to hosted card checkout. Every offered amount is pinned server-side
+   * from `price`/`fixedAmountWei` and/or `fiatAmount`.
    *
    * The merchant is derived from the authenticated API key (HMAC). Returns
    * `{ checkoutId, checkoutType, url, expiresAt }`; the `url` is built by the
@@ -135,6 +176,7 @@ export class GoatFlowClient {
    * signature. This is handled below — every field is signable.
    */
   async createCheckoutSession(params: CreateCheckoutSessionParams): Promise<CheckoutSession> {
+    validateCheckoutPaymentRails(params)
     const body: Record<string, unknown> = {
       checkout_type: params.checkoutType,
     }
@@ -148,6 +190,10 @@ export class GoatFlowClient {
     if (params.cancelUrl !== undefined) body.cancel_url = params.cancelUrl
     if (params.clientReferenceId !== undefined) body.client_reference_id = params.clientReferenceId
     if (params.expiresIn !== undefined) body.expires_in = params.expiresIn
+    // Fiat rail (flat, signable). payment_rails is a CSV subset of "crypto,fiat".
+    if (params.paymentRails !== undefined) body.payment_rails = params.paymentRails.join(',')
+    if (params.fiatCurrency !== undefined) body.fiat_currency = params.fiatCurrency
+    if (params.fiatAmount !== undefined) body.fiat_amount = params.fiatAmount
 
     // Nested values are JSON-stringified so they ride as scalar (signable) fields;
     // the server JSON-parses them after verifying the HMAC signature.
@@ -326,20 +372,30 @@ export class GoatFlowClient {
     let lastError: unknown
 
     while (Date.now() - startTime < timeout) {
+      // Bound each poll by the remaining overall deadline (and the default
+      // per-request timeout) so one hung request cannot outlive the declared
+      // timeout — previously the deadline was only checked BETWEEN polls.
       const remaining = timeout - (Date.now() - startTime)
       let order: OrderProof
       try {
         order = await this.getOrderStatus(orderId, {
           timeoutMs: Math.max(1, Math.min(DEFAULT_REQUEST_TIMEOUT_MS, remaining)),
         })
-      } catch (error) {
-        // Retry request timeouts, network failures, 408/429, and server errors.
-        // Other 4xx responses are deterministic caller/configuration errors.
-        const status = error instanceof GoatFlowError ? error.status : undefined
+      } catch (err) {
+        // A single slow/failed poll (per-request abort, transient network or
+        // retryable server error) must not abort the whole wait — the
+        // documented contract is "poll until terminal status or the overall
+        // timeout". Deterministic client errors are different: a 401 (bad
+        // credentials) or 404 (wrong order id) will never heal, so hiding them
+        // for the full timeout would only mask misconfiguration — rethrow.
+        const status = err instanceof GoatFlowError ? err.status : undefined
         if (typeof status === 'number' && status >= 400 && status < 500 && status !== 408 && status !== 429) {
-          throw error
+          throw err
         }
-        lastError = error
+        lastError = err
+        // Clamp to the remaining deadline so a failure near the end cannot
+        // overshoot the caller's timeout by a full interval. Break only when
+        // the DEADLINE is spent — a zero interval just means re-poll at once.
         const remainingAfterPoll = timeout - (Date.now() - startTime)
         if (remainingAfterPoll <= 0) break
         const sleepMs = Math.min(Math.max(0, interval), remainingAfterPoll)
@@ -366,15 +422,16 @@ export class GoatFlowClient {
         return order
       }
 
+      // Wait before next poll (clamped to the remaining overall deadline)
       const remainingAfterPoll = timeout - (Date.now() - startTime)
       if (remainingAfterPoll <= 0) break
-      const sleepMs = Math.min(Math.max(0, interval), remainingAfterPoll)
-      await new Promise((resolve) => setTimeout(resolve, sleepMs))
+      const nextSleepMs = Math.min(Math.max(0, interval), remainingAfterPoll)
+      await new Promise((resolve) => setTimeout(resolve, nextSleepMs))
     }
 
-    const lastErrorNote =
+    const lastErrNote =
       lastError instanceof Error ? ` (last poll error: ${lastError.message})` : ''
-    throw new Error(`Timeout waiting for order ${orderId} confirmation${lastErrorNote}`)
+    throw new Error(`Timeout waiting for order ${orderId} confirmation${lastErrNote}`)
   }
 
   /**
@@ -398,6 +455,9 @@ export class GoatFlowClient {
         ...authHeaders,
       },
       body: body ? JSON.stringify(body) : undefined,
+      // Every request gets a hard deadline: without one, a hung connection
+      // blocks the caller indefinitely (and lets waitForConfirmation overshoot
+      // its declared overall timeout).
       signal: AbortSignal.timeout(opts?.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS),
     })
 
@@ -410,8 +470,10 @@ export class GoatFlowClient {
       // Response is not JSON, keep as text
     }
 
-    // HTTP 402 is a success shape only for the explicitly marked order-create
-    // request; every other endpoint must treat it as an error.
+    // Handle errors. HTTP 402 is a success shape ONLY where the caller says so
+    // (order creation returns x402 Payment Required); everywhere else a 402 —
+    // e.g. injected by an intermediary — must not be silently coerced into the
+    // expected response type (cancelOrder would report success on an error body).
     const ok = response.ok || (response.status === 402 && opts?.expect402 === true)
     if (!ok) {
       // Fiber returns 'message', standard APIs return 'error'

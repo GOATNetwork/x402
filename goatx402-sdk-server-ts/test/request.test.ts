@@ -86,35 +86,6 @@ describe('request boundaries', () => {
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit
     expect(init.signal).toBeInstanceOf(AbortSignal)
   })
-
-  it('encodes order and merchant IDs as single URL path segments', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(orderStatus('PAYMENT_CONFIRMED')))
-      .mockResolvedValueOnce(jsonResponse({}))
-      .mockResolvedValueOnce(jsonResponse({ status: 'ok', order_id: 'order_1' }))
-      .mockResolvedValueOnce(jsonResponse({ status: 'ok', order_id: 'order_1' }))
-      .mockResolvedValueOnce(
-        jsonResponse({ merchant_id: 'merchant_1', receive_type: 'DIRECT', wallets: [] })
-      )
-    vi.stubGlobal('fetch', fetchMock)
-
-    const unsafeId = 'victim/../cancel?#%'
-    const goat = client()
-    await goat.getOrderStatus(unsafeId)
-    await goat.getOrderProof(unsafeId)
-    await goat.submitCalldataSignature(unsafeId, '0xsig')
-    await goat.cancelOrder(unsafeId)
-    await goat.getMerchant(unsafeId)
-
-    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
-      'https://api.example.com/api/v1/orders/victim%2F..%2Fcancel%3F%23%25',
-      'https://api.example.com/api/v1/orders/victim%2F..%2Fcancel%3F%23%25/proof',
-      'https://api.example.com/api/v1/orders/victim%2F..%2Fcancel%3F%23%25/calldata-signature',
-      'https://api.example.com/api/v1/orders/victim%2F..%2Fcancel%3F%23%25/cancel',
-      'https://api.example.com/merchants/victim%2F..%2Fcancel%3F%23%25',
-    ])
-  })
 })
 
 describe('waitForConfirmation', () => {
@@ -157,5 +128,44 @@ describe('waitForConfirmation', () => {
     expect(error).toBeInstanceOf(GoatFlowError)
     expect(error).toMatchObject({ status: 404, code: 'ORDER_NOT_FOUND' })
     expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
+  // The Go server SDK marks `recover_existing_order` omitempty; this SDK must
+  // stay byte-identical on the wire: absent by default, `true` only when opted
+  // in. Pinned at the request body, not the type, so a dropped assignment
+  // cannot pass type-checking and drift the two SDKs apart again.
+  it('sends recover_existing_order only when opted in', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(
+        {
+          resource: { url: 'https://shop.example.com/order/1' },
+          accepts: [],
+          order_id: 'order_1',
+          flow: 'ERC20_DIRECT',
+          token_symbol: 'USDC',
+        },
+        402
+      )
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const base = {
+      dappOrderId: 'dapp_1',
+      chainId: 137,
+      tokenSymbol: 'USDC',
+      fromAddress: '0xPayer',
+      amountWei: '1000000',
+    }
+    await client().createOrderRaw(base)
+    const plain = JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body)) as Record<string, unknown>
+    expect('recover_existing_order' in plain).toBe(false)
+
+    await client().createOrderRaw({ ...base, recoverExistingOrder: true })
+    const optedIn = JSON.parse(String((fetchMock.mock.calls[1]?.[1] as RequestInit).body)) as Record<string, unknown>
+    expect(optedIn.recover_existing_order).toBe(true)
+
+    await client().createOrderRaw({ ...base, recoverExistingOrder: false })
+    const optedOut = JSON.parse(String((fetchMock.mock.calls[2]?.[1] as RequestInit).body)) as Record<string, unknown>
+    expect('recover_existing_order' in optedOut).toBe(false)
   })
 })

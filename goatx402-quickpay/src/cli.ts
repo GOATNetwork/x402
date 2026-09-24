@@ -5,12 +5,22 @@ import { payX402, payProduct, payMpp } from './pay.js'
 import { EthersPaymentBackend, type RpcResolver } from './backend-ethers.js'
 import { SdkMppBackend } from './backend-mpp-sdk.js'
 import { mppRecovery } from './mpp-error.js'
+import { createFiatCheckoutLink } from './fiat.js'
 import {
+  CLI_BIN,
   HELP_TEXT,
   parseArgs,
   shouldShowHelp,
   type Flags,
 } from './cli-args.js'
+
+function envFirst(...names: string[]): string {
+  for (const name of names) {
+    const value = process.env[name]
+    if (value) return value
+  }
+  return ''
+}
 
 function fail(msg: string): never {
   process.stderr.write(JSON.stringify({ ok: false, error: msg }) + '\n')
@@ -19,15 +29,16 @@ function fail(msg: string): never {
 
 function rpcResolver(flags: Flags): RpcResolver {
   return (chainId: number) => {
-    const perChain = process.env[`QUICKPAY_RPC_${chainId}`]
+    const perChain = envFirst(`PAYKIT_RPC_${chainId}`, `QUICKPAY_RPC_${chainId}`)
     if (perChain) return perChain
     if (typeof flags.rpc === 'string') return flags.rpc
-    return process.env.QUICKPAY_RPC ?? ''
+    return envFirst('PAYKIT_RPC', 'QUICKPAY_RPC')
   }
 }
 
 function privateKey(flags: Flags): string {
-  // Key-source precedence: --wallet-file > --wallet > QUICKPAY_PRIVATE_KEY.
+  // Key-source precedence: --wallet-file > --wallet > PAYKIT_PRIVATE_KEY >
+  // QUICKPAY_PRIVATE_KEY.
   // A raw key passed via --wallet on the command line leaks through process
   // listings (`ps`), shell history, CI logs, and — since this is an agent-facing
   // CLI — agent transcripts. It is still accepted (back-compat) but warns;
@@ -55,14 +66,14 @@ function privateKey(flags: Flags): string {
     if (process.stderr.isTTY) {
       process.stderr.write(
         'warning: passing a private key via --wallet exposes it to process listings, ' +
-          'shell history, and logs. Prefer QUICKPAY_PRIVATE_KEY or --wallet-file <path>.\n',
+          'shell history, and logs. Prefer PAYKIT_PRIVATE_KEY or --wallet-file <path>.\n',
       )
     }
-  } else if (process.env.QUICKPAY_PRIVATE_KEY) {
-    raw = process.env.QUICKPAY_PRIVATE_KEY
+  } else {
+    raw = envFirst('PAYKIT_PRIVATE_KEY', 'QUICKPAY_PRIVATE_KEY')
   }
   if (!raw) {
-    fail('a wallet private key is required (set QUICKPAY_PRIVATE_KEY, or pass --wallet-file <path> / --wallet <key>)')
+    fail('a wallet private key is required (set PAYKIT_PRIVATE_KEY, or pass --wallet-file <path> / --wallet <key>)')
   }
   // Validate ourselves so a malformed key is never echoed back through an ethers
   // error message (which would leak the secret to stdout/logs).
@@ -83,17 +94,47 @@ async function main(): Promise<void> {
   const url = positional[0]
 
   if (command === 'inspect') {
-    if (!url) fail('usage: goatflow-quickpay inspect <agent_md_or_manifest_url>')
+    if (!url) fail(`usage: ${CLI_BIN} inspect <agent_md_or_manifest_url>`)
     const out = await inspect(url)
     process.stdout.write(JSON.stringify(out, null, flags.json ? 0 : 2) + '\n')
+    return
+  }
+
+  if (command === 'create-card-checkout') {
+    if (!url) {
+      fail(
+        `usage: ${CLI_BIN} create-card-checkout <url> ` +
+          '(--product <key> | --amount <amount> [--memo <reference>])',
+      )
+    }
+    if (flags.product !== undefined && typeof flags.product !== 'string') {
+      fail('create-card-checkout requires a value after --product')
+    }
+    if (flags.amount !== undefined && typeof flags.amount !== 'string') {
+      fail('create-card-checkout requires a value after --amount')
+    }
+    if (flags.memo !== undefined && typeof flags.memo !== 'string') {
+      fail('create-card-checkout requires a value after --memo')
+    }
+    if ((flags.product === undefined) === (flags.amount === undefined)) {
+      fail('create-card-checkout requires exactly one of --product or --amount')
+    }
+    if (flags.product !== undefined && flags.memo !== undefined) {
+      fail('create-card-checkout --product does not accept --memo; the server pins product identity')
+    }
+    const productKey = typeof flags.product === 'string' ? flags.product : undefined
+    const amount = typeof flags.amount === 'string' ? flags.amount : undefined
+    const memo = typeof flags.memo === 'string' ? flags.memo : undefined
+    const out = await createFiatCheckoutLink({ input: url, productKey, amount, memo })
+    process.stdout.write(JSON.stringify(out) + '\n')
     return
   }
 
   if (command === 'pay-x402') {
     if (!url) {
       fail(
-        'usage: goatflow-quickpay pay-x402 <url> --amount <a> --token-contract <address> --chain <id> [--memo <m>] [--idempotency-key <k>]\n' +
-          '  wallet key: set QUICKPAY_PRIVATE_KEY (preferred) or pass --wallet-file <path> / --wallet <key>',
+        `usage: ${CLI_BIN} pay-x402 <url> --amount <a> --token-contract <address> --chain <id> [--memo <m>] [--idempotency-key <k>]\n` +
+          '  wallet key: set PAYKIT_PRIVATE_KEY (preferred) or pass --wallet-file <path> / --wallet <key>',
       )
     }
     const amount = typeof flags.amount === 'string' ? flags.amount : ''
@@ -135,9 +176,9 @@ async function main(): Promise<void> {
   if (command === 'pay-product') {
     if (!url) {
       fail(
-        'usage: goatflow-quickpay pay-product <url> --product <key> --token-contract <address> --chain <id> [--idempotency-key <k>] [--force]\n' +
+        `usage: ${CLI_BIN} pay-product <url> --product <key> --token-contract <address> --chain <id> [--idempotency-key <k>] [--force]\n` +
           '  the merchant prices the product; the buyer only picks the token + chain\n' +
-          '  wallet key: set QUICKPAY_PRIVATE_KEY (preferred) or pass --wallet-file <path> / --wallet <key>',
+          '  wallet key: set PAYKIT_PRIVATE_KEY (preferred) or pass --wallet-file <path> / --wallet <key>',
       )
     }
     // --amount / --memo are meaningless for a product (the merchant sets the price
@@ -181,8 +222,8 @@ async function main(): Promise<void> {
   if (command === 'pay-mpp') {
     if (!url) {
       fail(
-        'usage: goatflow-quickpay pay-mpp <url> --route <route>\n' +
-          '  wallet key: set QUICKPAY_PRIVATE_KEY (preferred) or pass --wallet-file <path> / --wallet <key>',
+        `usage: ${CLI_BIN} pay-mpp <url> --route <route>\n` +
+          '  wallet key: set PAYKIT_PRIVATE_KEY (preferred) or pass --wallet-file <path> / --wallet <key>',
       )
     }
     const route = typeof flags.route === 'string' ? flags.route : ''
@@ -207,7 +248,7 @@ async function main(): Promise<void> {
     }
   }
 
-  fail(`unknown command "${command ?? ''}". Commands: inspect, pay-x402, pay-product, pay-mpp`)
+  fail(`unknown command "${command ?? ''}". Commands: inspect, pay-x402, pay-product, pay-mpp, create-card-checkout`)
 }
 
 main().catch((err: unknown) => fail(err instanceof Error ? err.message : String(err)))
