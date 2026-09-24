@@ -34,6 +34,13 @@ The checkout package is framework-free and includes
 public `/sdk/checkout.js`; use the npm import unless your deployment contract
 provides a script URL.
 
+In the `0.2.0` candidate, session opens default to `/paykit/direct`, or
+`/paykit/delegate` with `checkoutType: 'DELEGATE'`; the hosted `/checkout?cs=`
+route remains a compatibility alias. Set `checkoutSessionPath` to override
+session routing. `checkoutPath` retains its legacy product/custom meaning;
+those opens default to `/quickpay/checkout`. See
+[candidate publication status](README.md#npm-packages).
+
 ## Fixed DIRECT product, no merchant backend
 
 The merchant first configures a QuickPay product. The merchant page passes only the
@@ -223,4 +230,4 @@ Do not reproduce that encoding manually when an SDK is available.
 - [Server SDK (TypeScript)](../goatx402-sdk-server-ts/src/client.ts)
 - [Server SDK (Go)](../goatx402-sdk-server-go/client.go)
 - [Demo](../goatx402-demo/README.md)
-- [QuickPay payer/agent library](../goatx402-quickpay/README.md)
+- [PayKit payer/agent library](../goatx402-quickpay/README.md)

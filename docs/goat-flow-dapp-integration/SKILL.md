@@ -147,8 +147,12 @@ checkout.open({
 ```
 
 Do not combine `checkoutId` with `merchant` or `productKey`. Product opens use
-`/quickpay/checkout`; server-created session opens use `/checkout?cs=...`. The
-fulfillable URL must not contain an authoritative amount.
+`/quickpay/checkout`; server-created session opens default to
+`/paykit/direct?cs=...`, or `/paykit/delegate?cs=...` with
+`checkoutType: 'DELEGATE'`. Use `checkoutSessionPath` for a custom session path;
+`/checkout?cs=...` remains a hosted compatibility alias. The legacy
+`checkoutPath` configures product/custom opens, not sessions. The fulfillable
+URL must not contain an authoritative amount.
 
 For a dynamic purchase, create the session on the backend:
 
@@ -270,17 +274,23 @@ cover `status`. Verify the transaction hash on-chain for independent proof.
 
 ## QuickPay Library and CLI
 
-Install `goatflow-quickpay` for public payer or agent automation. Prefer Hosted
+Install `goatflow-paykit` for public payer or agent automation. Prefer Hosted
 Checkout for an interactive browser DApp unless the application already owns a
 safe wallet backend.
+
+See [release status and migration](../README.md#npm-packages) before installing
+the candidate package. `QuickPayClient` retains its name.
 
 Accept only canonical merchant links:
 
 ```text
-https://<trusted-origin>/quickpay/<merchant_id>
-https://<trusted-origin>/quickpay/<merchant_id>/agent.md
-https://<trusted-origin>/quickpay/<merchant_id>/manifest.json
+https://<trusted-origin>/paykit/<merchant_id>
+https://<trusted-origin>/paykit/<merchant_id>/agent.md
+https://<trusted-origin>/paykit/<merchant_id>/manifest.json
 ```
+
+The equivalent `/quickpay/` links remain accepted. The client continues to
+derive API calls under `/quickpay/v1`; do not rename wire fields or schema tags.
 
 Derive the merchant ID from the trusted URL path and keep manifest, session,
 challenge, and verification requests on the same origin. Treat the manifest as
@@ -288,10 +298,13 @@ discovery and preflight data. Treat the returned x402 session or MPP challenge
 as the current payment instruction.
 
 Validate generated `agent.md` commands against the installed package metadata.
-The current package and CLI binary are both `goatflow-quickpay`.
+Use the `goatflow-paykit` package and CLI. The new package installs
+`goatflow-quickpay` as a compatibility executable alias; installing or running
+the old npm package does not fetch the new one. Prefer `PAYKIT_*` environment
+variables; their `QUICKPAY_*` equivalents remain supported.
 
 ```ts
-import { QuickPayClient } from 'goatflow-quickpay'
+import { QuickPayClient } from 'goatflow-paykit'
 
 const quickpay = new QuickPayClient(sharedMerchantLink)
 const manifest = await quickpay.loadManifest()

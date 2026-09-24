@@ -19,7 +19,7 @@ for that runbook.
   annotated package tags.
 - Push each intended tag explicitly. Never use `git push --tags`.
 - Publish in dependency order, with `goatflow-sdk` before
-  `goatflow-quickpay`.
+  `goatflow-paykit`.
 - Verify registry metadata, tarball identity, fresh installation, imports, and
   package-specific smoke tests after publishing.
 - Never weaken or bypass `minimumReleaseAge` or other supply-chain policy to

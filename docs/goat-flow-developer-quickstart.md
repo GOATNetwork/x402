@@ -34,6 +34,10 @@ have been verified there; switch every origin and chain ID together.
 
 ## Install
 
+These examples target the September release candidates. Check
+[publication status and the PayKit migration](./README.md#npm-packages) before
+installing; the new package name is available only after publication.
+
 ```bash
 # Authenticated backend API
 npm install goatflow-sdk-server
@@ -45,7 +49,7 @@ npm install goatflow-sdk ethers
 npm install goatflow-checkout
 
 # Agent / CLI payer
-npm install goatflow-quickpay
+npm install goatflow-paykit
 ```
 
 The TypeScript packages declare Node.js >= 18 where Node is used. The Go SDK
@@ -263,14 +267,16 @@ await client.cancelOrder(orderId)
 
 ## Path C: QuickPay / agent
 
-QuickPay accepts only canonical same-origin links:
+PayKit accepts canonical same-origin `/paykit/{merchant_id}` links and legacy
+`/quickpay/{merchant_id}` links, including their `/agent.md` and
+`/manifest.json` forms:
 
 ```bash
-npx goatflow-quickpay inspect \
-  https://flow-quickpay.testnet3.goat.network/quickpay/merchant_123/agent.md
+npx goatflow-paykit inspect \
+  https://flow-quickpay.testnet3.goat.network/paykit/merchant_123/agent.md
 
-npx goatflow-quickpay pay-product \
-  https://flow-quickpay.testnet3.goat.network/quickpay/merchant_123/agent.md \
+npx goatflow-paykit pay-product \
+  https://flow-quickpay.testnet3.goat.network/paykit/merchant_123/agent.md \
   --product mug \
   --token USDC \
   --chain 48816

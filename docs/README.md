@@ -50,17 +50,37 @@ currently proxies equivalent routes.
 
 ## npm Packages
 
-The following packages are published to the public npm Registry. The `latest`
-versions below were verified against the Registry on July 23, 2026; query npm and use a lockfile when
-selecting an exact production version. All four packages require Node.js 18 or
-later.
+The current branch prepares the September 2026 release candidates below.
+Candidate versions are **not confirmation of npm publication**; consult each
+package's CHANGELOG below and query npm before installing. The
+[release procedure](../RELEASING.md) governs publication and verification.
+Examples target these candidates, and the install commands apply once they
+are published. All four packages declare Node.js 18 or later where Node is used.
 
-| Package | `latest` | Primary use | Install |
-| --- | ---: | --- | --- |
-| [`goatflow-sdk`](https://www.npmjs.com/package/goatflow-sdk) | `0.2.1` | Browser wallet transfers and the current GOAT Flow MPP adapter | `npm install goatflow-sdk` |
-| [`goatflow-sdk-server`](https://www.npmjs.com/package/goatflow-sdk-server) | `0.3.0` | TypeScript merchant backend and HMAC-authenticated APIs | `npm install goatflow-sdk-server` |
-| [`goatflow-checkout`](https://www.npmjs.com/package/goatflow-checkout) | `0.1.0` | Hosted Checkout browser integration | `npm install goatflow-checkout` |
-| [`goatflow-quickpay`](https://www.npmjs.com/package/goatflow-quickpay) | `0.3.0` | QuickPay payer/agent library and CLI | `npm install goatflow-quickpay` |
+The previously verified Registry baseline (July 23, 2026) is retained separately
+from the candidate versions; use a lockfile for an exact production version.
+
+| Package | Candidate | Previously verified `latest` | Primary use | Install after publication |
+| --- | ---: | --- | --- | --- |
+| [`goatflow-sdk`](../goatx402-sdk/README.md) | [0.3.0](../goatx402-sdk/CHANGELOG.md) | `0.2.1` | Browser wallet transfers and the GOAT Flow MPP adapter | `npm install goatflow-sdk` |
+| [`goatflow-sdk-server`](../goatx402-sdk-server-ts/README.md) | [0.4.0](../goatx402-sdk-server-ts/CHANGELOG.md) | `0.3.0` | TypeScript merchant backend and HMAC-authenticated APIs | `npm install goatflow-sdk-server` |
+| [`goatflow-checkout`](../goatx402-checkout/README.md) | [0.2.0](../goatx402-checkout/CHANGELOG.md) | `0.1.0` | Hosted Checkout browser integration | `npm install goatflow-checkout` |
+| [`goatflow-paykit`](../goatx402-quickpay/README.md) | [0.4.0](../goatx402-quickpay/CHANGELOG.md) | New name; predecessor `goatflow-quickpay@0.3.0` | PayKit payer/agent library and CLI | `npm install goatflow-paykit` |
+
+### Migration from QuickPay
+
+Replace the `goatflow-quickpay` dependency and import specifiers with
+`goatflow-paykit`. The class name `QuickPayClient` remains available. Use
+`npx goatflow-paykit`; the new package also installs a `goatflow-quickpay`
+executable alias, but `npx goatflow-quickpay` without that local installation
+still resolves the old npm package, not PayKit.
+
+Prefer `PAYKIT_PRIVATE_KEY` and `PAYKIT_RPC[_<chainId>]`; the corresponding
+`QUICKPAY_*` environment variables remain supported. Public merchant links
+accept `/paykit/{merchant_id}` and legacy `/quickpay/{merchant_id}`, with the
+same optional `/agent.md` or `/manifest.json` suffix. The client continues to
+derive API endpoints under `/quickpay/v1` on the trusted origin. Repository
+directory names remain `goatx402-*`.
 
 The TypeScript MPP middleware package name
 `@goatnetwork/mpp-middleware`, the Go modules, contracts, and demo are not
@@ -99,7 +119,7 @@ Package references:
 - [Server SDK](../goatx402-sdk-server-ts/README.md)
 - [Go Server SDK](../goatx402-sdk-server-go/README.md)
 - [Hosted Checkout SDK](../goatx402-checkout/README.md)
-- [QuickPay library and CLI](../goatx402-quickpay/README.md)
+- [PayKit library and CLI](../goatx402-quickpay/README.md)
 - [TypeScript MPP middleware](../goatx402-mpp-middleware-ts/README.md)
 - [Go MPP middleware](../goatx402-mpp-middleware-go/README.md)
 

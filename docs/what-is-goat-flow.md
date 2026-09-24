@@ -79,7 +79,7 @@ The manifest can advertise:
 - fixed-price Products identified by `product_key`
 - MPP routes with chain, token, and amount metadata
 
-The `goatflow-quickpay` library and CLI validate the manifest, derive all API
+The `goatflow-paykit` library and CLI validate the manifest, derive all API
 endpoints from the trusted URL origin, and verify fresh session payment terms
 before the configured payer backend submits a direct transfer.
 

@@ -8,6 +8,9 @@
 - Add checkoutType for explicit DIRECT/DELEGATE routing.
 - Preserve clean ESM, declaration and browser-IIFE packaging.
 - Correct the hosted-origin example and place the types export condition first.
+- Pin pnpm 10.28.0 and make package-local frozen installs reproducible.
+- Update public integration documentation for PayKit session routing and
+  legacy product/custom-checkout compatibility.
 
 ## goatflow-checkout 0.1.0 - 2026-07-21
 

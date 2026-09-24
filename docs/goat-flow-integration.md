@@ -61,13 +61,16 @@ Security boundaries:
 
 ## 2. Packages and versions
 
+These are this branch's release candidates, not a claim that they are already
+on npm. See [release status and PayKit migration](./README.md#npm-packages).
+
 | Package/module | Role | Current manifest/runtime |
 | --- | --- | --- |
-| `goatflow-sdk-server` | TypeScript merchant backend | `0.3.0`, Node >= 18 |
+| `goatflow-sdk-server` | TypeScript merchant backend | `0.4.0`, Node >= 18 |
 | `github.com/goatnetwork/goatflow-sdk-server` | Go merchant backend | Go 1.25, source-only |
-| `goatflow-sdk` | Browser wallet, ERC-20, MPP | `0.2.1`, ethers `^6.9.0` |
-| `goatflow-checkout` | Hosted Checkout opener | `0.1.0` |
-| `goatflow-quickpay` | Public payer/agent library and CLI | `0.3.0`, Node >= 18 |
+| `goatflow-sdk` | Browser wallet, ERC-20, MPP | `0.3.0`, ethers `^6.9.0` |
+| `goatflow-checkout` | Hosted Checkout opener | `0.2.0` |
+| `goatflow-paykit` | Public payer/agent library and CLI | `0.4.0`, Node >= 18 |
 | `@goatnetwork/mpp-middleware` | Merchant MPP middleware | `0.1.0` |
 
 Use package manifests and exported types as the version source of truth. Do not
@@ -437,11 +440,15 @@ compatibility fields, deprecated wrappers, signature submission, and the
 
 ## 8. QuickPay
 
-The canonical public link shape is:
+PayKit (formerly QuickPay) accepts the public link shape:
 
 ```text
-https://flow-quickpay.goat.network/quickpay/{merchant_id}/agent.md
+https://flow-quickpay.goat.network/paykit/{merchant_id}/agent.md
 ```
+
+Legacy `/quickpay/{merchant_id}` links remain accepted. The page, `/agent.md`,
+and `/manifest.json` forms are supported under either prefix; API requests
+continue to use `/quickpay/v1` on the trusted origin.
 
 The package:
 
@@ -452,10 +459,10 @@ The package:
 5. Derives session/MPP endpoints from the same origin.
 
 ```ts
-import { QuickPayClient, EthersPaymentBackend } from 'goatflow-quickpay'
+import { QuickPayClient, EthersPaymentBackend } from 'goatflow-paykit'
 
 const quickpay = new QuickPayClient(
-  'https://flow-quickpay.goat.network/quickpay/merchant_123/agent.md',
+  'https://flow-quickpay.goat.network/paykit/merchant_123/agent.md',
 )
 
 const manifest = await quickpay.loadManifest()
@@ -486,11 +493,17 @@ and `payer_addr` from the payment backend. There is currently no
 CLI:
 
 ```bash
-npx goatflow-quickpay inspect <quickpay-url>
-npx goatflow-quickpay pay-x402 <quickpay-url> --amount 10 --token USDC --chain 2345
-npx goatflow-quickpay pay-product <quickpay-url> --product mug --token USDC --chain 2345
-npx goatflow-quickpay pay-mpp <quickpay-url> --route GET:api:data
+npx goatflow-paykit inspect <quickpay-url>
+npx goatflow-paykit pay-x402 <quickpay-url> --amount 10 --token USDC --chain 2345
+npx goatflow-paykit pay-product <quickpay-url> --product mug --token USDC --chain 2345
+npx goatflow-paykit pay-mpp <quickpay-url> --route GET:api:data
+npx goatflow-paykit create-card-checkout <quickpay-url> --product mug
 ```
+
+`createFiatCheckoutLink()` and `create-card-checkout` create a hosted card
+checkout link when the merchant advertises the fiat rail. A human completes
+payment on that page; these calls never collect card credentials or confirm a
+payment themselves. See the [PayKit README](../goatx402-quickpay/README.md).
 
 Product mode uses the manifest's decimal `price` and the chosen token decimals.
 Custom amount mode is untrusted for automatic fulfillment unless the backend

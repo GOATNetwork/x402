@@ -27,9 +27,9 @@ from git is the root cause this process exists to prevent.
 The previous released identities are `goatflow-sdk@0.2.1`,
 `goatflow-sdk-server@0.3.0`, `goatflow-quickpay@0.3.0`, and
 `goatflow-checkout@0.1.0`. The September 2026 release candidates are
-`goatflow-sdk@0.3.0`, `goatflow-paykit@0.4.0` (new package identity), and
-`goatflow-checkout@0.2.0`. `goatflow-sdk-server@0.4.0` remains **unreleased**
-until its coordinated HMAC blocker below is resolved. Repository directory names remain `goatx402-*` and
+`goatflow-sdk@0.3.0`, `goatflow-paykit@0.4.0` (new package identity),
+`goatflow-sdk-server@0.4.0`, and `goatflow-checkout@0.2.0`.
+These are candidates, not a record of publication. Repository directory names remain `goatx402-*` and
 must not be mistaken for npm package names.
 
 The new PayKit package keeps `goatflow-quickpay` as an executable alias.
@@ -44,18 +44,27 @@ Do not tag or publish a package while a blocker applicable to that package remai
 - Package-local workspaces explicitly include `.` and each managed package pins
   pnpm `10.28.0`; frozen installs must use that version without weakening policy.
 - Checkout declarations use the active hosted origin from `docs/README.md`.
-- **Coordinated security blocker:** the current merchant HMAC format joins
-  unescaped `key=value` pairs with `&`. It is not injective for arbitrary
-  scalar values containing `&` or `=`. A complete correction requires one
-  versioned canonicalization contract deployed together in Core and both
-  server SDKs. Do not publish a server SDK that claims unrestricted scalar
-  signing until that coordinated migration is implemented and tested.
 - **Per-release blocker:** the candidate must be the exact tip of canonical
   `GOATNetwork/x402` `main`, validated from a clean checkout whose `origin`
   points to that repository.
 - **Per-release blocker:** build one actual `.tgz` per package from that clean
   commit, record its identity, and publish that exact file. A dry run or a
   later rebuild is not the release artifact.
+
+### Accepted HMAC risk for the September 2026 release
+
+On 2026-09-24, the maintainer explicitly accepted the existing HMAC risk and
+removed it as a publication blocker for `goatflow-sdk-server@0.4.0`. This
+exception does not waive the PR, exact-main, test, tarball, or verification
+gates, and is not a claim that the signing format is safe or has been fixed.
+
+The current merchant HMAC format joins unescaped `key=value` pairs with `&`.
+It is not injective for arbitrary scalar values containing `&` or `=`. A
+complete correction still requires one versioned canonicalization contract
+deployed together in Core and both server SDKs. That migration remains a
+security follow-up; do not silently change the client protocol or describe
+this release as fixing it. See the
+[API security note](docs/goat-flow-api-reference.md#2-hmac-authentication).
 
 Separately, the Foundry project is outside this npm runbook and currently
 installs `forge-std` without a pinned revision. That blocks reproducible

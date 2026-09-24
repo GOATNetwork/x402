@@ -12,6 +12,9 @@
 - Preserve confirmed/expired payment recovery fixes from the canonical release.
 - Support both SDK 0.2.x and 0.3.x; keep the existing registry lock resolution
   until the new SDK satisfies the configured minimumReleaseAge policy.
+- Pin pnpm 10.28.0 and make package-local frozen installs reproducible.
+- Update public installation, import, and CLI documentation for the PayKit
+  migration while retaining legacy link and executable compatibility.
 
 ## 0.3.0 - 2026-07-21
 

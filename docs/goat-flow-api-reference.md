@@ -395,16 +395,19 @@ QuickPay links are public and same-origin:
 
 | Surface | Endpoint |
 | --- | --- |
-| Web/agent entry | `GET /quickpay/{merchant_id}` |
-| Agent instructions | `GET /quickpay/{merchant_id}/agent.md` |
-| Manifest | `GET /quickpay/{merchant_id}/manifest.json` |
+| Web/agent entry | `GET /paykit/{merchant_id}` (legacy `/quickpay/{merchant_id}`) |
+| Agent instructions | `GET /paykit/{merchant_id}/agent.md` (legacy `/quickpay/{merchant_id}/agent.md`) |
+| Manifest | `GET /paykit/{merchant_id}/manifest.json` (legacy `/quickpay/{merchant_id}/manifest.json`) |
 | Discovery | `GET /quickpay/v1/merchants/{merchant_id}` |
 | Create x402 session | `POST /quickpay/v1/x402/sessions` |
 | Read x402 session | `GET /quickpay/v1/x402/sessions/{session_id}` |
+| Create hosted card checkout link | `POST /quickpay/v1/fiat/sessions` |
 
-The `goatflow-quickpay` package accepts only canonical
-`/quickpay/{merchant_id}` links over HTTPS (or HTTP loopback for local
-development) and derives all called endpoints from that trusted origin.
+The `goatflow-paykit` package accepts canonical `/paykit/{merchant_id}` and
+legacy `/quickpay/{merchant_id}` links, optionally ending in `/agent.md` or
+`/manifest.json`, over HTTPS (or HTTP loopback for local development). It
+derives all called endpoints from that trusted origin; the API prefix remains
+`/quickpay/v1`. See [release status and migration](./README.md#npm-packages).
 
 ### Create public x402 session
 
@@ -437,8 +440,9 @@ token, Product, or route entry selected for a payment. Current boundaries:
 
 - non-array `tokens` or `routes` values are normalized to empty lists rather
   than rejected as a malformed manifest;
-- `payX402()` does not require the manifest's `custom_amount` flag before
-  requesting a raw custom-amount session; and
+- for a fresh call without an explicit idempotency key, `payX402()` rejects a
+  disabled x402 rail or `custom_amount: false`; an explicit key allows the
+  server to attempt recovery before checking its current rail settings; and
 - Product min/max enforcement remains server-authoritative even when the client
   performs local price and token checks.
 
@@ -448,11 +452,19 @@ replacement for server validation.
 CLI commands:
 
 ```bash
-npx goatflow-quickpay inspect <quickpay-url>
-npx goatflow-quickpay pay-x402 <quickpay-url> --amount 10 --token USDC --chain 2345
-npx goatflow-quickpay pay-product <quickpay-url> --product mug --token USDC --chain 2345
-npx goatflow-quickpay pay-mpp <quickpay-url> --route GET:api:data
+npx goatflow-paykit inspect <quickpay-url>
+npx goatflow-paykit pay-x402 <quickpay-url> --amount 10 --token USDC --chain 2345
+npx goatflow-paykit pay-product <quickpay-url> --product mug --token USDC --chain 2345
+npx goatflow-paykit pay-mpp <quickpay-url> --route GET:api:data
+npx goatflow-paykit create-card-checkout <quickpay-url> --product mug
+npx goatflow-paykit create-card-checkout <quickpay-url> --amount 10 --memo donation
 ```
+
+The card command (library method `createFiatCheckoutLink`) requires an
+advertised fiat rail and exactly one of a product key or custom amount.
+Product prices are server-owned; product mode rejects a custom memo. The
+result is a same-origin hosted checkout URL with `human_action_required: true`,
+not a payment confirmation. A human enters card details on the hosted page.
 
 QuickPay session terminal states are `PAYMENT_CONFIRMED`, `EXPIRED`, `FAILED`,
 and `CANCELLED`; this is distinct from the Server SDK order model. Session
@@ -620,14 +632,15 @@ Do not hardcode a global chain/token matrix. Availability is
 deployment- and merchant-specific. Use the merchant/QuickPay response or
 operator configuration.
 
-Current package manifests:
+Current branch release-candidate manifests (see
+[publication status](./README.md#npm-packages)):
 
 | Package | Version | Runtime |
 | --- | --- | --- |
-| `goatflow-sdk` | `0.2.1` | Node >= 18 outside browser |
-| `goatflow-sdk-server` | `0.3.0` | Node >= 18 |
-| `goatflow-quickpay` | `0.3.0` | Node >= 18 |
-| `goatflow-checkout` | `0.1.0` | Node >= 18 for tooling |
+| `goatflow-sdk` | `0.3.0` | Node >= 18 outside browser |
+| `goatflow-sdk-server` | `0.4.0` | Node >= 18 |
+| `goatflow-paykit` | `0.4.0` | Node >= 18 |
+| `goatflow-checkout` | `0.2.0` | Node >= 18 for tooling |
 | Go server SDK | module source | Go 1.25 |
 
 Package manifests, exported types, and release notes are the version source of

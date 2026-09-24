@@ -1,13 +1,17 @@
 # Changelog
 
-## 0.4.0 - Unreleased
+## 0.4.0 - 2026-09-24
 
 - Add typed paymentRails, fiatCurrency and fiatAmount fields to hosted checkout,
   including fiat-only sessions and local rail/amount validation.
 - Add opt-in recoverExistingOrder for order recovery.
 - Preserve URL path encoding and request-error handling from canonical main.
-- Publication is deferred: the legacy delimiter-based HMAC contract still needs
-  a coordinated migration with Core and both server SDKs (see RELEASING.md).
+- Restore the canonical URL path-encoding regression test for all five endpoints.
+- Pin pnpm 10.28.0 and make package-local frozen installs reproducible.
+- Known security risk: the legacy delimiter-based HMAC ambiguity is unchanged.
+  The maintainer accepted this risk for 0.4.0; a coordinated migration with
+  Core and both server SDKs remains outstanding (see the
+  [release policy](../RELEASING.md#accepted-hmac-risk-for-the-september-2026-release)).
 
 ## 0.3.0 - 2026-07-21
 

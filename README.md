@@ -21,9 +21,14 @@ with a server SDK so API credentials remain on the backend.
 | --- | --- |
 | Hosted DIRECT checkout | [`docs/goat-flow-checkout.md`](docs/goat-flow-checkout.md) and `goatflow-checkout` |
 | Custom wallet/order UI | `goatflow-sdk` plus `goatflow-sdk-server` or the Go server SDK |
-| Agent or CLI payment | `goatflow-quickpay` |
+| Agent or CLI payment | `goatflow-paykit` |
 | Merchant onboarding | [`docs/goat-flow-onboarding-guide.md`](docs/goat-flow-onboarding-guide.md) |
 | Merchant operations | [`docs/merchant-guide.md`](docs/merchant-guide.md) |
+
+PayKit replaces the `goatflow-quickpay` npm package. This branch prepares the
+new release; see [package versions and migration](docs/README.md#npm-packages)
+for candidate status and compatibility details. A CLI alias in the new package
+does not upgrade an installation of the old npm package.
 
 Hosted checkout and QuickPay identify a product by merchant and product key.
 Price, accepted tokens, receiving addresses, and other payment configuration
@@ -62,7 +67,7 @@ Do not deploy a callback contract merely to use DIRECT checkout.
 | [`goatflow-sdk`](goatx402-sdk/README.md) | EVM buyer-wallet transfer and GOAT Flow MPP-profile client primitives | Release-managed npm package |
 | [`goatflow-sdk-server`](goatx402-sdk-server-ts/README.md) | HMAC-authenticated TypeScript server SDK | Release-managed npm package |
 | [`github.com/goatnetwork/goatflow-sdk-server`](goatx402-sdk-server-go/README.md) | HMAC-authenticated Go server SDK | Go module source |
-| [`goatflow-quickpay`](goatx402-quickpay/README.md) | Manifest-driven payer/agent library and CLI | Release-managed npm package |
+| [`goatflow-paykit`](goatx402-quickpay/README.md) | Manifest-driven payer/agent library and CLI | Release-managed npm package |
 | [`@goatnetwork/mpp-middleware`](goatx402-mpp-middleware-ts/README.md) | Express/Fastify verification for the GOAT Flow MPP receipt extension | Source package; not in the npm release runbook |
 | [`github.com/goatnetwork/goatflow-mpp-middleware-go`](goatx402-mpp-middleware-go/README.md) | Go HTTP verification for the GOAT Flow MPP receipt extension | Go module source |
 | [`goatx402-contract`](goatx402-contract/README.md) | Optional/internal callbacks and local test tokens | Foundry project |
