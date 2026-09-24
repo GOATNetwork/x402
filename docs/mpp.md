@@ -312,17 +312,20 @@ library/manual operation — do not re-run `pay-mpp` to recover, as it pays agai
 
 ---
 
-## 8. QuickPay CLI (`goatflow-quickpay`)
+## 8. QuickPay CLI (`goatflow-paykit`)
 
-For agents and scripts, the QuickPay CLI coordinates this profile's discovery, the
+For agents and scripts, the PayKit CLI coordinates this profile's discovery, the
 buyer-authorized direct transfer, and receipt verification:
+
+See [release status and migration](README.md#npm-packages) before installing the
+new package. Legacy `/quickpay/` merchant links remain accepted.
 
 ```bash
 # 1. Inspect a merchant's payment capabilities (machine-readable JSON)
-npx goatflow-quickpay inspect https://flow-quickpay.goat.network/quickpay/acme/agent.md --json
+npx goatflow-paykit inspect https://flow-quickpay.goat.network/paykit/acme/agent.md --json
 
 # 2. Pay a fixed MPP route
-npx goatflow-quickpay pay-mpp https://flow-quickpay.goat.network/quickpay/acme/agent.md \
+npx goatflow-paykit pay-mpp https://flow-quickpay.goat.network/paykit/acme/agent.md \
   --route GET:api:data
 ```
 
@@ -468,6 +471,6 @@ atomic receipt-ID store** so a receipt cannot be redeemed twice across replicas.
 - [Hosted Checkout](./goat-flow-checkout.md) — browser checkout for DIRECT products and sessions
 - [API Reference](./goat-flow-api-reference.md) — HMAC-authenticated merchant API
 - [DApp Integration Skill](./goat-flow-dapp-integration/SKILL.md) — coding-agent integration workflow
-- [QuickPay payer/agent CLI](../goatx402-quickpay/README.md)
+- [PayKit payer/agent CLI](../goatx402-quickpay/README.md)
 - [TypeScript middleware](../goatx402-mpp-middleware-ts/README.md)
 - [Go middleware](../goatx402-mpp-middleware-go/README.md)

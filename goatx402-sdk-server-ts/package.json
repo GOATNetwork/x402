@@ -1,6 +1,6 @@
 {
   "name": "goatflow-sdk-server",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "GOAT Flow Server SDK for Node.js - handles API authentication securely on the backend",
   "type": "module",
   "engines": {
@@ -49,5 +49,6 @@
     "sdk"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "packageManager": "pnpm@10.28.0"
 }

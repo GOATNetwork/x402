@@ -11,8 +11,9 @@ import type { LoadedManifest, QuickPayManifest, Target } from './types.js'
  *   - manifestUrl: the manifest.json URL on the same origin.
  */
 const MERCHANT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
-// Canonical QuickPay link path: /quickpay/<merchant_id>[/agent.md|/manifest.json]
-const QUICKPAY_PATH_RE = /^\/quickpay\/([^/]+)(?:\/(?:agent\.md|manifest\.json))?$/
+// Public page / agent.md / manifest.json live under /quickpay or the PayKit alias.
+// API calls stay on /quickpay/v1 (Core mounts both prefixes).
+const PUBLIC_PAYMENT_PATH_RE = /^\/(?:quickpay|paykit)\/([^/]+)(?:\/(?:agent\.md|manifest\.json))?$/
 
 export function deriveTarget(input: string): Target {
   let u: URL
@@ -38,11 +39,11 @@ export function deriveTarget(input: string): Target {
     throw new Error('URL must not contain a userinfo component')
   }
   const origin = u.origin
-  // Only accept canonical /quickpay/<merchant_id>[/agent.md|/manifest.json]
-  // shapes — never an arbitrary path that merely contains "quickpay".
-  const m = u.pathname.match(QUICKPAY_PATH_RE)
+  // Only accept /quickpay|/paykit/<merchant_id>[/agent.md|/manifest.json]
+  // shapes — never an arbitrary path that merely contains those prefixes.
+  const m = u.pathname.match(PUBLIC_PAYMENT_PATH_RE)
   if (!m) {
-    throw new Error(`URL must be a /quickpay/<merchant_id>[/agent.md|/manifest.json] link: ${input}`)
+    throw new Error(`URL must be a /quickpay|paykit/<merchant_id>[/agent.md|/manifest.json] link: ${input}`)
   }
   let merchantId: string
   try {
@@ -70,6 +71,7 @@ export function endpoints(origin: string) {
   return {
     sessionCreate: `${origin}/quickpay/v1/x402/sessions`,
     sessionStatus: (id: string) => `${origin}/quickpay/v1/x402/sessions/${encodeURIComponent(id)}`,
+    fiatSessionCreate: `${origin}/quickpay/v1/fiat/sessions`,
     discovery: (id: string) => `${origin}/quickpay/v1/merchants/${encodeURIComponent(id)}`,
     // MPPClient appends /mpp/v1/challenge and /mpp/v1/verify to coreUrl.
     mppCoreUrl: origin,
@@ -167,14 +169,13 @@ function validateMPPRoute(r: unknown, idx: number): void {
   }
 }
 
-// validateX402Product fails closed on a malformed product. product_key + price
-// flow onto the money path (payProduct sends product_key and INDEPENDENTLY
-// recomputes price * 10^decimals to verify the server's terms), so a shape
-// violation must be caught on ingest, not at pay time. name/image_url are display
+// validateManifestProduct fails closed on a malformed product shared by x402 and
+// fiat catalogs. product_key + price flow onto a money path, so a shape violation
+// must be caught on ingest, not at checkout creation. name/image_url are display
 // fields, but image_url is constrained to https so a tampered manifest can't point
 // a UI at an attacker resource.
-function validateX402Product(p: unknown, idx: number): void {
-  const where = `rails.x402.products[${idx}]`
+function validateManifestProduct(p: unknown, idx: number, rail: 'x402' | 'fiat'): void {
+  const where = `rails.${rail}.products[${idx}]`
   if (!p || typeof p !== 'object') throw new Error(`${where} is not an object`)
   const pr = p as Record<string, unknown>
   if (typeof pr.product_key !== 'string' || !PRODUCT_KEY_RE.test(pr.product_key) || pr.product_key === '.' || pr.product_key === '..') {
@@ -212,6 +213,8 @@ export function validateManifest(obj: unknown): QuickPayManifest {
   if (!m.rails || typeof m.rails !== 'object') throw new Error('manifest missing rails')
   const x402 = m.rails.x402 ?? { enabled: false, tokens: [] }
   const mpp = m.rails.mpp ?? { enabled: false, routes: [] }
+  const fiat = m.rails.fiat ?? { enabled: false, products: [] }
+  if (!fiat || typeof fiat !== 'object') throw new Error('rails.fiat must be an object when present')
   const x402Tokens = Array.isArray(x402.tokens) ? x402.tokens : []
   // A present-but-non-array `products` (e.g. an object or string) is malformed manifest
   // data, NOT "no products" — reject it (fail closed) rather than silently coerce to [].
@@ -222,6 +225,10 @@ export function validateManifest(obj: unknown): QuickPayManifest {
     throw new Error('rails.x402.products must be an array when present')
   }
   const x402Products = x402.products ?? []
+  if (fiat.products !== undefined && !Array.isArray(fiat.products)) {
+    throw new Error('rails.fiat.products must be an array when present')
+  }
+  const fiatProducts = fiat.products ?? []
   const mppRoutes = Array.isArray(mpp.routes) ? mpp.routes : []
   // Validate token rail entries on ingest when that rail is enabled (the only case
   // those entries are used to build a payment).
@@ -232,7 +239,24 @@ export function validateManifest(obj: unknown): QuickPayManifest {
   // surfaces them and payProduct's explicit-key recovery path reads them even on a
   // disabled rail, so a malformed product must fail closed on ingest rather than be
   // handed to a caller (or agent) typed as a valid string.
-  x402Products.forEach((p: unknown, i: number) => validateX402Product(p, i))
+  x402Products.forEach((p: unknown, i: number) => validateManifestProduct(p, i, 'x402'))
+  fiatProducts.forEach((p: unknown, i: number) => validateManifestProduct(p, i, 'fiat'))
+  if (fiat.enabled) {
+    if (fiat.human_action_required !== true) {
+      throw new Error('rails.fiat.human_action_required must be true when the rail is enabled')
+    }
+    if (typeof fiat.currency !== 'string' || !/^[A-Z]{3}$/.test(fiat.currency)) {
+      throw new Error('rails.fiat.currency must be an uppercase 3-letter ISO-4217 code when enabled')
+    }
+    if (
+      typeof fiat.minor_unit_exponent !== 'number' ||
+      !Number.isInteger(fiat.minor_unit_exponent) ||
+      fiat.minor_unit_exponent < 0 ||
+      fiat.minor_unit_exponent > 3
+    ) {
+      throw new Error('rails.fiat.minor_unit_exponent must be an integer in [0, 3] when enabled')
+    }
+  }
   if (mpp.enabled) {
     mppRoutes.forEach((r: unknown, i: number) => validateMPPRoute(r, i))
   }
@@ -247,6 +271,16 @@ export function validateManifest(obj: unknown): QuickPayManifest {
     rails: {
       x402: { enabled: !!x402.enabled, custom_amount: x402.custom_amount, memo_required: !!x402.memo_required, session_endpoint: x402.session_endpoint, tokens: x402Tokens, products: x402Products },
       mpp: { enabled: !!mpp.enabled, challenge_endpoint: mpp.challenge_endpoint, verify_endpoint: mpp.verify_endpoint, routes: mppRoutes },
+      fiat: {
+        enabled: !!fiat.enabled,
+        custom_amount: fiat.custom_amount,
+        memo_required: !!fiat.memo_required,
+        human_action_required: fiat.human_action_required === true,
+        session_endpoint: fiat.session_endpoint,
+        currency: fiat.currency,
+        minor_unit_exponent: fiat.minor_unit_exponent,
+        products: fiatProducts,
+      },
     },
   }
 }

@@ -239,6 +239,15 @@ export interface MPPPayParams {
   maxVerifyAttempts?: number
   /** Progress callback for UI updates. */
   onPhase?: (phase: MPPPhase, detail?: unknown) => void
+  /**
+   * Rail-isolation v2 (OPTIONAL): a PRIOR challenge whose purchase this pay()
+   * continues after a reuse_key roll (the buyer re-fetched a fresh challenge for the
+   * SAME purchase). Passing the prior `{ challengeId, mac }` lets Core link the intents
+   * so a cross-intent rollover double-pay is detected and the fiat refunded. Extract it
+   * from the prior MPPChallenge (or an MPPError's recoverable handle). Omit for a fresh,
+   * independent purchase — Core authenticates it (same payer + merchant) before linking.
+   */
+  supersedes?: { challengeId: string; mac: string }
 }
 
 /**

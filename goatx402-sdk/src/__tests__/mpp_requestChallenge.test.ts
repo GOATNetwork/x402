@@ -89,6 +89,35 @@ describe('MPPClient.requestChallenge', () => {
     })
   })
 
+  it('includes supersedes_challenge_id + supersedes_mac when a prior challenge is supplied (v2 lineage)', async () => {
+    const fetchImpl = mockFetch(402, VALID_CHALLENGE_BODY)
+    const client = new MPPClient({ coreUrl: 'http://core.test', signer: mockSigner(), fetchImpl })
+
+    await client.requestChallenge({
+      merchantId: 'm1',
+      routeCanonical: 'r',
+      requestCanonical: 'r',
+      supersedes: { challengeId: 'ch_prior', mac: 'prior-mac' },
+    })
+
+    const init = (fetchImpl as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][1] as RequestInit
+    const sent = JSON.parse(init.body as string)
+    expect(sent.supersedes_challenge_id).toBe('ch_prior')
+    expect(sent.supersedes_mac).toBe('prior-mac')
+  })
+
+  it('omits supersedes fields when no prior challenge is supplied', async () => {
+    const fetchImpl = mockFetch(402, VALID_CHALLENGE_BODY)
+    const client = new MPPClient({ coreUrl: 'http://core.test', signer: mockSigner(), fetchImpl })
+
+    await client.requestChallenge({ merchantId: 'm1', routeCanonical: 'r', requestCanonical: 'r' })
+
+    const init = (fetchImpl as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][1] as RequestInit
+    const sent = JSON.parse(init.body as string)
+    expect(sent).not.toHaveProperty('supersedes_challenge_id')
+    expect(sent).not.toHaveProperty('supersedes_mac')
+  })
+
   it('uses signer.getAddress when payerAddr is not provided', async () => {
     const fetchImpl = mockFetch(402, VALID_CHALLENGE_BODY)
     const signer = mockSigner()

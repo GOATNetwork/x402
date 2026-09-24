@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 - 2026-09-24
+
+- Add optional MPP supersedes challenge/MAC fields to preserve a purchase lineage
+  when continuing a prior payment challenge.
+- Preserve strict UTF-8 receipt decoding from the canonical repository.
+- Pin pnpm 10.28.0 and make package-local frozen installs reproducible.
+
 ## goatflow-sdk 0.2.1 - 2026-07-20
 
 - Renamed the package `goatx402-sdk` to `goatflow-sdk` for the GOAT Flow

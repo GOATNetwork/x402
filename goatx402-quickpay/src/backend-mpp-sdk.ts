@@ -12,7 +12,7 @@ export async function loadMppSdk(
     return await importer(specifier)
   } catch (cause) {
     throw new Error(
-      'pay-mpp could not load the optional dependency "goatflow-sdk"; ensure it is installed and importable alongside goatflow-quickpay',
+      'pay-mpp could not load the optional dependency "goatflow-sdk"; ensure it is installed and importable alongside goatflow-paykit',
       { cause },
     )
   }

@@ -1,5 +1,17 @@
 # Changelog
 
+## goatflow-checkout 0.2.0 - 2026-09-24
+
+- BREAKING: server-created sessions now default to /paykit/direct or
+  /paykit/delegate. Use checkoutSessionPath to override the session route;
+  checkoutPath keeps its legacy product/custom-checkout meaning.
+- Add checkoutType for explicit DIRECT/DELEGATE routing.
+- Preserve clean ESM, declaration and browser-IIFE packaging.
+- Correct the hosted-origin example and place the types export condition first.
+- Pin pnpm 10.28.0 and make package-local frozen installs reproducible.
+- Update public integration documentation for PayKit session routing and
+  legacy product/custom-checkout compatibility.
+
 ## goatflow-checkout 0.1.0 - 2026-07-21
 
 - Renamed the package `goatx402-checkout` to `goatflow-checkout` for the GOAT

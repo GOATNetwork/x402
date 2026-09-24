@@ -37,6 +37,16 @@ function routeFetch(session: any, statuses: StatusFixture[], manifest: any = MAN
 }
 
 describe('payX402', () => {
+  it('fails at preflight when custom-amount x402 is off', async () => {
+    const man = { ...MAN, rails: { ...MAN.rails, x402: { ...MAN.rails.x402, custom_amount: false } } }
+    const { fetch, calls } = routeFetch({ session_id: 's1', order_id: 'o1', status: 'ORDER_CREATED' }, ['ORDER_CREATED'], man)
+    const backend: PaymentBackend = { getAddress: async () => '0xPayer', transferErc20: vi.fn(async () => '0xTx') }
+    await expect(
+      payX402({ input: 'https://pay.goat.network/quickpay/acme', amount: '1', tokenSymbol: 'USDC', chainId: 4217, backend, fetchImpl: fetch }),
+    ).rejects.toThrow(/custom-amount x402/)
+    expect(calls.some((c) => c.url.endsWith('/quickpay/v1/x402/sessions'))).toBe(false)
+  })
+
   it('rejects an amount below the manifest minimum BEFORE creating a session or broadcasting', async () => {
     // MAN advertises USDC min_amount_wei '1000000' (1 USDC); 0.5 -> 500000 wei.
     const session = { session_id: 's1', order_id: 'o1', status: 'ORDER_CREATED', x402: { accepts: [] } }
@@ -185,6 +195,41 @@ describe('payX402', () => {
     expect(out.ok).toBe(true)
     expect(out.status).toBe('PAYMENT_CONFIRMED')
     expect(out.tx_hash).toBe('0xTx')
+  })
+
+  it('clamps every poll sleep (including EXPIRED grace) to the pollTimeoutMs deadline', async () => {
+    // Status stays EXPIRED while a broadcast tx hash is known, so the
+    // EXPIRED-grace path keeps re-polling. With a poll interval far larger than
+    // the overall deadline, an unclamped grace sleep would overshoot
+    // pollTimeoutMs by up to a full pollIntervalMs.
+    const session = { session_id: 's-grace', order_id: 'o-grace', status: 'ORDER_CREATED', x402: { accepts: [{ scheme: 'exact', network: 'eip155:4217', payTo: '0xP', asset: '0xToken', amount: '1000000' }] } }
+    const { fetch, calls } = routeFetch(session, [{ status: 'EXPIRED', tx_hash: '0xTx' }])
+    const backend: PaymentBackend = { getAddress: async () => '0xPayer', transferErc20: async () => '0xTx' }
+    let clock = 0
+    const sleeps: number[] = []
+    const out = await payX402({
+      input: 'https://pay.goat.network/quickpay/acme',
+      amount: '1',
+      tokenSymbol: 'USDC',
+      chainId: 4217,
+      backend,
+      fetchImpl: fetch,
+      pollIntervalMs: 10_000,
+      pollTimeoutMs: 100,
+      now: () => clock,
+      sleep: async (ms) => {
+        sleeps.push(ms)
+        clock += Math.max(1, ms)
+      },
+    })
+    expect(out.status).toBe('EXPIRED')
+    expect(sleeps.length).toBeGreaterThan(0)
+    expect(Math.max(...sleeps)).toBeLessThanOrEqual(100)
+    // A hung status request must not outlive the deadline either: every status
+    // fetch carries an abort signal bounded by the remaining time.
+    const statusCalls = calls.filter((c) => c.url.includes('/quickpay/v1/x402/sessions/'))
+    expect(statusCalls.length).toBeGreaterThan(0)
+    for (const c of statusCalls) expect(c.init?.signal).toBeInstanceOf(AbortSignal)
   })
 
   it('Case 1: reports the freshly fetched status for a terminal-on-create session (late revival)', async () => {
@@ -989,5 +1034,30 @@ describe('inspect', () => {
     const r = await inspect('https://pay.goat.network/quickpay/acme', fetch)
     expect(r.x402_products).toHaveLength(1)
     expect(r.x402_products[0]).toMatchObject({ product_key: 'mug', name: 'Coffee Mug', price: '9.99' })
+  })
+
+  it('surfaces hosted card-link capabilities and fiat products', async () => {
+    const man = {
+      ...MAN,
+      rails: {
+        ...MAN.rails,
+        fiat: {
+          enabled: true,
+          custom_amount: true,
+          human_action_required: true,
+          currency: 'USD',
+          minor_unit_exponent: 2,
+          products: [{ product_key: 'mug', name: 'Coffee Mug', price: '9.99' }],
+        },
+      },
+    }
+    const { fetch } = recordingFetch(() => jsonResponse(man))
+    const r = await inspect('https://pay.goat.network/quickpay/acme', fetch)
+    expect(r.fiat_enabled).toBe(true)
+    expect(r.fiat_currency).toBe('USD')
+    expect(r.fiat_human_action_required).toBe(true)
+    expect(r.fiat_products).toEqual([
+      expect.objectContaining({ product_key: 'mug', name: 'Coffee Mug', price: '9.99' }),
+    ])
   })
 })

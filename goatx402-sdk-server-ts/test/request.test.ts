@@ -158,4 +158,43 @@ describe('waitForConfirmation', () => {
     expect(error).toMatchObject({ status: 404, code: 'ORDER_NOT_FOUND' })
     expect(fetchMock).toHaveBeenCalledOnce()
   })
+
+  // The Go server SDK marks `recover_existing_order` omitempty; this SDK must
+  // stay byte-identical on the wire: absent by default, `true` only when opted
+  // in. Pinned at the request body, not the type, so a dropped assignment
+  // cannot pass type-checking and drift the two SDKs apart again.
+  it('sends recover_existing_order only when opted in', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(
+        {
+          resource: { url: 'https://shop.example.com/order/1' },
+          accepts: [],
+          order_id: 'order_1',
+          flow: 'ERC20_DIRECT',
+          token_symbol: 'USDC',
+        },
+        402
+      )
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const base = {
+      dappOrderId: 'dapp_1',
+      chainId: 137,
+      tokenSymbol: 'USDC',
+      fromAddress: '0xPayer',
+      amountWei: '1000000',
+    }
+    await client().createOrderRaw(base)
+    const plain = JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body)) as Record<string, unknown>
+    expect('recover_existing_order' in plain).toBe(false)
+
+    await client().createOrderRaw({ ...base, recoverExistingOrder: true })
+    const optedIn = JSON.parse(String((fetchMock.mock.calls[1]?.[1] as RequestInit).body)) as Record<string, unknown>
+    expect(optedIn.recover_existing_order).toBe(true)
+
+    await client().createOrderRaw({ ...base, recoverExistingOrder: false })
+    const optedOut = JSON.parse(String((fetchMock.mock.calls[2]?.[1] as RequestInit).body)) as Record<string, unknown>
+    expect('recover_existing_order' in optedOut).toBe(false)
+  })
 })

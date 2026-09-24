@@ -1,6 +1,6 @@
-# goatflow-quickpay
+# goatflow-paykit
 
-Public payer/agent library and CLI for **GOAT Flow QuickPay**. It is generic,
+Public payer/agent library and CLI for **GOAT Flow PayKit**. It is generic,
 stateless, and manifest-driven: it does not know any specific merchant — the
 merchant identity comes entirely from the link a merchant shares.
 
@@ -14,10 +14,18 @@ whose JSON challenge/verify endpoints and signed three-segment receipt are
 GOAT-specific. It is not a generic MPP transport, and this repository contains
 no interoperability test with official MPP SDKs.
 
+## Migration from QuickPay
+
+Install `goatflow-paykit` in place of `goatflow-quickpay`. The public
+`QuickPayClient` API remains available, and the installed package provides both
+`goatflow-paykit` and `goatflow-quickpay` executable names. Prefer
+`PAYKIT_PRIVATE_KEY` / `PAYKIT_RPC[_<chainId>]`; the `QUICKPAY_*` environment
+variables remain supported. Existing `/quickpay/` links remain accepted.
+
 ## Install
 
 ```bash
-npm install goatflow-quickpay
+npm install goatflow-paykit
 
 # Required only for the built-in pay-mpp backend:
 npm install goatflow-sdk
@@ -25,25 +33,25 @@ npm install goatflow-sdk
 
 ```bash
 # show available commands
-npx goatflow-quickpay --help
+npx goatflow-paykit --help
 
 # inspect a merchant's payment capabilities (machine-readable JSON)
-npx goatflow-quickpay inspect https://flow-quickpay.goat.network/quickpay/acme/agent.md --json
+npx goatflow-paykit inspect https://flow-quickpay.goat.network/paykit/acme/agent.md --json
 
 # Provide the payer key WITHOUT writing the secret into a command (shell history and
 # agent transcripts leak it): set QUICKPAY_PRIVATE_KEY in your environment out-of-band
 # (e.g. from a secret manager), or pass --wallet-file <path> (a chmod 600 key file).
 
 # pay a custom amount via x402
-npx goatflow-quickpay pay-x402 https://flow-quickpay.goat.network/quickpay/acme/agent.md \
+npx goatflow-paykit pay-x402 https://flow-quickpay.goat.network/paykit/acme/agent.md \
   --amount 12.50 --token-contract 0xToken --chain 4217
 
 # buy a fixed-price product (the merchant prices it; you only pick the token + chain)
-npx goatflow-quickpay pay-product https://flow-quickpay.goat.network/quickpay/acme/agent.md \
+npx goatflow-paykit pay-product https://flow-quickpay.goat.network/paykit/acme/agent.md \
   --product mug --token-contract 0xToken --chain 4217
 
 # pay a fixed MPP route
-npx goatflow-quickpay pay-mpp https://flow-quickpay.goat.network/quickpay/acme/agent.md \
+npx goatflow-paykit pay-mpp https://flow-quickpay.goat.network/paykit/acme/agent.md \
   --route GET:api:data
 ```
 
@@ -57,9 +65,9 @@ price.
 Library usage:
 
 ```ts
-import { QuickPayClient } from 'goatflow-quickpay'
+import { QuickPayClient } from 'goatflow-paykit'
 
-const client = new QuickPayClient('https://flow-quickpay.goat.network/quickpay/acme/agent.md')
+const client = new QuickPayClient('https://flow-quickpay.goat.network/paykit/acme/agent.md')
 const manifest = await client.loadManifest()
 const summary = await client.inspect()
 ```
@@ -85,6 +93,17 @@ The corresponding custom-amount wire request is:
 }
 ```
 
+## Hosted card checkout
+
+Use `createFiatCheckoutLink()` or the CLI command below to create a link for a
+human payer. The library never accepts card credentials. The hosted URL must
+remain on the trusted origin, and returned currency and amount are validated.
+
+```bash
+npx goatflow-paykit create-card-checkout https://flow-quickpay.goat.network/paykit/acme/agent.md \
+  --product mug
+```
+
 ## Security model — the host is the trust anchor
 
 The input link's **origin** (`scheme://host`) is the single trust anchor:
@@ -108,8 +127,9 @@ This same-origin rule is specific to QuickPay-driven MPP. A standalone
 
 Manifest validation is a discovery/preflight boundary, not the final transfer
 instruction. Non-array token or route lists are normalized to empty lists,
-`payX402()` does not require the manifest's `custom_amount` flag, and Product
-limits remain server-authoritative. The returned session or MPP challenge
+`payX402()` rejects an explicitly disabled `custom_amount` flag for new
+sessions, and Product limits remain server-authoritative. An explicit
+idempotency key can resume an existing payment after a merchant disables a rail. The returned session or MPP challenge
 provides the current transfer terms.
 
 ## Retry safety (avoid double-paying)

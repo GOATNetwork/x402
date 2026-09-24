@@ -8,28 +8,32 @@
 /** Where the hosted checkout lives + popup-channel tunables. */
 export interface GoatCheckoutConfig {
   /**
-   * The platform QuickPay payment origin, e.g. 'https://pay.goat.network'.
+   * The platform PayKit payment origin, e.g. 'https://flow-quickpay.goat.network'.
    * This is the TRUST ANCHOR: it is the only origin the SDK will accept
    * postMessage events from, and the only origin it opens. Must be a bare
    * https origin (http allowed only for localhost dev).
    */
   origin: string
   /**
-   * Unified hosted checkout path on that origin. Default '/checkout'. Serves BOTH
-   * DIRECT and DELEGATE checkouts — the page learns the type from the server read.
-   * Used for `checkout_id` (`cs`) sessions.
+   * @deprecated Legacy product/custom QuickPay path. Kept with its original meaning
+   * so an existing integration that set this field never sends a new `cs` session to
+   * a page that cannot read it. Prefer `quickpayCheckoutPath`.
    */
   checkoutPath?: string
   /**
+   * Overrides the hosted checkout-session path for every `cs` open. When unset,
+   * DIRECT sessions open `/paykit/direct` and DELEGATE sessions open
+   * `/paykit/delegate`. `/checkout?cs=` remains a live alias on the hosted page.
+   */
+  checkoutSessionPath?: string
+  /**
    * Hosted path for the legacy product/custom QuickPay page — the page opened by
-   * `open({ productKey })` / `openCustom(...)`, NOT `cs` sessions. When unset it falls back
-   * to `checkoutPath` (which previously configured these opens) and then to
-   * '/quickpay/checkout', so existing integrations keep working. Set it explicitly if your
-   * deployment serves that page under a custom route distinct from the unified `checkoutPath`.
+   * `open({ productKey })` / `openCustom(...)`, NOT `cs` sessions. When unset it falls
+   * back to the legacy `checkoutPath` and then '/quickpay/checkout'.
    */
   quickpayCheckoutPath?: string
   /**
-   * @deprecated Ignored. DELEGATE now uses the SAME unified `checkoutPath`; this
+   * @deprecated Ignored. DELEGATE now uses the SAME unified `checkoutSessionPath`; this
    * field is kept only so existing configs do not break and will be removed in a
    * future version.
    */
@@ -74,9 +78,9 @@ export type CheckoutErrorReason =
 
 /** Common fields shared by the open variants. */
 interface BaseOpenOptions {
-  /** Pay in this token symbol (optional; otherwise chosen on the hosted page). */
+  /** Crypto rail only: pay in this token symbol (optional; otherwise chosen on the hosted page). */
   token?: string
-  /** Pay on this EVM chain id (optional; otherwise chosen on the hosted page). */
+  /** Crypto rail only: pay on this EVM chain id (optional; otherwise chosen on the hosted page). */
   chain?: number
   /**
    * 'popup' (default) opens a small top-level window; 'tab' opens a full new browser tab
@@ -117,14 +121,20 @@ interface BaseOpenOptions {
 export interface OpenOptions extends BaseOpenOptions {
   /** Merchant id (required for product mode; ignored/derived for checkoutId mode). */
   merchant?: string
-  /** Server-priced product key. */
+  /** Server-priced product key. This legacy merchant/product route is currently stablecoin-only. */
   productKey?: string
-  /** Opaque server-created checkout session id (URL param `cs`). */
+  /** Opaque server-created checkout session id (URL param `cs`); supports crypto, fiat, or both as pinned by the server. */
   checkoutId?: string
+  /**
+   * Which hosted PayKit path to open for `checkoutId`. Default `DIRECT`
+   * (`/paykit/direct`). Pass `DELEGATE` for a DELEGATE session
+   * (`/paykit/delegate`). The page still reads the type from the session.
+   */
+  checkoutType?: 'DIRECT' | 'DELEGATE'
 }
 
 /**
- * Options for a CUSTOM / donation payment. The amount is browser-supplied and
+ * Options for a CUSTOM / donation stablecoin payment. The amount is browser-supplied and
  * therefore UNTRUSTED — the merchant MUST reconcile the actually-paid amount
  * server-side (webhook / order status) before fulfilling. Never use this for an
  * automatically-fulfilled purchase; use a product or a CheckoutSession instead.
@@ -139,13 +149,16 @@ export interface OpenCustomOptions extends BaseOpenOptions {
 
 /**
  * Options for a full-page redirect to the hosted checkout (no callbacks).
- * Fulfillable only: carries `checkoutId` (cs) OR `merchant`+`productKey` — never a
- * price. For a custom/donation redirect use `openCustom({ display: 'redirect' })`.
+ * Fulfillable only: carries `checkoutId` (cs, crypto/fiat/both) OR the legacy
+ * stablecoin-only `merchant`+`productKey` — never a price. For a custom/donation
+ * stablecoin redirect use `openCustom({ display: 'redirect' })`.
  */
 export interface RedirectOptions {
   merchant?: string
   productKey?: string
   checkoutId?: string
+  /** See {@link OpenOptions.checkoutType}. Default DIRECT → `/paykit/direct`. */
+  checkoutType?: 'DIRECT' | 'DELEGATE'
   token?: string
   chain?: number
   /** Merchant's own order/cart reference (URL param `client_reference_id`). Not a price. */

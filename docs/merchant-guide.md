@@ -762,21 +762,23 @@ Browser merchants can open these fixed-price products with
 an HMAC-created Checkout Session instead; see
 [Hosted Checkout](goat-flow-checkout.md).
 
-Agent/CLI entry points:
+PayKit agent/CLI entry points (see
+[release status and migration](README.md#npm-packages)). Both `/paykit/` and
+legacy `/quickpay/` merchant links are accepted:
 
 ```bash
-npx goatflow-quickpay inspect \
-  https://flow-quickpay.goat.network/quickpay/<merchant_id>/agent.md --json
+npx goatflow-paykit inspect \
+  https://flow-quickpay.goat.network/paykit/<merchant_id>/agent.md --json
 
-npx goatflow-quickpay pay-x402 https://flow-quickpay.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatflow-paykit pay-x402 https://flow-quickpay.goat.network/paykit/<merchant_id>/agent.md \
   --amount <amount> --token-contract <token_contract> --chain <chain_id> \
   --idempotency-key <payment_intent_id>
 
-npx goatflow-quickpay pay-product https://flow-quickpay.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatflow-paykit pay-product https://flow-quickpay.goat.network/paykit/<merchant_id>/agent.md \
   --product <product_key> --token-contract <token_contract> --chain <chain_id> \
   --idempotency-key <payment_intent_id>
 
-npx goatflow-quickpay pay-mpp https://flow-quickpay.goat.network/quickpay/<merchant_id>/agent.md \
+npx goatflow-paykit pay-mpp https://flow-quickpay.goat.network/paykit/<merchant_id>/agent.md \
   --route GET:api:data
 ```
 
@@ -784,7 +786,8 @@ Operational rules:
 
 - Read the chain, token contract, decimals, limits, products, and MPP routes from
   `manifest.json`; do not substitute values from a screenshot.
-- Supply the payer key through `QUICKPAY_PRIVATE_KEY` or a permission-restricted
+- Supply the payer key through `PAYKIT_PRIVATE_KEY` (`QUICKPAY_PRIVATE_KEY`
+  remains supported) or a permission-restricted
   `--wallet-file`. Passing it with `--wallet` can leak through process listings,
   shell history, logs, and agent transcripts.
 - Reuse one idempotency key for retries of the same QuickPay intent. A reused
@@ -803,7 +806,7 @@ Operational rules:
 
 Agents should use `manifest.json` as the machine-readable capability and pricing
 surface and validate every command shown by `agent.md` against the installed
-`goatflow-quickpay` package.
+`goatflow-paykit` package.
 
 ### 12.4 Paid API Routes (MPP)
 

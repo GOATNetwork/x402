@@ -13,6 +13,15 @@ const MAN = {
       tokens: [{ chain_id: 4217, token_symbol: 'USDC', token_contract: '0xabc', decimals: 6, min_amount_wei: '1000000' }],
     },
     mpp: { enabled: false, routes: [] },
+    fiat: {
+      enabled: true,
+      custom_amount: true,
+      human_action_required: true,
+      session_endpoint: 'https://evil.example/quickpay/v1/fiat/sessions',
+      currency: 'USD',
+      minor_unit_exponent: 2,
+      products: [{ product_key: 'mug', name: 'Coffee Mug', price: '9.99' }],
+    },
   },
 }
 
@@ -59,6 +68,17 @@ describe('deriveTarget', () => {
   it('rejects a userinfo component', () => {
     expect(() => deriveTarget('https://user@evil.example/quickpay/acme')).toThrow(/userinfo/)
   })
+  it('accepts the PayKit alias and still fetches the canonical manifest', () => {
+    expect(deriveTarget('https://pay.goat.network/paykit/acme')).toEqual({
+      origin: 'https://pay.goat.network',
+      merchantId: 'acme',
+      manifestUrl: 'https://pay.goat.network/quickpay/acme/manifest.json',
+    })
+    expect(deriveTarget('https://pay.goat.network/paykit/acme/agent.md').merchantId).toBe('acme')
+    expect(deriveTarget('https://pay.goat.network/paykit/acme/manifest.json').manifestUrl).toBe(
+      'https://pay.goat.network/quickpay/acme/manifest.json',
+    )
+  })
 })
 
 describe('validateManifest', () => {
@@ -75,6 +95,41 @@ describe('validateManifest', () => {
     const m = validateManifest({ schema: 'goatx402.quickpay.v1', merchant: { merchant_id: 'a' }, rails: {} })
     expect(m.rails.x402.tokens).toEqual([])
     expect(m.rails.mpp.routes).toEqual([])
+    expect(m.rails.fiat).toMatchObject({ enabled: false, human_action_required: false, products: [] })
+  })
+  it('accepts and preserves a valid fiat rail', () => {
+    const m = validateManifest(MAN)
+    expect(m.rails.fiat).toMatchObject({
+      enabled: true,
+      human_action_required: true,
+      currency: 'USD',
+      minor_unit_exponent: 2,
+    })
+    expect(m.rails.fiat?.products?.[0].product_key).toBe('mug')
+  })
+  it('rejects enabled fiat without the human-action safety contract', () => {
+    const bad = { ...MAN, rails: { ...MAN.rails, fiat: { ...MAN.rails.fiat, human_action_required: false } } }
+    expect(() => validateManifest(bad)).toThrow(/human_action_required/)
+  })
+  it('rejects malformed enabled fiat currency terms', () => {
+    const badCurrency = { ...MAN, rails: { ...MAN.rails, fiat: { ...MAN.rails.fiat, currency: 'usd' } } }
+    expect(() => validateManifest(badCurrency)).toThrow(/currency/)
+    const badExponent = { ...MAN, rails: { ...MAN.rails, fiat: { ...MAN.rails.fiat, minor_unit_exponent: 4 } } }
+    expect(() => validateManifest(badExponent)).toThrow(/minor_unit_exponent/)
+  })
+  it('rejects malformed fiat products even when the fiat rail is disabled', () => {
+    const bad = {
+      ...MAN,
+      rails: {
+        ...MAN.rails,
+        fiat: { enabled: false, products: [{ product_key: 'bad key', name: '', price: 'x' }] },
+      },
+    }
+    expect(() => validateManifest(bad)).toThrow(/product_key|name|price/)
+  })
+  it('rejects a present-but-non-array fiat products field', () => {
+    const bad = { ...MAN, rails: { ...MAN.rails, fiat: { enabled: false, products: 'bad' } } }
+    expect(() => validateManifest(bad)).toThrow(/rails\.fiat\.products/)
   })
   it('rejects a malformed x402 token (bad decimals) when the rail is enabled', () => {
     const bad = {
@@ -224,6 +279,7 @@ describe('endpoints (trust anchor)', () => {
     const ep = endpoints('https://pay.goat.network')
     expect(ep.sessionCreate).toBe('https://pay.goat.network/quickpay/v1/x402/sessions')
     expect(ep.sessionStatus('s1')).toBe('https://pay.goat.network/quickpay/v1/x402/sessions/s1')
+    expect(ep.fiatSessionCreate).toBe('https://pay.goat.network/quickpay/v1/fiat/sessions')
     expect(ep.mppCoreUrl).toBe('https://pay.goat.network')
   })
 })

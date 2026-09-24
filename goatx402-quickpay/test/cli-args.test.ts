@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CLI_BIN,
   HELP_TEXT,
   parseArgs,
   shouldShowHelp,
 } from '../src/cli-args.js'
 
-describe('QuickPay CLI help', () => {
+describe('PayKit CLI help', () => {
   it('recognizes --help and -h without consuming a command', () => {
     expect(parseArgs(['--help'])).toEqual({
       command: undefined,
@@ -55,7 +56,8 @@ describe('QuickPay CLI help', () => {
   })
 
   it('lists every public command', () => {
-    for (const command of ['inspect', 'pay-x402', 'pay-product', 'pay-mpp']) {
+    expect(HELP_TEXT).toContain(`Usage: ${CLI_BIN}`)
+    for (const command of ['inspect', 'pay-x402', 'pay-product', 'pay-mpp', 'create-card-checkout']) {
       expect(HELP_TEXT).toContain(command)
     }
   })

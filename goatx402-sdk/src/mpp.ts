@@ -42,13 +42,23 @@ interface MPPClientOptions {
    */
   sleep?: (ms: number) => Promise<void>
 }
-
 interface RequestChallengeParams {
   merchantId: string
   routeCanonical: string
   requestCanonical: string
   /** Defaults to signer.getAddress(). */
   payerAddr?: string
+  /**
+   * Rail-isolation v2 (OPTIONAL): a PRIOR challenge whose purchase this one continues
+   * after a reuse_key roll (a time-bucket boundary or a route-version bump produced a
+   * fresh challenge for the SAME purchase). Presenting the prior challenge + its MAC lets
+   * Core link the two payment intents so a cross-intent rollover double-pay (fiat paid on
+   * the old, crypto on the new) is detected and the fiat refunded. Pass the prior
+   * MPPChallenge's `{ challengeId, mac }`. OMIT for a fresh, independent purchase — Core
+   * authenticates the MAC (same payer + merchant) before linking, so an unrelated or
+   * bogus supersede is safely ignored and never links across payers.
+   */
+  supersedes?: { challengeId: string; mac: string }
 }
 
 interface VerifyChallengeParams {
@@ -311,11 +321,17 @@ export class MPPClient {
    */
   async requestChallenge(p: RequestChallengeParams): Promise<MPPChallenge> {
     const payerAddr = p.payerAddr ?? (await this.getSignerAddress())
-    const body = {
+    const body: Record<string, unknown> = {
       merchant_id: p.merchantId,
       route_canonical: p.routeCanonical,
       request_canonical: p.requestCanonical,
       payer_addr: payerAddr,
+    }
+    // Rail-isolation v2: additively opt into purchase-lineage linking (see
+    // RequestChallengeParams.supersedes). Only sent when both parts are present.
+    if (p.supersedes && p.supersedes.challengeId && p.supersedes.mac) {
+      body.supersedes_challenge_id = p.supersedes.challengeId
+      body.supersedes_mac = p.supersedes.mac
     }
     let res: Response
     try {
@@ -658,6 +674,7 @@ export class MPPClient {
         routeCanonical: p.routeCanonical,
         requestCanonical,
         payerAddr,
+        supersedes: p.supersedes,
       })
     } catch (err) {
       onPhase('failed', err)

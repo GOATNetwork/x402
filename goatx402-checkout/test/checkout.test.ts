@@ -139,11 +139,11 @@ describe('open — URL building', () => {
     expect(u.searchParams.get('amount')).toBeNull()
   })
 
-  it('checkoutId mode builds cs (alone; no m/product_key) on the unified /checkout page', () => {
+  it('checkoutId mode builds cs (alone; no m/product_key) on /paykit/direct', () => {
     const f = fakeEnv()
     GoatCheckout({ origin: ORIGIN }, f.env).open({ checkoutId: 'cs_live_1' })
     const u = new URL(f.opened[0])
-    expect(u.pathname).toBe('/checkout')
+    expect(u.pathname).toBe('/paykit/direct')
     expect(u.searchParams.get('cs')).toBe('cs_live_1')
     expect(u.searchParams.get('m')).toBeNull()
     expect(u.searchParams.get('product_key')).toBeNull()
@@ -339,13 +339,19 @@ describe('checkoutPath validation', () => {
   it('rejects an absolute/protocol-relative/scheme/query/fragment path', () => {
     for (const p of ['https://evil.example/c', '//evil.example/c', 'javascript:alert(1)', '/c?amount=1', '/c#frag', 'c']) {
       expect(() => GoatCheckout({ origin: ORIGIN, checkoutPath: p }, fakeEnv().env)).toThrow()
+      expect(() => GoatCheckout({ origin: ORIGIN, checkoutSessionPath: p }, fakeEnv().env)).toThrow()
     }
   })
-  it('accepts a clean root-relative path (checkoutPath overrides the unified cs page)', () => {
+  it('keeps the legacy checkoutPath on product/custom opens and never applies it to cs sessions', () => {
     const f = fakeEnv()
-    // checkoutPath customizes the unified CheckoutSession page (cs); product/custom
-    // always use the fixed /quickpay/checkout page.
-    GoatCheckout({ origin: ORIGIN, checkoutPath: '/c2' }, f.env).open({ checkoutId: 'cs_1' })
+    const goat = GoatCheckout({ origin: ORIGIN, checkoutPath: '/legacy' }, f.env)
+    goat.open({ merchant: 'acme', productKey: 'mug' })
+    goat.open({ checkoutId: 'cs_1' })
+    expect(f.opened.map((url) => new URL(url).pathname)).toEqual(['/legacy', '/paykit/direct'])
+  })
+  it('accepts an explicit root-relative checkoutSessionPath for cs sessions', () => {
+    const f = fakeEnv()
+    GoatCheckout({ origin: ORIGIN, checkoutSessionPath: '/c2' }, f.env).open({ checkoutId: 'cs_1' })
     expect(new URL(f.opened[0]).pathname).toBe('/c2')
   })
 })
@@ -490,13 +496,13 @@ describe('single active checkout (double-open)', () => {
 describe('openDelegate — DELEGATE hosted checkout', () => {
   const HANDLE = 'dcs_live_1'
 
-  it('builds /checkout?cs=...&o=...&n=... and opens a popup (no price)', () => {
+  it('builds /paykit/delegate?cs=...&o=...&n=... and opens a popup (no price)', () => {
     const f = fakeEnv()
     GoatCheckout({ origin: ORIGIN }, f.env).openDelegate({ handle: HANDLE })
     expect(f.opened).toHaveLength(1)
     const u = new URL(f.opened[0])
     expect(u.origin).toBe(ORIGIN)
-    expect(u.pathname).toBe('/checkout') // unified page (same as DIRECT)
+    expect(u.pathname).toBe('/paykit/delegate')
     expect(u.searchParams.get('cs')).toBe(HANDLE) // delegate handle rides as cs now
     expect(u.searchParams.get('h')).toBeNull() // old `h` param is gone
     expect(u.searchParams.get('o')).toBe(OPENER)
@@ -519,11 +525,11 @@ describe('openDelegate — DELEGATE hosted checkout', () => {
     expect(without.searchParams.has('cancel_url')).toBe(false)
   })
 
-  it('honors the unified custom checkoutPath (delegateCheckoutPath is ignored)', () => {
+  it('honors the unified custom checkoutSessionPath (delegateCheckoutPath is ignored)', () => {
     const f = fakeEnv()
-    // openDelegate now forwards to the unified page, so it follows checkoutPath; the
+    // openDelegate now forwards to the unified page, so it follows checkoutSessionPath; the
     // legacy delegateCheckoutPath is ignored.
-    GoatCheckout({ origin: ORIGIN, checkoutPath: '/d/checkout', delegateCheckoutPath: '/ignored' }, f.env).openDelegate({ handle: HANDLE })
+    GoatCheckout({ origin: ORIGIN, checkoutSessionPath: '/d/checkout', delegateCheckoutPath: '/ignored' }, f.env).openDelegate({ handle: HANDLE })
     const u = new URL(f.opened[0])
     expect(u.pathname).toBe('/d/checkout')
     expect(u.searchParams.get('cs')).toBe(HANDLE)
@@ -542,7 +548,7 @@ describe('openDelegate — DELEGATE hosted checkout', () => {
     GoatCheckout({ origin: ORIGIN }, f.env).openDelegate({ handle: HANDLE, display: 'redirect' })
     expect(f.opened).toHaveLength(0)
     const u = new URL(f.navigations[0])
-    expect(u.pathname).toBe('/checkout')
+    expect(u.pathname).toBe('/paykit/delegate')
     expect(u.searchParams.get('cs')).toBe(HANDLE)
     expect(u.searchParams.get('o')).toBeNull() // no channel on a full redirect
   })
@@ -624,11 +630,11 @@ describe('openDelegate — DELEGATE hosted checkout', () => {
 describe('redirectToDelegateCheckout', () => {
   const HANDLE = 'dcs_live_2'
 
-  it('navigates to /checkout with cs (and optional redirect URLs)', () => {
+  it('navigates to /paykit/delegate with cs (and optional redirect URLs)', () => {
     const f = fakeEnv()
     GoatCheckout({ origin: ORIGIN }, f.env).redirectToDelegateCheckout({ handle: HANDLE, successUrl: 'https://shop.example/ok' })
     const u = new URL(f.navigations[0])
-    expect(u.pathname).toBe('/checkout')
+    expect(u.pathname).toBe('/paykit/delegate')
     expect(u.searchParams.get('cs')).toBe(HANDLE)
     expect(u.searchParams.get('h')).toBeNull()
     expect(u.searchParams.get('success_url')).toBe('https://shop.example/ok')

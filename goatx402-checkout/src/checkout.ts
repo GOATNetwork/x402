@@ -17,7 +17,8 @@ import type {
 // another instance's active checkout window.
 let checkoutInstanceSeq = 0
 
-const DEFAULT_CHECKOUT_PATH = '/checkout'
+const PAYKIT_DIRECT_PATH = '/paykit/direct'
+const PAYKIT_DELEGATE_PATH = '/paykit/delegate'
 // Product/custom QuickPay opens (NO server-pinned checkout session) still target the
 // legacy QuickPay checkout page; only a server-created CheckoutSession (`cs`) uses the
 // unified `/checkout` page. Routing both to `/checkout` would land product/custom on a
@@ -160,16 +161,21 @@ export interface GoatCheckout {
  */
 export function GoatCheckout(config: GoatCheckoutConfig, env: BrowserEnv = defaultBrowserEnv()): GoatCheckout {
   const origin = validateOrigin(config.origin)
-  const path = validateCheckoutPath(config.checkoutPath ?? DEFAULT_CHECKOUT_PATH)
-  // Legacy product/custom QuickPay page. Falls back to checkoutPath — which BEFORE the
-  // unified-checkout change defaulted to '/quickpay/checkout' and WAS the knob for these
-  // product/custom opens — so existing integrations that customized checkoutPath keep
-  // routing product/custom to their page. New integrations should set quickpayCheckoutPath
-  // explicitly (checkoutPath now configures the unified `cs` page).
+  // checkoutPath historically configured product/custom QuickPay. Keep that meaning:
+  // reusing it for a new `cs` session silently sends existing integrations to a legacy
+  // page that cannot read the session. Session routing therefore has its own explicit knob.
+  const explicitSessionPath = config.checkoutSessionPath
+    ? validateCheckoutPath(config.checkoutSessionPath)
+    : undefined
   const quickpayPath = validateCheckoutPath(config.quickpayCheckoutPath ?? config.checkoutPath ?? QUICKPAY_CHECKOUT_PATH)
-  // A server-pinned CheckoutSession (params carry `cs`) opens the unified `/checkout`
-  // page; a product/custom QuickPay open targets the legacy `/quickpay/checkout` page.
-  const pathFor = (params: Record<string, string>): string => (params.cs ? path : quickpayPath)
+  // A server-pinned CheckoutSession (`cs`) opens /paykit/direct or /paykit/delegate.
+  // The page still reads DIRECT vs DELEGATE from the session. An explicit
+  // checkoutSessionPath overrides both. Product/custom opens stay on the legacy page.
+  const pathFor = (params: Record<string, string>, kind: 'direct' | 'delegate' = 'direct'): string => {
+    if (!params.cs) return quickpayPath
+    if (explicitSessionPath) return explicitSessionPath
+    return kind === 'delegate' ? PAYKIT_DELEGATE_PATH : PAYKIT_DIRECT_PATH
+  }
   const readyTimeoutMs = config.readyTimeoutMs ?? DEFAULT_READY_TIMEOUT_MS
   const closeGraceMs = config.closeGraceMs ?? DEFAULT_CLOSE_GRACE_MS
 
@@ -369,6 +375,7 @@ export function GoatCheckout(config: GoatCheckoutConfig, env: BrowserEnv = defau
     merchant?: string
     productKey?: string
     checkoutId?: string
+    checkoutType?: 'DIRECT' | 'DELEGATE'
     token?: string
     chain?: number
     clientReferenceId?: string
@@ -397,7 +404,7 @@ export function GoatCheckout(config: GoatCheckoutConfig, env: BrowserEnv = defau
       opts.onError?.('invalid_options')
       return noopHandle()
     }
-    const p = pathFor(params)
+    const p = pathFor(params, opts.checkoutType === 'DELEGATE' ? 'delegate' : 'direct')
     if (opts.display === 'redirect') {
       env.navigate(buildUrl(origin, p, params))
       return noopHandle()
@@ -436,7 +443,7 @@ export function GoatCheckout(config: GoatCheckoutConfig, env: BrowserEnv = defau
     if (!params) {
       throw new Error('goatflow-checkout: redirectToCheckout requires checkoutId OR merchant+productKey (and not both)')
     }
-    env.navigate(buildUrl(origin, pathFor(params), params))
+    env.navigate(buildUrl(origin, pathFor(params, opts.checkoutType === 'DELEGATE' ? 'delegate' : 'direct'), params))
   }
 
   // openDelegate is a DEPRECATED thin alias: a DELEGATE checkout id is now the SAME
@@ -447,6 +454,7 @@ export function GoatCheckout(config: GoatCheckoutConfig, env: BrowserEnv = defau
   function openDelegate(opts: OpenDelegateOptions): CheckoutHandle {
     return open({
       checkoutId: opts.handle,
+      checkoutType: 'DELEGATE',
       display: opts.display,
       successUrl: opts.successUrl,
       cancelUrl: opts.cancelUrl,
@@ -460,6 +468,7 @@ export function GoatCheckout(config: GoatCheckoutConfig, env: BrowserEnv = defau
   function redirectToDelegateCheckout(opts: RedirectDelegateOptions): void {
     redirectToCheckout({
       checkoutId: opts.handle,
+      checkoutType: 'DELEGATE',
       successUrl: opts.successUrl,
       cancelUrl: opts.cancelUrl,
     })
