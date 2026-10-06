@@ -378,6 +378,11 @@ const goat = GoatCheckout({ origin: 'https://flow-quickpay.goat.network' })
 goat.open({ checkoutId: session.checkoutId })
 ```
 
+React applications can pass the same opaque `checkoutId` to the
+[QuickPay React SDK](./quickpay-react-sdk.md) as a checkout-session payment
+source. The API contract is unchanged: the merchant backend creates the session,
+and the browser receives only the handle.
+
 The public page normally owns:
 
 - `GET /checkout/v1/sessions/{checkout_id}`
