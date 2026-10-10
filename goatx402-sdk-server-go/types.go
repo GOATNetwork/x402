@@ -78,7 +78,9 @@ type CreateCheckoutSessionParams struct {
 	PublicMetadata map[string]any
 	// PrivateMetadata is optional merchant-only metadata, never exposed publicly (JSON-stringified for signing).
 	PrivateMetadata map[string]any
-	// ClientReferenceID is an optional idempotency/correlation reference (max 200 chars).
+	// ClientReferenceID is an optional unique merchant correlation reference (max
+	// 200 chars). A same-merchant duplicate conflicts instead of returning the
+	// original checkout, so this is not an idempotent replay or lookup key.
 	ClientReferenceID string
 	// ExpiresIn is an optional session lifetime in seconds.
 	ExpiresIn int64
@@ -120,7 +122,9 @@ type CreateDelegateCheckoutSessionParams struct {
 	SuccessURL string
 	// CancelURL is an optional redirect URL after cancellation.
 	CancelURL string
-	// ClientReferenceID is an optional idempotency/correlation reference (max 200 chars).
+	// ClientReferenceID is an optional unique merchant correlation reference (max
+	// 200 chars). A same-merchant duplicate conflicts instead of returning the
+	// original checkout.
 	ClientReferenceID string
 	// ExpiresIn is an optional session lifetime in seconds.
 	ExpiresIn int64

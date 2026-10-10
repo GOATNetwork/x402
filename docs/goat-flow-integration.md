@@ -37,17 +37,18 @@ Merchant backend
   v
 GOAT Flow merchant API
   |
-  | x402 payment terms
+  | x402 crypto terms or hosted card session
   v
 Merchant frontend or hosted page
   |
-  | User-authorized ERC-20 transfer
+  | Crypto: user-authorized ERC-20 transfer
+  | Card: user completes the hosted card flow
   v
-EVM chain
+Corresponding payment provider / verification path
   |
-  | Watcher / verifier observes and validates the transfer
+  | Crypto watcher or Card provider event validates the result
   v
-GOAT Flow order state / Payment-Receipt
+GOAT Flow order/session state or Payment-Receipt
 ```
 
 Security boundaries:
@@ -58,11 +59,18 @@ Security boundaries:
 - Backend status/proof, an authenticated deployment-defined webhook, or the
   GOAT Flow MPP profile's `Payment-Receipt` extension is the authoritative
   completion signal for the corresponding surface.
+- Card fulfillment uses its deployment-confirmed session/status or verified
+  webhook contract and must not require an on-chain transaction hash. Do not
+  reuse ordinary-order, PayKit-session, and Checkout status enums as though
+  they were one lifecycle.
 
 ## 2. Packages and versions
 
-These are this branch's release candidates, not a claim that they are already
-on npm. See [release status and PayKit migration](./README.md#npm-packages).
+The four release-managed npm package versions in this table were published and
+verified on October 9, 2026. See
+[release status and PayKit migration](./README.md#npm-packages), and use a
+lockfile to keep application dependencies stable. The MPP middleware row is a
+local source package and is explicitly not registry-published.
 
 | Package/module | Role | Current manifest/runtime |
 | --- | --- | --- |
@@ -71,18 +79,24 @@ on npm. See [release status and PayKit migration](./README.md#npm-packages).
 | `goatflow-sdk` | Browser wallet, ERC-20, MPP | `0.3.0`, ethers `^6.9.0` |
 | `goatflow-checkout` | Hosted Checkout opener | `0.2.0` |
 | `goatflow-paykit` | Public payer/agent library and CLI | `0.4.0`, Node >= 18 |
-| `@goatnetwork/mpp-middleware` | Merchant MPP middleware | `0.1.0` |
+| `@goatnetwork/mpp-middleware` | Merchant MPP middleware | Local manifest `0.1.0`; source-only, not on npm |
 
 Use package manifests and exported types as the version source of truth. Do not
 copy version numbers into application compatibility logic.
+
+The Mainnet origins and chain `2345` in this guide are explicitly Mainnet
+examples. Testnet3 uses the origins in the
+[environment table](./README.md#service-origins) and chain `48816`. Package
+versions do not select an environment, and Stripe test/live mode cannot be
+inferred from either chain ID.
 
 ## 3. Integration surfaces
 
 ### 3.1 Hosted Checkout
 
 Use when the application should rely on GOAT Flow-hosted checkout software for
-wallet connection and transfer UX. Your backend creates dynamic sessions;
-fixed QuickPay products can open directly.
+Crypto wallet/transfer UX or Card payer action. Your backend creates dynamic
+sessions; fixed QuickPay products can open directly.
 
 ### 3.2 Custom order flow
 
@@ -146,6 +160,13 @@ const order = await client.createOrder({
 
 `createOrder()` accepts the successful HTTP `402` response and normalizes the
 first x402 payment option. Use `createOrderRaw()` for the literal x402 object.
+
+An ordinary duplicate `dappOrderId` is rejected and does not return the
+previous order. Persist the successful `orderId`. If create times out or a
+duplicate error is returned, reconcile the original business intent and saved
+order instead of generating a new ID and asking the buyer to pay again. The
+`recoverExistingOrder` option is limited to server-recognized, exact `topup:`
+retries; it is not a general merchant recovery flag.
 
 Operator-provisioned callback orders are outside public merchant onboarding.
 When a deployment contract explicitly enables one, follow the complete fields,
@@ -422,6 +443,35 @@ goat.open({ checkoutId: session.checkoutId })
 ```
 
 The SDK serializes nested values into signed JSON strings.
+
+For a fiat-only DIRECT session, omit the crypto `price` and provide the fiat
+fields instead:
+
+```ts
+const testnetClient = new GoatFlowClient({
+  baseUrl: 'https://flow-api.testnet3.goat.network',
+  apiKey: process.env.GOATX402_API_KEY!,
+  apiSecret: process.env.GOATX402_API_SECRET!,
+})
+
+// Confirm this deployment is in Stripe test mode before entering card details.
+const cardSession = await testnetClient.createCheckoutSession({
+  checkoutType: 'DIRECT',
+  paymentRails: ['fiat'],
+  fiatCurrency: 'USD',
+  fiatAmount: '9.99',
+  clientReferenceId: 'your-persisted-payment-intent-id',
+})
+
+// Persist cardSession.checkoutId and cardSession.url on the backend, then send
+// only the hosted URL/opaque handle to the browser. Creation is not payment.
+```
+
+A session that offers both rails needs crypto `price` plus `fiatCurrency` and
+`fiatAmount`; the SDK and service do not convert one amount into the other.
+Card availability additionally requires merchant enablement, fiat eligibility,
+and a connected Stripe account; product entry points must also enable the fiat
+rail. `checkoutType: 'DIRECT'` and `paymentRails` are separate dimensions.
 
 The response exposes `checkoutType` as `string`; handle unknown future values
 explicitly. Public integrations create `DIRECT` sessions. Operator-provisioned
@@ -705,6 +755,24 @@ contract; confirm them with the active API before relying on them.
 Do not blindly retry order creation without a stable merchant
 `dappOrderId`/idempotency strategy.
 
+The three creation/recovery surfaces have different contracts:
+
+| Surface | Stable identifier | Duplicate/retry behavior |
+| --- | --- | --- |
+| Ordinary order create | `dappOrderId` | Duplicate rejected; save the returned `orderId` and reconcile the original intent after an ambiguous timeout |
+| Hosted Checkout create | `clientReferenceId` | Same-merchant duplicate returns a conflict, not the original `checkoutId` or URL; persist both from the successful response |
+| PayKit payment session | `idempotencyKey` | Existing session is recovered and polled; a reused unpaid session is not automatically paid again |
+
+Never generate a new identifier merely because a money-path request timed out.
+If a payment may have broadcast, retain its transaction hash and query the
+existing order/session rather than broadcasting again.
+
+The public server SDKs do not expose lookup methods by `dappOrderId` or
+`clientReferenceId`. If the create response was lost before the platform ID or
+opaque handle was saved, reconcile the merchant's existing records or contact
+the deployment operator/support; do not invent a lookup endpoint or assume the
+original create failed.
+
 Both server SDKs fail closed on unexpected authenticated `402` responses.
 Individual merchant API calls do not retry automatically.
 `waitForConfirmation()` retries eligible status-read failures within its
@@ -756,7 +824,8 @@ phase callbacks non-throwing or catch their errors locally.
 
 1. Keep merchant credentials in a backend secret store.
 2. Use separate credentials and origins per environment.
-3. Derive amount/token/chain from server-side product/cart data.
+3. Derive rail-specific amount and terms from server-side product/cart data;
+   for Crypto also validate token and chain.
 4. Map server orders to browser orders with an explicit allowlist.
 5. Validate chain, payer, and expiry before `PaymentHelper.pay()`.
 6. Treat authenticated `PAYMENT_CONFIRMED` and `INVOICED` order states as
@@ -768,6 +837,9 @@ phase callbacks non-throwing or catch their errors locally.
 11. For the browser MPP adapter, allow the DApp origin on Core and the protected resource,
     expose the response `Payment-Receipt`, allow that request header, and retain
     recoverable verify context after broadcast.
+12. For Card, verify merchant eligibility and provider test/live mode, require
+    human hosted action, and use the deployment-confirmed server result without
+    requiring a chain transaction hash.
 
 ## 14. Known compatibility notes
 
@@ -783,7 +855,16 @@ an application needs one cross-language retry policy.
 
 The TypeScript `getMerchant()` implementation reads `wallets[]` and maps it to
 `supportedTokens`. The Go `MerchantInfo` type expects `supported_tokens`.
-Verify the target deployment response before using the Go field.
+When the deployment returns `wallets[]`, the current Go SDK does not populate
+`SupportedTokens` from it; an empty slice therefore does not prove the merchant
+has no configured tokens. Verify the target response shape or decode that wire
+field separately.
+
+The current Go `CreateCheckoutSessionParams` also lacks the TypeScript fields
+`paymentRails`, `fiatCurrency`, and `fiatAmount`. Do not translate the TypeScript
+Card example directly to Go; use `goatflow-sdk-server@0.4.0` for that helper or
+call a deployment-confirmed HTTP contract until a later Go SDK version adds the
+fields.
 
 ### 14.3 Browser compatibility
 
@@ -800,10 +881,11 @@ table.
 
 ### 14.5 Generated declaration examples
 
-The current generated Checkout declaration contains an outdated example
-origin: `goatx402-checkout/dist/types.d.ts` mentions `pay.goat.network`. It is
-not an active deployment origin and must not be copied into integrations. The
-current origins are listed in the [documentation hub](./README.md#service-origins).
+The published `goatflow-checkout@0.2.0` declaration uses
+`https://flow-quickpay.goat.network` as its example origin. Older generated
+files may mention `pay.goat.network`; that historical hostname is not an active
+deployment origin. Use the current origins in the
+[documentation hub](./README.md#service-origins).
 
 ### 14.6 MPP interoperability
 

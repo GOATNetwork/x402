@@ -159,7 +159,12 @@ export interface CreateCheckoutSessionParams {
   publicMetadata?: Record<string, unknown>
   /** Optional private metadata (merchant-only; never exposed publicly). Sent JSON-stringified as body field `private_metadata_json`. */
   privateMetadata?: Record<string, unknown>
-  /** Optional client-supplied idempotency/correlation reference (max 200 chars) — body field `client_reference_id`. */
+  /**
+   * Optional unique merchant correlation reference (max 200 chars) — body
+   * field `client_reference_id`. A same-merchant duplicate conflicts instead
+   * of returning the original checkout, so this is not an idempotent replay or
+   * lookup key. Persist the successful `checkoutId` and URL.
+   */
   clientReferenceId?: string
   /** Optional session lifetime in seconds — body field `expires_in`. */
   expiresIn?: number
@@ -231,7 +236,11 @@ export interface CreateDelegateCheckoutSessionParams {
   successUrl?: string
   /** Optional redirect URL after cancellation. */
   cancelUrl?: string
-  /** Optional client-supplied idempotency/correlation reference (max 200 chars). */
+  /**
+   * Optional unique merchant correlation reference (max 200 chars). A
+   * same-merchant duplicate conflicts instead of returning the original
+   * checkout; persist the first successful handle and URL.
+   */
   clientReferenceId?: string
   /** Optional session lifetime in seconds. */
   expiresIn?: number

@@ -5,16 +5,17 @@ Sessions, signs protected API requests with merchant HMAC credentials, polls
 order status, and retrieves server-issued payment records.
 
 The SDK coordinates API records and reads reported results. It does not
-independently verify payment records or on-chain events, and it
-does not move or control buyer funds. DIRECT transfers go from the buyer wallet
-to the merchant receiving address.
+independently verify payment records or on-chain events, and it does not move
+or control buyer funds. On the Crypto rail, DIRECT transfers go from the buyer
+wallet to the merchant receiving address. An eligible Card session instead
+sends the payer through the hosted provider flow.
 
 Never expose the API secret to browser code.
 
 ## Install
 
 ```bash
-npm install goatflow-sdk-server
+npm install goatflow-sdk-server@0.4.0
 ```
 
 Requires Node.js >= 18.
@@ -61,9 +62,20 @@ const serverOrder = await client.createOrder({
 res.json(toClientOrder(serverOrder, fromAddress))
 ```
 
+This is a GOAT Mainnet example. For Testnet3, use
+`https://flow-api.testnet3.goat.network`, chain `48816`, and credentials and
+token configuration from that same deployment. Package version does not select
+an environment.
+
 Core returns HTTP `402 Payment Required` for successful order creation. The SDK
 treats it as success. Use `createOrderRaw()` when the literal x402 challenge is
 needed.
+
+An ordinary duplicate `dappOrderId` is rejected; it does not return the
+previous order. Persist the successful `orderId` and reconcile the original
+intent after an ambiguous timeout or duplicate response. The
+`recoverExistingOrder` option is restricted to exact service-recognized
+`topup:` retries and is not a general merchant idempotency switch.
 
 For an explicitly operator-provisioned compatibility flow, `callbackCalldata`
 may produce `calldata_sign_request` and a signature endpoint. Submit the returned
@@ -84,6 +96,34 @@ const session = await client.createCheckoutSession({
   clientReferenceId: 'cart-123',
 })
 ```
+
+For an eligible Card-only session, omit the Crypto `price` and pin the fiat
+terms instead:
+
+```ts
+const cardSession = await client.createCheckoutSession({
+  checkoutType: 'DIRECT',
+  paymentRails: ['fiat'],
+  fiatCurrency: 'USD',
+  fiatAmount: '9.99',
+  clientReferenceId: 'card-cart-123',
+})
+
+// Persist cardSession.checkoutId and cardSession.url in your application
+// database before returning the hosted URL to the browser.
+```
+
+A session offering both rails needs Crypto `price` plus `fiatCurrency` and
+`fiatAmount`; neither the SDK nor the service converts one amount into the
+other. Card availability and supported currencies depend on deployment,
+merchant eligibility, and connected-provider status. Creating the session is
+not payment confirmation. Confirm provider test/live mode before entering card
+details; it cannot be inferred from the chain ID.
+
+`clientReferenceId` is a unique merchant correlation value, not a lookup or
+idempotent-replay API. A same-merchant duplicate conflicts instead of returning
+the original `checkoutId` or URL, so persist both values from the first
+successful response.
 
 The returned `checkoutType` is typed as `string`; the current public merchant
 path uses `DIRECT`. The types retain compatibility-only fields and

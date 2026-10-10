@@ -71,6 +71,14 @@ onboarding path; see the API Reference for the complete field contract.
 
 ## Hosted Checkout
 
+The current source version can create Crypto Checkout Sessions, but its
+`CreateCheckoutSessionParams` does not expose the TypeScript SDK's
+`paymentRails`, `fiatCurrency`, or `fiatAmount` fields. Do not copy the
+TypeScript Card example into this struct: it will not compile, and this helper
+cannot currently create that Card request. Use
+`goatflow-sdk-server@0.4.0` or a deployment-confirmed direct HTTP integration
+until a later Go source version adds those fields.
+
 ```go
 session, err := client.CreateCheckoutSession(ctx, goatflow.CreateCheckoutSessionParams{
     CheckoutType: "DIRECT",
@@ -84,6 +92,11 @@ if err != nil {
 
 http.Redirect(w, r, session.URL, http.StatusFound)
 ```
+
+`ClientReferenceID` is a unique merchant correlation value, not an idempotent
+replay or lookup key. A same-merchant duplicate conflicts instead of returning
+the original `CheckoutID` or URL, so persist both from the first successful
+response.
 
 Nested checkout values are JSON-stringified by the client before HMAC signing.
 The current delimiter-based scalar canonicalization is ambiguous when
@@ -108,6 +121,12 @@ live in the
 | `CancelOrder` | Request cancellation of an eligible order |
 | `GetMerchant` | Public merchant lookup; no HMAC credentials required |
 | `SetHTTPClient` | Supply a custom `http.Client` |
+
+`GetMerchant` currently decodes token entries only from the
+`supported_tokens` field. The TypeScript SDK instead maps a `wallets[]`
+response. If the target deployment returns `wallets[]`, an empty Go
+`SupportedTokens` slice does not prove that the merchant has no tokens; inspect
+the target wire response or decode that field separately.
 
 `WaitForConfirmation` returns on successful `PAYMENT_CONFIRMED` or `INVOICED`,
 and on `FAILED`, `EXPIRED`, or `CANCELLED`. Core can move a DIRECT order from

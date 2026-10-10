@@ -4,9 +4,12 @@ Public payer/agent library and CLI for **GOAT Flow PayKit**. It is generic,
 stateless, and manifest-driven: it does not know any specific merchant — the
 merchant identity comes entirely from the link a merchant shares.
 
-The library coordinates a buyer-wallet transfer directly to the instructed
-merchant recipient and verifies the resulting session or receipt. It does not
-interact with merchant customer funds as an intermediary.
+For Crypto and the current GOAT Flow MPP profile, the library coordinates a
+buyer-wallet transfer directly to the instructed merchant recipient and
+verifies the resulting session or receipt. For Card, it creates a hosted link
+that a human payer must complete; link creation is not payment confirmation.
+The library does not interact with merchant customer funds as an intermediary
+and never accepts card credentials.
 
 [Machine Payments Protocol (MPP)](https://mpp.dev/overview) is an independent
 open protocol. QuickPay's `pay-mpp` command uses GOAT Flow's current MPP adapter,
@@ -25,11 +28,17 @@ variables remain supported. Existing `/quickpay/` links remain accepted.
 ## Install
 
 ```bash
-npm install goatflow-paykit
+npm install goatflow-paykit@0.4.0
 
 # Required only for the built-in pay-mpp backend:
-npm install goatflow-sdk
+npm install goatflow-sdk@0.3.0
 ```
+
+The examples below use the Mainnet PayKit origin and placeholder merchant,
+token, and chain values. Read actual capabilities from `inspect` / the manifest.
+For Testnet3, switch the origin to
+`https://flow-quickpay.testnet3.goat.network` and use configuration from that
+deployment; the npm version does not choose an environment.
 
 ```bash
 # show available commands
@@ -39,7 +48,7 @@ npx goatflow-paykit --help
 npx goatflow-paykit inspect https://flow-quickpay.goat.network/paykit/acme/agent.md --json
 
 # Provide the payer key WITHOUT writing the secret into a command (shell history and
-# agent transcripts leak it): set QUICKPAY_PRIVATE_KEY in your environment out-of-band
+# agent transcripts leak it): set PAYKIT_PRIVATE_KEY in your environment out-of-band
 # (e.g. from a secret manager), or pass --wallet-file <path> (a chmod 600 key file).
 
 # pay a custom amount via x402
@@ -55,12 +64,13 @@ npx goatflow-paykit pay-mpp https://flow-quickpay.goat.network/paykit/acme/agent
   --route GET:api:data
 ```
 
-`inspect` lists the merchant's products (`product_key`, `name`, `price`) under
-`x402_products`. A product carries a **token-agnostic** decimal price; the buyer
-picks the token, and `pay-product` re-denominates the price in that token and
-**refuses to broadcast unless the session's quoted amount matches**. This
-prevents the client from submitting a transfer above the manifest-advertised
-price.
+`inspect` lists Crypto products under `x402_products` and Card products under
+`fiat_products`; it also reports Card currency, minor-unit exponent, and
+`fiat_human_action_required`. A Crypto product carries a **token-agnostic**
+decimal price; the buyer picks the token, and `pay-product` re-denominates the
+price in that token and **refuses to broadcast unless the session's quoted
+amount matches**. This prevents the client from submitting a transfer above the
+manifest-advertised price.
 
 Library usage:
 
@@ -97,12 +107,27 @@ The corresponding custom-amount wire request is:
 
 Use `createFiatCheckoutLink()` or the CLI command below to create a link for a
 human payer. The library never accepts card credentials. The hosted URL must
-remain on the trusted origin, and returned currency and amount are validated.
+remain on the trusted origin. The requested custom amount is validated against
+the manifest's currency precision, and the response currency, checkout ID,
+expiry, and hosted URL are validated. The response does not contain an amount;
+for a Product, the server remains authoritative for its pinned price.
 
 ```bash
 npx goatflow-paykit create-card-checkout https://flow-quickpay.goat.network/paykit/acme/agent.md \
   --product mug
+
+# Or create a custom-amount Card link when the manifest enables it:
+npx goatflow-paykit create-card-checkout https://flow-quickpay.goat.network/paykit/acme/agent.md \
+  --amount 10.00 --memo donation
 ```
+
+```ts
+const cardLink = await client.createFiatCheckoutLink({ productKey: 'mug' })
+// Redirect a human payer to cardLink.url; do not mark the purchase paid here.
+```
+
+The result has `human_action_required: true`: link creation is not payment
+confirmation. The payer must enter card details and complete the hosted flow.
 
 ## Security model — the host is the trust anchor
 
@@ -156,15 +181,18 @@ and `CANCELLED`. This is separate from the Server SDK order model, where
 
 ## Configuration
 
-- Wallet key (in precedence order): `--wallet-file <path>` (a file holding the key;
-  `chmod 600` it), `--wallet <privateKey>`, or the `QUICKPAY_PRIVATE_KEY` env var
-  (preferred). A raw key in argv (`--wallet`) leaks via `ps`, shell history, CI logs,
-  and agent transcripts, so it warns — prefer the env var or `--wallet-file`.
+- Wallet key precedence (highest first): `--wallet-file <path>` (a file holding
+  the key; `chmod 600` it), `--wallet <privateKey>`, `PAYKIT_PRIVATE_KEY`, then
+  legacy `QUICKPAY_PRIVATE_KEY`. Environment lookup uses the first non-empty
+  value. A raw key in argv (`--wallet`) leaks via `ps`, shell history, CI logs,
+  and agent transcripts, so it warns — prefer `PAYKIT_PRIVATE_KEY` or
+  `--wallet-file`.
 - Token: prefer `--token-contract <address>` from the manifest. `--token <SYM>`
   is accepted only when the symbol is unique on that chain.
-- RPC URL precedence (highest first): `QUICKPAY_RPC_<chainId>`, `--rpc <url>`,
-  then `QUICKPAY_RPC`. A per-chain environment variable intentionally overrides
-  the explicit flag.
+- RPC URL precedence (highest first): `PAYKIT_RPC_<chainId>`, legacy
+  `QUICKPAY_RPC_<chainId>`, `--rpc <url>`, `PAYKIT_RPC`, then legacy
+  `QUICKPAY_RPC`. Environment lookup uses the first non-empty value. A
+  per-chain environment variable intentionally overrides the explicit flag.
 
 ## Architecture
 

@@ -15,7 +15,7 @@ this SDK do not act as an intermediary for merchant customer funds.
 ## Install
 
 ```bash
-npm install goatflow-sdk ethers
+npm install goatflow-sdk@0.3.0 ethers@^6.9.0
 ```
 
 The package declares Node.js >= 18 for non-browser use.

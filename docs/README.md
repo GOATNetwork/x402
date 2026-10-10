@@ -12,16 +12,22 @@ GOAT Flow provides four related integration surfaces:
 - GOAT Flow's current integration profile for the open Machine Payments
   Protocol (MPP), including challenges, receipts, and merchant middleware
 
-GOAT Flow uses the **DIRECT** flow: the buyer transfers an ERC-20 token to the
-merchant receiving address.
+GOAT Flow hosted checkout supports crypto and card payments when the target
+deployment and merchant or product configuration enable them. The ERC-20
+steps in these guides describe the crypto **DIRECT** path: the buyer transfers
+the selected token to the merchant receiving address. Card payment is completed
+by the payer on the hosted page. `checkoutType: 'DIRECT'` selects the checkout
+subsystem; `paymentRails: ['crypto']`, `['fiat']`, or both selects the payment
+methods offered by that session, so a card session can also be `DIRECT`.
 
 [MPP](https://mpp.dev/overview) is an independent open protocol, not a GOAT Flow
 protocol. The current MPP client and middleware implement a GOAT-specific
 JSON-endpoint and signed-receipt profile; they are not official MPP SDKs and do
 not establish generic MPP interoperability.
 
-GOAT Flow provides commerce and verification software for this flow. It observes
-and verifies the on-chain transfer; customer funds do not pass through GOAT Flow.
+For the Crypto flow, GOAT Flow observes and verifies the on-chain transfer;
+customer funds do not pass through GOAT Flow. Card confirmation follows the
+target deployment's hosted provider and server-status/webhook contract.
 
 ---
 
@@ -29,16 +35,21 @@ and verifies the on-chain transfer; customer funds do not pass through GOAT Flow
 
 | Surface | Testnet3 origin | Mainnet origin | Audience |
 | --- | --- | --- | --- |
-| GOAT Flow | — | `https://flow.goat.network` | Public application |
+| GOAT Flow product website | — | `https://www.goat.network/flow` | Product information only; not an SDK or checkout origin |
 | Merchant Portal | `https://flow-merchant.testnet3.goat.network` | `https://flow-merchant.goat.network` | Merchants and merchant team members |
 | Admin Portal | `https://flow-admin.testnet3.goat.network` | `https://flow-admin.goat.network` | Authorized GOAT Flow operators only |
 | QuickPay / Hosted Checkout and same-origin public API | `https://flow-quickpay.testnet3.goat.network` | `https://flow-quickpay.goat.network` | Buyers, agents, and checkout integrations |
 | Flow API / standalone MPP Core | `https://flow-api.testnet3.goat.network` | `https://flow-api.goat.network` | Authenticated server and explicitly configured standalone MPP integrations |
 
-No Testnet3 counterpart to `flow.goat.network` is included in the current
-deployment list. Do not reuse Mainnet credentials, merchant IDs, or
-configuration in Testnet3. The Admin Portal is not a merchant or public API
-integration surface.
+| GOAT network value | Testnet3 | Mainnet |
+| --- | --- | --- |
+| Chain ID | `48816` | `2345` |
+| x402 network identifier | `eip155:48816` | `eip155:2345` |
+
+The product website is not a valid server-SDK `baseUrl` or Checkout `origin`.
+Do not reuse Mainnet credentials, merchant IDs, products, receiving
+configuration, or Checkout sessions in Testnet3. The Admin Portal is not a
+merchant or public API integration surface.
 
 The QuickPay client derives session and MPP paths from the trusted
 `flow-quickpay` link origin and ignores absolute endpoint substitution from a
@@ -50,22 +61,19 @@ currently proxies equivalent routes.
 
 ## npm Packages
 
-The current branch prepares the September 2026 release candidates below.
-Candidate versions are **not confirmation of npm publication**; consult each
-package's CHANGELOG below and query npm before installing. The
-[release procedure](../RELEASING.md) governs publication and verification.
-Examples target these candidates, and the install commands apply once they
-are published. All four packages declare Node.js 18 or later where Node is used.
+As verified on October 9, 2026, the package versions below are published on
+npm and carry the `latest` dist-tag. These examples target those versions. Use
+a lockfile to keep an application's dependency versions stable; existing
+applications do not need to upgrade merely because this documentation was
+corrected. The [release procedure](../RELEASING.md) governs future releases.
+All four packages declare Node.js 18 or later where Node is used.
 
-The previously verified Registry baseline (July 23, 2026) is retained separately
-from the candidate versions; use a lockfile for an exact production version.
-
-| Package | Candidate | Previously verified `latest` | Primary use | Install after publication |
-| --- | ---: | --- | --- | --- |
-| [`goatflow-sdk`](../goatx402-sdk/README.md) | [0.3.0](../goatx402-sdk/CHANGELOG.md) | `0.2.1` | Browser wallet transfers and the GOAT Flow MPP adapter | `npm install goatflow-sdk` |
-| [`goatflow-sdk-server`](../goatx402-sdk-server-ts/README.md) | [0.4.0](../goatx402-sdk-server-ts/CHANGELOG.md) | `0.3.0` | TypeScript merchant backend and HMAC-authenticated APIs | `npm install goatflow-sdk-server` |
-| [`goatflow-checkout`](../goatx402-checkout/README.md) | [0.2.0](../goatx402-checkout/CHANGELOG.md) | `0.1.0` | Hosted Checkout browser integration | `npm install goatflow-checkout` |
-| [`goatflow-paykit`](../goatx402-quickpay/README.md) | [0.4.0](../goatx402-quickpay/CHANGELOG.md) | New name; predecessor `goatflow-quickpay@0.3.0` | PayKit payer/agent library and CLI | `npm install goatflow-paykit` |
+| Package | Published version | Primary use | Exact install |
+| --- | ---: | --- | --- |
+| [`goatflow-sdk`](../goatx402-sdk/README.md) | [0.3.0](../goatx402-sdk/CHANGELOG.md) | Browser wallet transfers and the GOAT Flow MPP adapter | `npm install goatflow-sdk@0.3.0` |
+| [`goatflow-sdk-server`](../goatx402-sdk-server-ts/README.md) | [0.4.0](../goatx402-sdk-server-ts/CHANGELOG.md) | TypeScript merchant backend and HMAC-authenticated APIs | `npm install goatflow-sdk-server@0.4.0` |
+| [`goatflow-checkout`](../goatx402-checkout/README.md) | [0.2.0](../goatx402-checkout/CHANGELOG.md) | Hosted Checkout browser integration | `npm install goatflow-checkout@0.2.0` |
+| [`goatflow-paykit`](../goatx402-quickpay/README.md) | [0.4.0](../goatx402-quickpay/CHANGELOG.md) | PayKit payer/agent library and CLI | `npm install goatflow-paykit@0.4.0` |
 
 ### Migration from QuickPay
 
@@ -143,8 +151,9 @@ public SDK types do not define their complete policy.
 | Need | Recommended surface | Important boundary |
 | --- | --- | --- |
 | Create and track a backend payment | Server SDK order API | HTTP 402 is the expected create-order challenge |
-| Fixed-price public item | QuickPay Product + Checkout SDK | Product price is server-authoritative |
+| Fixed-price Crypto item | QuickPay Product + Checkout SDK | Product price is server-authoritative; the legacy direct Product opener is stablecoin-only |
 | Dynamic or server-priced purchase | Hosted Checkout Session | Backend creates the amount and terms |
+| Eligible Card purchase | Hosted Checkout Product or Session | Payer completes the hosted page; creation/callback is not confirmation |
 | Custom amount, tip, or donation | QuickPay custom-amount flow | Browser-supplied amount is untrusted for fulfillment |
 | Agent payment for a protected API route | Current GOAT Flow MPP profile | Success requires the profile's signed `Payment-Receipt` |
 
@@ -160,6 +169,14 @@ documentation.
   from the merchant manifest.
 - The server SDK's public merchant lookup exposes the merchant's configured
   receive type and token entries.
+
+The npm package version does not select Testnet3 or Mainnet. API and checkout
+origins, merchant credentials, merchant/product configuration, and chain
+settings must all belong to the same deployment. For GOAT Network itself,
+Testnet3 is chain `48816` (`eip155:48816`) and Mainnet is chain `2345`
+(`eip155:2345`); other EVM chains and tokens remain runtime-defined. Stripe
+test/live mode is separate from chain selection and must be confirmed for the
+target deployment before testing card payments.
 
 Fees, registration approval, account-security policy, and webhook event names
 vary by environment. Confirm them with the active portal and API.

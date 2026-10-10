@@ -2,16 +2,18 @@
 
 Framework-free browser SDK for GOAT Flow hosted checkout. It opens the
 GOAT Flow-hosted checkout interface in a top-level popup, tab, or full-page
-redirect; the buyer connects a wallet and authorizes a direct ERC-20 transfer
-there, not in the merchant page.
+redirect. Depending on the deployment and merchant/product configuration, the
+hosted page can offer a direct ERC-20 transfer or Card. Crypto payers connect a
+wallet and need token balance plus native gas; Card payers complete the hosted
+card flow and do not need a crypto wallet.
 
-See the public [Hosted Checkout guide](../docs/goat-flow-checkout.md) for the complete
-DIRECT flow and server SDK examples.
+See the public [Hosted Checkout guide](../docs/goat-flow-checkout.md) for the
+complete Crypto and Card flow and server SDK examples.
 
 ## Install
 
 ```bash
-npm install goatflow-checkout
+npm install goatflow-checkout@0.2.0
 ```
 
 The package also builds `dist/checkout.global.js` as a browser IIFE for
@@ -23,10 +25,13 @@ a script URL.
 <script src="/vendor/checkout.global.js"></script>
 ```
 
-## DIRECT product checkout
+## Crypto Product checkout
 
-A QuickPay-enabled DIRECT merchant can open a server-priced product without a
-merchant backend. The browser carries the product key, never the amount.
+The current legacy Crypto Product route lets a QuickPay-enabled DIRECT merchant
+open a server-priced stablecoin Product without a merchant backend. The browser
+carries the product key, never the amount. This example uses the Mainnet
+Checkout origin; use `https://flow-quickpay.testnet3.goat.network` with a
+Testnet3 merchant/Product when testing there.
 
 ```ts
 import { GoatCheckout } from 'goatflow-checkout'
@@ -82,12 +87,22 @@ handle unknown future values explicitly.
 
 | Browser call | Price source | Backend | Intended use |
 | --- | --- | --- | --- |
-| `open({ merchant, productKey })` | QuickPay product configured server-side | No | Fixed DIRECT catalog item |
-| `open({ checkoutId })` | HMAC-created Checkout Session | Yes | Dynamic DIRECT checkout; operator-provisioned compatibility sessions |
+| `open({ merchant, productKey })` | QuickPay product configured server-side | No | Fixed Crypto catalog item; this legacy direct Product route is stablecoin-only |
+| `open({ checkoutId })` | HMAC-created Checkout Session | Yes | Dynamic Crypto and/or Card checkout; operator-provisioned compatibility sessions |
 | `openCustom({ merchant, amount })` | Browser-supplied amount | No | Donation/custom payment only |
 
 `openCustom` is deliberately untrusted. Never auto-fulfill a purchase from its
 browser amount; reconcile the confirmed amount server-side.
+
+For a Product advertised on the Card rail, use PayKit's
+`createFiatCheckoutLink()` or `create-card-checkout` to create the hosted human
+payer link. Do not treat link creation as payment confirmation.
+
+`checkoutType` and payment rail are different dimensions: a server-created
+`DIRECT` session may offer `crypto`, `fiat`, or both. The browser package opens
+the opaque session and does not decide eligibility or amounts. Card enablement,
+currency, Stripe mode, and provider status remain deployment and merchant
+configuration.
 
 ### Compatibility aliases and session variants
 

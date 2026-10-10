@@ -1,21 +1,23 @@
 # Why GOAT Flow?
 
-GOAT Flow packages the recurring parts of an on-chain commerce integration into
-reusable order, checkout, QuickPay, and MPP-adapter interfaces. Its value is not a
-promise to remove every wallet or blockchain concern; it is a narrower and more
-useful promise to give applications a consistent way to obtain transfer terms,
-have a buyer wallet submit a direct transfer, track status, and verify the
-result.
+GOAT Flow packages recurring parts of commerce integration into reusable order,
+checkout, QuickPay, and MPP-adapter interfaces. Crypto paths provide transfer
+terms, buyer-wallet submission, status, and verification. Eligible hosted
+checkout deployments can also offer a provider-backed Card step on the GOAT
+Flow-hosted checkout; the deployment may render provider elements there or
+redirect the payer to a provider-hosted page.
 
 ---
 
 ## 1. The Integration Problem
 
-A production payment flow needs more than an ERC-20 `transfer`:
+A production payment flow needs more than collecting a payer action:
 
-- the server must define the expected chain, token, recipient, and amount
+- the server must define rail-specific terms: chain, token, recipient, and
+  amount for Crypto; currency and amount for Card
 - the payment must be correlated with an application order
-- the frontend must handle wallet interaction and transaction failure
+- the frontend or hosted checkout must handle the applicable wallet or Card
+  interaction and its failure modes
 - the backend must distinguish a pending payment from a confirmed one
 - fulfillment must use a trusted result, not a browser-only callback
 - agent payments need machine-readable discovery and authorization artifacts
@@ -31,11 +33,12 @@ Without a shared contract, every application builds these pieces independently.
 | Server SDK | Authenticated orders/sessions, status, cancellation, proof, and merchant lookup |
 | Browser SDK | Buyer-authorized ERC-20 transfer submission, balance checks, and GOAT Flow MPP-adapter support |
 | Checkout SDK | Hosted checkout, trusted purchase intents, and validated popup messaging |
-| QuickPay | Same-origin discovery, custom-amount transfers, Products, recovery, and MPP |
+| QuickPay | Same-origin discovery, custom-amount transfers, Products, Card-link creation, recovery, and MPP |
 | MPP-profile middleware | GOAT Flow receipt-extension signature, audience, route, expiry, and optional single use |
 
 This division keeps merchant credentials and price authority on trusted server
-surfaces while leaving wallet confirmation with the buyer.
+surfaces while leaving the applicable wallet or Card confirmation action with
+the buyer.
 
 ---
 
@@ -71,6 +74,10 @@ For fulfillable purchases:
   authoritative amount
 - the buyer chooses only from payment options offered by the server
 
+For an eligible Card session, the server also pins the fiat amount and currency
+and the payer completes the hosted provider flow. `checkoutType: 'DIRECT'` is
+independent from whether the session offers `crypto`, `fiat`, or both.
+
 The Checkout SDK also validates the configured origin and checks the popup
 origin, source window, and random nonce before accepting UX messages.
 
@@ -90,6 +97,7 @@ The manifest can describe:
 - whether custom amounts are enabled
 - fixed-price Products
 - paid MPP routes
+- hosted Card availability for products or custom amounts
 
 The QuickPay client derives session and MPP endpoints from the trusted URL
 origin, rejects malformed manifests, and checks fresh payment terms before the
@@ -174,24 +182,26 @@ GOAT Flow still depends on:
 
 - an operated API and checkout service for new orders and status
 - chain RPC availability and confirmation time
-- a compatible EVM signer and sufficient token/native-gas balances
+- for Crypto, a compatible EVM signer and sufficient token/native-gas balances
+- for Card, deployment and merchant eligibility plus a connected payment-provider account
 - merchant-side fulfillment and reconciliation logic
 - correct deployment configuration
 
-It is most valuable where standardized on-chain payment, public agent
-discovery, or receipt-protected APIs justify those dependencies. It is less
-useful for fiat-only products or conventional recurring billing.
+It is most valuable where hosted checkout, standardized on-chain payment,
+public agent discovery, or receipt-protected APIs justify those dependencies.
+Conventional recurring billing and automatic card charging remain outside the
+current documented public contract.
 
 ---
 
 ## Summary
 
-GOAT Flow reduces on-chain commerce integration work by giving developers a
-consistent contract for transfer requirements, server-authoritative checkout,
-public QuickPay discovery, and its current MPP receipt extension. Its strongest
-guarantees come from enforced pricing boundaries, explicit status and proof
-handling, same-origin discovery, replay-aware session behavior, and fail-closed
-receipt verification.
+GOAT Flow reduces commerce integration work by giving developers a consistent
+contract for server-authoritative hosted checkout, Crypto transfer
+requirements, public QuickPay discovery, and its current MPP receipt extension.
+Its strongest guarantees come from enforced pricing boundaries, explicit
+status and proof handling, same-origin discovery, replay-aware session behavior,
+and fail-closed receipt verification.
 
 ## Related
 

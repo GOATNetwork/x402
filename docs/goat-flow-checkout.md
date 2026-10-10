@@ -11,8 +11,10 @@ checkout page; the server packages create authenticated Checkout Sessions.
 
 | Use case | Recommended path | Merchant backend required |
 | --- | --- | --- |
-| Fixed DIRECT catalog item | QuickPay product + `open({ merchant, productKey })` | No |
+| Fixed Crypto catalog item | QuickPay product + `open({ merchant, productKey })` | No |
+| Fixed Card catalog item | PayKit Card-link creation + hosted payer action | No merchant API secret |
 | Dynamic DIRECT cart/amount | Unified Checkout Session + `open({ checkoutId })` | Yes |
+| Dynamic card payment | Fiat-enabled Checkout Session + hosted payer action | Yes |
 | Donation or buyer-entered amount | `openCustom({ merchant, amount })` | No, but server-side reconciliation is required |
 | Fully custom wallet/order UI | `goatflow-sdk` + `goatflow-sdk-server` | Yes |
 
@@ -22,10 +24,10 @@ browser and is not a merchant-authoritative price.
 ## Install
 
 ```bash
-npm install goatflow-checkout
+npm install goatflow-checkout@0.2.0
 
 # Backend, when creating Checkout Sessions:
-npm install goatflow-sdk-server
+npm install goatflow-sdk-server@0.4.0
 ```
 
 The checkout package is framework-free and includes
@@ -34,14 +36,14 @@ The checkout package is framework-free and includes
 public `/sdk/checkout.js`; use the npm import unless your deployment contract
 provides a script URL.
 
-In the `0.2.0` candidate, session opens default to `/paykit/direct`, or
+In published version `0.2.0`, session opens default to `/paykit/direct`, or
 `/paykit/delegate` with `checkoutType: 'DELEGATE'`; the hosted `/checkout?cs=`
 route remains a compatibility alias. Set `checkoutSessionPath` to override
 session routing. `checkoutPath` retains its legacy product/custom meaning;
 those opens default to `/quickpay/checkout`. See
-[candidate publication status](README.md#npm-packages).
+[published package status](README.md#npm-packages).
 
-## Fixed DIRECT product, no merchant backend
+## Fixed Crypto product, no merchant backend
 
 The merchant first configures a QuickPay product. The merchant page passes only the
 merchant ID and product key:
@@ -69,6 +71,10 @@ payButton.addEventListener('click', () => {
 
 The hosted page resolves the product's server-side decimal price and the buyer
 chooses an eligible chain/token. The browser never supplies the product amount.
+This legacy direct Product opener is currently stablecoin-only. For a Product
+advertised on the Card rail, PayKit's `createFiatCheckoutLink()` or
+`create-card-checkout` can create the hosted payer link without a merchant API
+secret; the returned link is not payment confirmation.
 
 ## Create a unified Checkout Session
 
@@ -115,6 +121,44 @@ const session = await client.createCheckoutSession({
 
 DIRECT Checkout Sessions require the authenticated merchant to be DIRECT and to
 have QuickPay enabled.
+
+### TypeScript: card checkout
+
+The following uses the Testnet3 API. Before testing a card, confirm that this
+deployment uses Stripe test mode and that the test merchant is fiat-enabled
+with an active connected Stripe account.
+
+```ts
+import { GoatFlowClient } from 'goatflow-sdk-server'
+
+const client = new GoatFlowClient({
+  baseUrl: 'https://flow-api.testnet3.goat.network',
+  apiKey: process.env.GOATX402_API_KEY!,
+  apiSecret: process.env.GOATX402_API_SECRET!,
+})
+
+const session = await client.createCheckoutSession({
+  checkoutType: 'DIRECT',
+  paymentRails: ['fiat'],
+  fiatCurrency: 'USD',
+  fiatAmount: '9.99',
+  clientReferenceId: 'your-persisted-payment-intent-id',
+})
+
+// Save session.checkoutId, session.url, and the business reference on the
+// backend. Return the hosted URL or opaque ID to the browser.
+```
+
+Creating this session is not payment confirmation. The payer must enter card
+details and finish the hosted flow. A fiat-only session omits crypto `price`.
+A session offering both `crypto` and `fiat` supplies `price` as well as the
+fiat currency and amount; neither value is converted into the other. Product
+checkout must also have the fiat rail enabled for that product.
+
+`checkoutType: 'DIRECT'` chooses the checkout subsystem; `paymentRails` chooses
+the methods offered. Card sessions can therefore use `DIRECT`. The current Go
+SDK helper does not expose these three Card fields; see the
+[Go limitation](./goat-flow-api-reference.md#9-hosted-checkout-sessions).
 
 ### Go
 
@@ -176,12 +220,14 @@ browsers.
 ## Lifecycle
 
 1. The merchant backend creates a server-authoritative Checkout Session.
-2. The buyer opens the opaque checkout URL and connects a wallet.
-3. The hosted page reads safe session terms from Core.
-4. The buyer chooses an eligible token; bind creates the real order.
-5. The buyer wallet sends the ERC-20 transfer directly to the merchant receiving
-   address.
-6. GOAT Flow records the resulting session state and may emit the authenticated
+2. The buyer opens the opaque checkout URL.
+3. The hosted page reads safe session terms and displays the rails enabled for
+   the session.
+4. For Crypto, the buyer connects a wallet, chooses an eligible token, and the
+   wallet sends the ERC-20 transfer directly to the merchant receiving address.
+5. For Card, the buyer enters card details and completes the hosted provider
+   flow; no crypto wallet or gas is required from that payer.
+6. GOAT Flow records the rail-specific result and may emit the authenticated
    completion webhook configured by that deployment.
 
 Known Checkout Session states include `OPEN`, `BOUND`, `SIGNED`
@@ -203,6 +249,15 @@ Core can advance a DIRECT order to `INVOICED` before a poller observes
 
 Merchant applications normally call only the authenticated create endpoint. The
 GOAT Flow-hosted page owns the public read/bind/signature sequence.
+
+`clientReferenceId` protects the merchant's business intent, but it is not a
+lookup API: creating another session with the same non-empty reference for the
+same merchant returns a conflict and does not return the original opaque handle
+or URL. Persist `checkoutId` and `url` from the first successful response. After
+an ambiguous timeout, reconcile the original record; do not invent a new
+reference and create a second payable session automatically. The public server
+SDK has no lookup by `clientReferenceId`; if the response was lost, use merchant
+records or deployment support rather than fabricating such an endpoint.
 
 Nested create fields (`acceptableTokens`, `lineItems`, `publicMetadata`, and
 `privateMetadata`) are JSON-stringified by the server SDK before HMAC signing

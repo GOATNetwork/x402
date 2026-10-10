@@ -6,12 +6,16 @@ Network.
 
 ## Current Public Product
 
-The current public merchant path is **DIRECT**:
+GOAT Flow supports crypto and card payments through hosted checkout. Available
+payment methods depend on the deployment and the merchant or product
+configuration. For the crypto **DIRECT** path, the payer transfers an ERC-20
+token to the merchant's configured receiving address; GOAT Flow creates and
+tracks the order record. Card payment is completed by the payer on the hosted
+page and does not require the payer to hold crypto or native gas.
 
-- the payer transfers an ERC-20 token to the merchant's configured receiving
-  address;
-- GOAT Flow software creates and tracks the order record; and
-- the merchant confirms fulfillment from server-side order status or webhooks.
+For either rail, session creation, a browser callback, a redirect, or a
+transaction hash is not by itself a fulfillment signal. The merchant confirms
+payment from the corresponding trusted server status or a verified webhook.
 
 For the smallest integration, use a merchant-configured QuickPay product with
 the hosted checkout. For a custom wallet and order UI, combine the browser SDK
@@ -25,10 +29,11 @@ with a server SDK so API credentials remain on the backend.
 | Merchant onboarding | [`docs/goat-flow-onboarding-guide.md`](docs/goat-flow-onboarding-guide.md) |
 | Merchant operations | [`docs/merchant-guide.md`](docs/merchant-guide.md) |
 
-PayKit replaces the `goatflow-quickpay` npm package. This branch prepares the
-new release; see [package versions and migration](docs/README.md#npm-packages)
-for candidate status and compatibility details. A CLI alias in the new package
-does not upgrade an installation of the old npm package.
+PayKit replaces the `goatflow-quickpay` npm package. The current package
+versions are published; see
+[package versions and migration](docs/README.md#npm-packages) for the verified
+versions and compatibility details. A CLI alias in the new package does not
+upgrade an installation of the old npm package.
 
 Hosted checkout and QuickPay identify a product by merchant and product key.
 Price, accepted tokens, receiving addresses, and other payment configuration

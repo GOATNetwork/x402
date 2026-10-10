@@ -21,9 +21,11 @@ Fastify entry points.
 ## Install
 
 This package is source-only in this repository and is not included in the npm
-release runbook. As of July 23, 2026, the package name is not available from the
-public npm registry. Build and install the checked-in directory locally instead
-of treating the name as a published dependency. From a sibling application:
+release runbook. As verified on October 9, 2026, the package name is not
+available from the public npm registry. Its package manifest is marked
+`private` to block accidental publication. Build and install the checked-in
+directory locally instead of treating the name as a published dependency. From
+a sibling application:
 
 ```bash
 cd ../goatx402-mpp-middleware-ts

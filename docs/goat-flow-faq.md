@@ -13,7 +13,7 @@ GOAT Flow provides commerce and transfer-verification software for merchants,
 applications, and agents using the x402 protocol, including:
 
 - browser and server SDKs
-- hosted checkout
+- hosted checkout with Crypto and, for eligible merchants, Card
 - QuickPay buyer/agent tooling
 - MPP buyer support and merchant middleware
 
@@ -22,6 +22,18 @@ applications, and agents using the x402 protocol, including:
 For `ERC20_DIRECT`, the x402 challenge's `payTo` address is the merchant
 receiving address. The browser SDK executes a standard ERC-20 transfer to that
 address.
+
+`DIRECT` is also the current public Hosted Checkout subsystem identifier; it is
+not synonymous with Crypto-only. A server-created `DIRECT` session can offer
+`crypto`, `fiat`, or both through `paymentRails` when the deployment and
+merchant/product configuration allow it.
+
+### Does a Card payer need a crypto wallet or gas?
+
+No. The payer completes Card on the hosted page. Card availability depends on
+the deployment, merchant eligibility, product configuration, supported
+currency, and connected Stripe-account status. Stripe test/live mode is
+separate from the GOAT chain ID.
 
 ---
 
@@ -190,13 +202,14 @@ when independent proof is required.
 
 A buyer or agent starts from one of these same-origin paths:
 
-- `/quickpay/<merchant_id>`
-- `/quickpay/<merchant_id>/agent.md`
-- `/quickpay/<merchant_id>/manifest.json`
+- `/paykit/<merchant_id>`
+- `/paykit/<merchant_id>/agent.md`
+- `/paykit/<merchant_id>/manifest.json`
 
-The QuickPay client accepts only those canonical URL shapes, requires HTTPS
-except for loopback development, and derives all subsequent endpoints from the
-trusted origin.
+Legacy `/quickpay/<merchant_id>` links with the same optional suffixes remain
+accepted. The client accepts only those canonical path shapes, requires HTTPS
+except for loopback development, and derives API endpoints from the trusted
+origin. The current API routes remain under `/quickpay/v1`.
 
 ### What does the manifest contain?
 
@@ -205,16 +218,19 @@ Schema `goatx402.quickpay.v1` contains merchant identity plus:
 - `rails.x402.enabled`
 - custom-amount and memo flags
 - x402 token entries and amount bounds
-- optional QuickPay Products
+- optional Crypto Products
+- `rails.fiat.enabled`, Card custom-amount and memo flags,
+  `human_action_required`, currency, minor-unit exponent, and Card Products
 - `rails.mpp.enabled`
 - MPP route entries
 
 The client validates the trusted origin, merchant identity, and selected token,
-Product, or MPP route before payment. It does not reject every malformed
-enabled-rail container: non-array token/route lists are currently normalized to
-empty lists, and the raw custom-amount client does not require the manifest's
-`custom_amount` flag. The session/challenge response and deployed service remain
-authoritative.
+Product, Card currency terms, or MPP route before acting. Non-array x402 token
+and MPP route lists are currently normalized to empty lists, while malformed
+Crypto or Card Product lists fail closed. For a fresh session,
+`payX402()` and `createFiatCheckoutLink()` reject an explicitly disabled
+`custom_amount` flag. The returned session/challenge and deployed service remain
+authoritative for the final terms.
 
 ### How do QuickPay Products work?
 
@@ -225,21 +241,27 @@ A Product contains:
 - optional description and HTTPS image URL
 - token-agnostic decimal `price`
 
-The buyer chooses a chain/token advertised by the merchant. For a fresh
-purchase, the QuickPay client independently converts the price using token
-decimals and refuses to broadcast unless the session's x402 terms match the
-expected chain, token, amount, and recipient shape.
+A manifest lists a Product separately under each rail that can sell it. On the
+Crypto rail, the buyer chooses an advertised chain/token; for a fresh purchase,
+the client converts the price using token decimals and refuses to broadcast
+unless the session's x402 terms match the expected chain, token, amount, and
+recipient shape. On the Card rail, PayKit checks Product availability and the
+manifest currency, then creates a hosted link for a human payer; the server pins
+the Card quote.
 
 ### Can a fixed-price Product be opened without a merchant backend?
 
-Yes. The Checkout SDK supports:
+For the current Crypto Product route, the Checkout SDK supports:
 
 ```ts
 goat.open({ merchant, productKey })
 ```
 
 The browser URL contains the merchant and product key, not the product price.
-The product must already exist in the merchant's QuickPay configuration.
+The product must already exist in the merchant's QuickPay configuration. This
+legacy direct Product opener is stablecoin-only. For Card, use PayKit's
+`createFiatCheckoutLink()` or `create-card-checkout`; it returns a hosted link,
+not payment confirmation.
 
 ### What is a dynamic Hosted Checkout Session?
 
@@ -252,6 +274,21 @@ goat.open({ checkoutId })
 ```
 
 The authenticated API key determines the merchant; the request body does not.
+
+### Do order, Checkout, and PayKit identifiers retry the same way?
+
+No. Keep their contracts separate:
+
+| Surface | Identifier | Retry behavior |
+| --- | --- | --- |
+| Ordinary order create | `dappOrderId` | A duplicate is rejected rather than returning the old order. Persist `orderId` and reconcile the original intent after an ambiguous result. |
+| Hosted Checkout create | `clientReferenceId` | A same-merchant duplicate conflicts rather than returning the old `checkoutId` or URL. Persist both from the successful response. |
+| PayKit session | `idempotencyKey` / `idempotency_key` | An existing session can be recovered and polled; a reused unpaid session is not automatically paid again. |
+
+The server SDK's `recoverExistingOrder` is restricted to exact,
+service-recognized `topup:` retries and is not a general bypass for duplicate
+orders. The public server SDKs do not provide lookup by `dappOrderId` or
+`clientReferenceId`.
 
 ### What is custom QuickPay?
 
@@ -418,9 +455,10 @@ reporting, and sanctions controls separately.
 
 ### What should be confirmed before production?
 
-- merchant approval and enabled receive type
-- receiving addresses
-- live chain/token entries and limits
+- merchant approval and enabled payment rails
+- for Crypto, receiving addresses plus live chain/token entries and limits
+- for Card, merchant/provider eligibility, supported currency, product rail
+  settings, and provider test/live mode
 - fee and top-up policy
 - API base URL and checkout origin
 - webhook contract and signature validation

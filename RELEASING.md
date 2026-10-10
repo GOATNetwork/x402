@@ -10,7 +10,10 @@ This repo release-manages four npm package lines (PayKit replaces QuickPay):
 | `goatflow-checkout` | `goatx402-checkout/` | `dist/index.js`, `dist/index.d.ts`, `dist/checkout.global.js` |
 
 The private demo, Foundry project, Go modules, and
-`goatx402-mpp-middleware-ts/` are outside this npm runbook. PayKit is the explicitly managed rename of the existing QuickPay line, not a
+`goatx402-mpp-middleware-ts/` are outside this npm runbook. The middleware
+package is intentionally marked `private`; removing that guard requires the
+same explicit process change and approval as adding a release-managed package.
+PayKit is the explicitly managed rename of the existing QuickPay line, not a
 new independent product. The presence of a
 `package.json`, package name, or `prepublishOnly` script is not authorization to
 publish a new package. Adding another release-managed package requires an
@@ -24,13 +27,13 @@ from git is the root cause this process exists to prevent.
 
 ## GOAT Flow package identities
 
-The previous released identities are `goatflow-sdk@0.2.1`,
-`goatflow-sdk-server@0.3.0`, `goatflow-quickpay@0.3.0`, and
-`goatflow-checkout@0.1.0`. The September 2026 release candidates are
-`goatflow-sdk@0.3.0`, `goatflow-paykit@0.4.0` (new package identity),
-`goatflow-sdk-server@0.4.0`, and `goatflow-checkout@0.2.0`.
-These are candidates, not a record of publication. Repository directory names remain `goatx402-*` and
-must not be mistaken for npm package names.
+The current published identities, verified on October 9, 2026, are
+`goatflow-sdk@0.3.0`, `goatflow-paykit@0.4.0` (the new package identity),
+`goatflow-sdk-server@0.4.0`, and `goatflow-checkout@0.2.0`. The predecessor
+`goatflow-quickpay@0.3.0` remains a separate historical package. Repository
+directory names remain `goatx402-*` and must not be mistaken for npm package
+names. Future version entries in a release PR are candidates until the complete
+publish and registry-verification procedure below succeeds.
 
 The new PayKit package keeps `goatflow-quickpay` as an executable alias.
 Deprecating or otherwise modifying an older `goatx402-*` or `goatflow-quickpay` npm package remains a

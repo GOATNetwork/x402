@@ -1,8 +1,12 @@
 {
   "name": "@goatnetwork/mpp-middleware",
   "version": "0.1.0",
-  "description": "MPP Payment-Receipt verification middleware for Express and Fastify",
+  "private": true,
+  "description": "GOAT Flow MPP-profile Payment-Receipt verification middleware for Express and Fastify",
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",

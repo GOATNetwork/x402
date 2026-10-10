@@ -1,16 +1,20 @@
 # What is GOAT Flow?
 
 GOAT Flow is the GOAT Network implementation of x402 commerce and payment-
-verification flows for merchants, applications, and agents. It turns protocol
-requirements, buyer-authorized on-chain transfers, verification, and
-fulfillment into a consistent integration flow.
+verification flows for merchants, applications, and agents. It combines hosted
+checkout, buyer-authorized Crypto transfers, eligible Card payments,
+verification, and fulfillment into consistent integration flows.
 
 **GOAT Flow** is the product. **x402** is the HTTP payment protocol used by the
 order and checkout surfaces.
 
 ---
 
-## The Core x402 Flow
+GOAT Flow hosted checkout supports Crypto and Card when those methods are
+enabled for the target deployment and merchant or product. The flows below do
+not imply that every merchant, country, product, or currency has both methods.
+
+## The Core x402 Crypto Flow
 
 The authenticated order API follows this sequence:
 
@@ -62,6 +66,16 @@ A separate custom-amount method exists for tips and donations. Because that
 amount comes from the browser, it must not be used as the sole authority for
 automatic fulfillment.
 
+Hosted Checkout can also present Card for an eligible merchant. The merchant
+backend can create a fiat-only or Crypto-and-Card session with separately
+pinned amounts; a payer then enters card details on the hosted page. Card
+availability depends on deployment configuration, merchant enablement, product
+rails, currency, and connected Stripe-account status. A Card payer does not
+need an ERC-20 wallet, token balance, or native gas.
+
+`checkoutType: 'DIRECT'` identifies the checkout subsystem and is independent
+from `paymentRails`; a `DIRECT` session may offer Crypto, Card, or both.
+
 Browser `onSuccess` is a UX signal only. The merchant must confirm payment from
 a trusted backend status source or an authenticated deployment-defined webhook.
 
@@ -77,6 +91,7 @@ The manifest can advertise:
 - x402 custom-amount availability
 - offered chain/token entries and per-token amount bounds
 - fixed-price Products identified by `product_key`
+- hosted Card availability for eligible products or custom amounts
 - MPP routes with chain, token, and amount metadata
 
 The `goatflow-paykit` library and CLI validate the manifest, derive all API
@@ -89,6 +104,8 @@ Supported commands are:
 - `pay-x402`
 - `pay-product`
 - `pay-mpp`
+- `create-card-checkout` (creates a hosted link that still requires human
+  payment action)
 
 ---
 
@@ -167,15 +184,17 @@ GOAT Flow is a good fit when a product needs:
 - public agent payment discovery
 - receipt-protected machine-to-machine APIs
 
-It is less direct for fiat-only audiences, traditional recurring billing, or
-products that do not benefit from on-chain payment.
+Card support also serves eligible fiat-only purchases through hosted checkout.
+Traditional recurring billing and automatic card charging are separate
+capabilities and are not promised by the current public packages.
 
 ---
 
 ## Getting Started
 
 1. Complete merchant setup in the deployed portal.
-2. Configure receiving addresses and runtime payment capabilities.
+2. Configure the payment methods you will offer: Crypto receiving addresses
+   and runtime capabilities and/or Card eligibility and provider settings.
 3. Keep API credentials on the backend.
 4. Choose the appropriate integration surface:
    - order API

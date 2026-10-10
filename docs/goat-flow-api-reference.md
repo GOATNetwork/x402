@@ -18,7 +18,7 @@ GOATX402_MERCHANT_ID=your_merchant_id
 
 | Surface | Testnet3 origin | Mainnet origin |
 | --- | --- | --- |
-| GOAT Flow | — | `https://flow.goat.network` |
+| GOAT Flow product website | — | `https://www.goat.network/flow` |
 | Merchant Portal | `https://flow-merchant.testnet3.goat.network` | `https://flow-merchant.goat.network` |
 | Admin Portal (authorized operators only) | `https://flow-admin.testnet3.goat.network` | `https://flow-admin.goat.network` |
 | Flow API / standalone MPP Core | `https://flow-api.testnet3.goat.network` | `https://flow-api.goat.network` |
@@ -27,6 +27,12 @@ GOATX402_MERCHANT_ID=your_merchant_id
 The merchant API URL is configurable in both server SDKs. Test and private
 deployments may use different origins. Merchant integrations do not call the
 Admin Portal.
+
+The product website is informational; it is not an SDK `baseUrl` or Checkout
+`origin`. GOAT Testnet3 is chain `48816` (`eip155:48816`) and GOAT Mainnet is
+chain `2345` (`eip155:2345`). Other enabled EVM chains and tokens come from the
+target deployment. Package versions do not select the deployment, and Stripe
+test/live mode is independent of the chain ID.
 
 The QuickPay client derives its public session and MPP paths from the trusted
 QuickPay link origin. It does not switch to `flow-api` from manifest endpoint
@@ -112,6 +118,12 @@ POST /api/v1/orders
 | `from_address` | string | Yes | `fromAddress` | `FromAddress` |
 | `amount_wei` | integer string | Yes | `amountWei` | `AmountWei` |
 | `callback_calldata` | hex string | No | `callbackCalldata` | `CallbackCalldata` |
+
+An ordinary duplicate `dapp_order_id` is rejected; order creation does not
+return the earlier order. Persist the successful `order_id` and reconcile it
+after an ambiguous timeout or duplicate response. The TypeScript-only
+`recoverExistingOrder` field is restricted to exact, service-recognized
+`topup:` retries and is not a general merchant idempotency option.
 
 ### Raw response
 
@@ -312,7 +324,8 @@ wallets to `supportedTokens`.
 The Go `MerchantInfo` type currently declares `supported_tokens` directly.
 Because these two clients expect different token-list field names,
 verify the response shape of your target deployment before relying on the Go
-`SupportedTokens` field.
+`SupportedTokens` field. If the response contains `wallets[]`, an empty Go
+field does not prove that the merchant has no configured tokens.
 
 ## 9. Hosted Checkout Sessions
 
@@ -343,13 +356,47 @@ The public DIRECT field mapping is:
 | `price` | `price` | `Price` | Decimal product or cart price |
 | `success_url` | `successUrl` | `SuccessURL` | Optional allowlisted success redirect |
 | `cancel_url` | `cancelUrl` | `CancelURL` | Optional allowlisted cancel redirect |
-| `client_reference_id` | `clientReferenceId` | `ClientReferenceID` | Optional correlation/idempotency reference |
+| `client_reference_id` | `clientReferenceId` | `ClientReferenceID` | Optional unique merchant correlation reference; duplicates conflict rather than returning the original session |
 | `expires_in` | `expiresIn` | `ExpiresIn` | Optional lifetime in seconds |
 | `line_items_json` | `lineItems` | `LineItems` | JSON-stringified display items |
 | `public_metadata_json` | `publicMetadata` | `PublicMetadata` | JSON-stringified public metadata |
 | `private_metadata_json` | `privateMetadata` | `PrivateMetadata` | JSON-stringified merchant-only metadata |
+| `payment_rails` | `paymentRails` | Not available | `('crypto' \| 'fiat')[]`, serialized as CSV; defaults to Crypto |
+| `fiat_currency` | `fiatCurrency` | Not available | ISO-4217 code such as `USD`; actual support is merchant/deployment-specific |
+| `fiat_amount` | `fiatAmount` | Not available | Positive decimal string such as `9.99`; not wei or integer minor units |
 
 Use the server SDK so nested values are serialized consistently with HMAC.
+
+Card-only TypeScript example using `goatflow-sdk-server@0.4.0` and the
+Testnet3 API:
+
+```ts
+import { GoatFlowClient } from 'goatflow-sdk-server'
+
+const client = new GoatFlowClient({
+  baseUrl: 'https://flow-api.testnet3.goat.network',
+  apiKey: process.env.GOATX402_API_KEY!,
+  apiSecret: process.env.GOATX402_API_SECRET!,
+})
+
+const session = await client.createCheckoutSession({
+  checkoutType: 'DIRECT',
+  paymentRails: ['fiat'],
+  fiatCurrency: 'USD',
+  fiatAmount: '9.99',
+  clientReferenceId: 'your-persisted-payment-intent-id',
+})
+```
+
+Confirm Stripe test mode, merchant fiat eligibility, and connected-account
+status before testing. A Card-only session omits `price`; a two-rail session
+also supplies the Crypto `price`. The service does not infer or convert between
+the two amounts. `checkoutType: 'DIRECT'` does not mean Crypto-only.
+
+The current public Go helper does not expose the three Card request fields.
+Do not translate this example directly to Go or treat an unrecognized struct
+field as supported. Use the TypeScript SDK or a deployment-confirmed HTTP
+contract until a later Go SDK version adds them.
 
 Operator-provisioned fields, deprecated wrappers, and callback trust boundaries
 are isolated in
@@ -388,6 +435,10 @@ The public page normally owns:
 
 Treat the checkout ID as a bearer capability. Browser `onSuccess` is not proof
 for fulfillment.
+
+Persist the successful `checkout_id` and `url`. A repeated non-empty
+`client_reference_id` for the same merchant returns a conflict; it is not a
+request to recover the original opaque handle.
 
 ## 10. QuickPay
 
@@ -632,7 +683,7 @@ Do not hardcode a global chain/token matrix. Availability is
 deployment- and merchant-specific. Use the merchant/QuickPay response or
 operator configuration.
 
-Current branch release-candidate manifests (see
+Published npm versions verified on October 9, 2026 (see
 [publication status](./README.md#npm-packages)):
 
 | Package | Version | Runtime |

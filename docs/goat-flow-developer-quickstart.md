@@ -1,6 +1,8 @@
 # GOAT Flow Developer Quick Start
 
-Use this guide to complete a first DIRECT payment with the GOAT Flow SDKs.
+Use this guide to complete a first crypto DIRECT payment with the GOAT Flow
+SDKs. Hosted Checkout can also offer card payment; see the
+[Card Checkout example](./goat-flow-checkout.md#typescript-card-checkout).
 
 For deeper details, see the [Integration Guide](./goat-flow-integration.md) and
 [API Reference](./goat-flow-api-reference.md).
@@ -19,10 +21,11 @@ All merchant API credentials stay on your backend.
 ## Prerequisites
 
 - An approved Merchant Account
-- Receiving chain/token configuration
-- Sufficient merchant fee balance
 - API key and secret for authenticated programmatic flows
-- A payer wallet with the selected ERC-20 token and native gas
+- For Crypto: receiving chain/token configuration, sufficient merchant fee
+  balance, and a payer wallet with the selected ERC-20 token and native gas
+- For Card: merchant fiat eligibility and a connected Stripe account in the
+  target deployment; the payer completes payment on the hosted page
 
 QuickPay product links and Hosted Checkout do not expose merchant credentials in
 the browser. Dynamic Hosted Checkout terms are still created by the merchant
@@ -34,22 +37,22 @@ have been verified there; switch every origin and chain ID together.
 
 ## Install
 
-These examples target the September release candidates. Check
-[publication status and the PayKit migration](./README.md#npm-packages) before
-installing; the new package name is available only after publication.
+These examples target the npm versions verified on October 9, 2026. Use a
+lockfile to keep these versions stable; see
+[publication status and the PayKit migration](./README.md#npm-packages).
 
 ```bash
 # Authenticated backend API
-npm install goatflow-sdk-server
+npm install goatflow-sdk-server@0.4.0
 
 # Custom browser wallet flow
-npm install goatflow-sdk ethers
+npm install goatflow-sdk@0.3.0 ethers@^6.9.0
 
 # Hosted payment window
-npm install goatflow-checkout
+npm install goatflow-checkout@0.2.0
 
 # Agent / CLI payer
-npm install goatflow-paykit
+npm install goatflow-paykit@0.4.0
 ```
 
 The TypeScript packages declare Node.js >= 18 where Node is used. The Go SDK
@@ -77,6 +80,11 @@ payButton.addEventListener('click', () => {
   })
 })
 ```
+
+This `open({ merchant, productKey })` route is the current stablecoin-only
+Crypto Product opener. For a Product advertised on the Card rail, use PayKit's
+`createFiatCheckoutLink()` or `create-card-checkout`; it creates a hosted link
+that still requires a human payer to complete the Card flow.
 
 ### Dynamic price
 
@@ -165,8 +173,17 @@ export async function createOrder(
 ```
 
 Generate `dappOrderId` once for the cart or payment intent, persist it before
-the request, and reuse the same value for a retry. Do not derive it from the
-current timestamp inside `createOrder()`.
+the request, and reuse the same value when reconciling an ambiguous attempt. An
+ordinary duplicate order create is rejected; it does not return the earlier
+order. Persist a successful `orderId`, and after a timeout or duplicate error
+reconcile that original order instead of generating a new ID and potentially
+requesting a second payment. Do not derive the ID from the current timestamp
+inside `createOrder()`.
+
+The SDK's `recoverExistingOrder` option is restricted to exact retries of
+deterministic `topup:` orders accepted by the service. It is not a general
+merchant idempotency switch; do not manufacture that prefix to bypass duplicate
+rejection.
 
 Under the hood, successful order creation returns HTTP `402 Payment Required`.
 The server SDK treats it as success and normalizes the x402 body.
@@ -358,10 +375,16 @@ amount, chain, token, recipient, expiry, MAC, and pricing version.
 | Admin Portal (operators only) | `https://flow-admin.testnet3.goat.network` | `https://flow-admin.goat.network` |
 | Flow API / standalone MPP Core | `https://flow-api.testnet3.goat.network` | `https://flow-api.goat.network` |
 | QuickPay / Checkout and same-origin public API | `https://flow-quickpay.testnet3.goat.network` | `https://flow-quickpay.goat.network` |
+| GOAT x402 network identifier | `eip155:48816` | `eip155:2345` |
 
 GOAT native gas is BTC. Testnet3 gas is available from the
 [faucet](https://bridge.testnet3.goat.network/faucet). Token contracts and
-enabled transfer capabilities remain deployment/merchant-specific.
+enabled transfer capabilities remain deployment/merchant-specific. The npm
+package version does not choose an environment: keep the API, Checkout origin,
+merchant credentials, products, and chain configuration in the same
+deployment. Stripe test/live mode is independent of the chain ID; confirm it
+with the deployment operator before entering card details or assuming real
+funds are involved.
 
 ## Troubleshooting
 

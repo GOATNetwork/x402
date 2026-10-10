@@ -80,9 +80,12 @@ A buyer using this profile discovers a merchant's paid routes from its trusted
 a GOAT Flow discovery extension, not the generic MPP discovery document:
 
 ```text
-GET https://flow-quickpay.goat.network/quickpay/<merchant_id>/agent.md
-GET https://flow-quickpay.goat.network/quickpay/<merchant_id>/manifest.json
+GET https://flow-quickpay.goat.network/paykit/<merchant_id>/agent.md
+GET https://flow-quickpay.goat.network/paykit/<merchant_id>/manifest.json
 ```
+
+Legacy links under `/quickpay/<merchant_id>` remain accepted. PayKit derives
+the current API endpoints under `/quickpay/v1` from either trusted link origin.
 
 The manifest exposes an MPP rail:
 

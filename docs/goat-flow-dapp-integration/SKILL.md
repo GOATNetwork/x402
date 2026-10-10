@@ -38,9 +38,12 @@ origin, QuickPay link, chain, token contract, RPC, and wallet funds.
 | --- | --- | --- |
 | Flow API / standalone MPP Core | `https://flow-api.testnet3.goat.network` | `https://flow-api.goat.network` |
 | Hosted Checkout / QuickPay and same-origin public API | `https://flow-quickpay.testnet3.goat.network` | `https://flow-quickpay.goat.network` |
+| GOAT chain / x402 network | `48816` / `eip155:48816` | `2345` / `eip155:2345` |
 
 Treat these as deployment configuration, not library defaults. Verify them
-against the active deployment before shipping.
+against the active deployment before shipping. Package versions do not select
+an environment. Stripe test/live mode is independent of the chain ID and must
+be verified separately for Card testing.
 
 ## Guardrails
 
@@ -104,8 +107,9 @@ implement the configuration boundary but stop before a live merchant API call.
 
 | Requirement | Primary path | Pricing authority | Fulfillment authority |
 | --- | --- | --- | --- |
-| Fixed catalog item, hosted wallet UI | Hosted Checkout Product | Merchant Product | Trusted session/order status |
+| Fixed Crypto catalog item, hosted wallet UI | Hosted Checkout Product | Merchant Product | Trusted session/order status; legacy direct Product opener is stablecoin-only |
 | Dynamic cart or invoice, hosted wallet UI | Hosted Checkout Session | Merchant backend | Trusted session/order status |
+| Eligible Card purchase | Fiat-enabled Hosted Checkout Session or Product | Merchant backend/Product plus pinned fiat terms | Trusted Card/session status or verified webhook |
 | Fully custom wallet UI | Authenticated Order API | Merchant backend | Authenticated order status/proof |
 | Public buyer/agent automation | QuickPay library or CLI | Manifest preflight plus server session | Terminal server session |
 | Paid API route | Current GOAT Flow MPP profile | Core profile challenge | Verified profile `Payment-Receipt` middleware |
@@ -166,6 +170,13 @@ const session = await client.createCheckoutSession({
 })
 ```
 
+For a Card-only session, use the published TypeScript server SDK with
+`paymentRails: ['fiat']`, `fiatCurrency`, and `fiatAmount`, and omit the Crypto
+`price`. A two-rail session supplies both sets of amounts; do not convert one
+from the other. Merchant fiat enablement, currency support, connected Stripe
+status, and Stripe test/live mode are deployment configuration. The payer must
+still complete the hosted page; creating a link is not confirmation.
+
 Return only the opaque `session.checkoutId` and non-sensitive display data to
 the browser. The current return type is `CheckoutSession`, containing
 `checkoutId`, `checkoutType`, `url`, and `expiresAt`.
@@ -197,6 +208,12 @@ const order = await client.createOrder({
 HTTP 402 is the expected successful response only for order creation. The
 current server SDKs fail closed on an unexpected 402 from Checkout, status,
 proof, signature, or cancellation calls.
+
+An ordinary duplicate `dappOrderId` is rejected rather than returning the
+previous order. Persist a successful `orderId`; after an ambiguous timeout,
+reconcile that original intent instead of generating a new ID. The optional
+`recoverExistingOrder` flag is restricted to exact service-recognized `topup:`
+retries and is not a general merchant idempotency mechanism.
 
 The server and browser `Order` types differ. Map them explicitly; do not pass a
 server order to `PaymentHelper` without adding the payer address and converting
@@ -278,8 +295,9 @@ Install `goatflow-paykit` for public payer or agent automation. Prefer Hosted
 Checkout for an interactive browser DApp unless the application already owns a
 safe wallet backend.
 
-See [release status and migration](../README.md#npm-packages) before installing
-the candidate package. `QuickPayClient` retains its name.
+Use published `goatflow-paykit@0.4.0`; see
+[release status and migration](../README.md#npm-packages). `QuickPayClient`
+retains its name.
 
 Accept only canonical merchant links:
 
@@ -345,6 +363,12 @@ reported `EXPIRED`, allow the client's five bounded grace polls. If QuickPay
 MPP reports a transaction hash without a signed receipt header, do not run the
 payment again; reconcile the transaction and resume verification with the
 preserved challenge context.
+
+A Hosted Checkout `clientReferenceId` behaves differently: duplicate creation
+conflicts and does not recover the original opaque handle. Persist the first
+successful `checkoutId` and URL. PayKit's explicit `idempotencyKey`, by
+contrast, can recover a session and defaults to polling rather than paying a
+reused unpaid session again.
 
 ## Standalone GOAT Flow MPP Adapter
 

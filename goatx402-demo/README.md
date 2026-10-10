@@ -25,13 +25,12 @@ separate from the merchant represented by the backend `GOATX402_*` API key.
 `pnpm dev` runs `predev`, which installs and builds the local TypeScript SDK,
 server SDK, checkout SDK, and MPP middleware before starting the demo.
 
-> **Current checkout caveat:** the package-local `pnpm-workspace.yaml` files
-> contain build-policy settings but no `packages` field. pnpm `9.15.9` rejects
-> `install`, `run`, and `exec` with `packages field missing or empty`. The
-> workspace configuration must be corrected before the documented fresh-clone
-> `pnpm install` / `pnpm dev` path is usable. Do not carry
-> `--ignore-workspace` into release procedures because that also ignores the
-> workspace policy file.
+> **pnpm version note:** pnpm `9.15.9` rejects this demo's policy-only
+> `pnpm-workspace.yaml` with `packages field missing or empty`. The demo's
+> frozen install and frontend/server builds were verified with pnpm `10.33.0`
+> on October 9, 2026. This is a version-specific compatibility note, not a
+> license to pass `--ignore-workspace`; npm package releases must still use the
+> pinned versions and procedure in [`RELEASING.md`](../RELEASING.md).
 
 ## Run The DIRECT Demo
 
@@ -52,11 +51,23 @@ merchant/product pair must exist in that hosted-checkout environment. The
 browser sends the merchant, product key, and a client reference; it does not
 choose the authoritative price or payment amount.
 
+The public repository does not include a complete Core service or hosted
+checkout application. Therefore the local default works only when those
+services are already running and `test-merchant-1` / `mug` exist in that local
+deployment; they are examples, not bundled fixtures.
+
 Start the app:
 
 ```bash
 pnpm install
 pnpm dev
+```
+
+To use the verified pnpm version explicitly:
+
+```bash
+npx --yes pnpm@10.33.0 install --frozen-lockfile
+npx --yes pnpm@10.33.0 dev
 ```
 
 Open `http://localhost:3000`. The Express backend listens on
@@ -67,6 +78,30 @@ to port `3001`, so changing `PORT` also requires updating `vite.config.ts`.
 
 Hosted-checkout success callbacks are a browser UX signal. Fulfill orders from
 an authenticated webhook or server-side status check.
+
+### Testnet3 Hosted Checkout
+
+Use a merchant and product that actually exist in Testnet3:
+
+```dotenv
+VITE_CHECKOUT_ORIGIN=https://flow-quickpay.testnet3.goat.network
+VITE_QUICKPAY_MERCHANT=your_testnet3_merchant_id
+VITE_QUICKPAY_PRODUCT=your_testnet3_product_key
+```
+
+The default Checkout SDK path does not need merchant API credentials. Configure
+the Testnet3 API URL and credentials only for Advanced / Classic or another
+backend-authenticated mode:
+
+```dotenv
+GOATX402_API_URL=https://flow-api.testnet3.goat.network
+GOATX402_API_KEY=your_testnet3_api_key
+GOATX402_API_SECRET=your_testnet3_api_secret
+```
+
+A successful build proves package compatibility, not that a real payment was
+completed end to end. Verify the hosted deployment, merchant/product, rail,
+wallet or provider test mode, and trusted completion status separately.
 
 ## Advanced Classic Mode
 

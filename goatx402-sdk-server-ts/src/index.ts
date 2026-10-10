@@ -17,10 +17,9 @@
  * // Create an order
  * const order = await client.createOrder({
  *   dappOrderId: 'my-order-123',
- *   chainId: 97,
+ *   chainId: 2345, // GOAT Mainnet example; use a runtime-supported chain
  *   tokenSymbol: 'USDC',
- *   tokenContract: '0x...',
- *   fromAddress: userWalletAddress,
+ *   fromAddress: '0xBuyerAddress',
  *   amountWei: '1000000',
  * })
  *

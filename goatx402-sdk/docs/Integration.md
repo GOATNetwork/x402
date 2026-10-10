@@ -10,12 +10,12 @@ For the complete GOAT Flow API guide, see
 ## 1. Install and runtime boundary
 
 ```bash
-npm install goatflow-sdk ethers
+npm install goatflow-sdk@0.3.0 ethers@^6.9.0
 ```
 
 The package manifest declares:
 
-- package version `0.2.1`
+- package version `0.3.0`
 - Node.js >= 18 for non-browser use
 - ethers `^6.9.0`
 
