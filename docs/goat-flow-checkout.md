@@ -11,8 +11,8 @@ checkout page; the server packages create authenticated Checkout Sessions.
 
 | Use case | Recommended path | Merchant backend required |
 | --- | --- | --- |
-| Fixed Crypto catalog item | QuickPay product + `open({ merchant, productKey })` | No |
-| Fixed Card catalog item | PayKit Card-link creation + hosted payer action | No merchant API secret |
+| Fixed catalog item with configured Crypto and/or Card | QuickPay product + `open({ merchant, productKey })` | No |
+| Direct Card payment link | PayKit Card-link creation + hosted payer action | No merchant API secret |
 | Dynamic DIRECT cart/amount | Unified Checkout Session + `open({ checkoutId })` | Yes |
 | Dynamic card payment | Fiat-enabled Checkout Session + hosted payer action | Yes |
 | Donation or buyer-entered amount | `openCustom({ merchant, amount })` | No, but server-side reconciliation is required |
@@ -43,7 +43,9 @@ session routing. `checkoutPath` retains its legacy product/custom meaning;
 those opens default to `/quickpay/checkout`. See
 [published package status](README.md#npm-packages).
 
-## Fixed Crypto product, no merchant backend
+<a id="fixed-crypto-product-no-merchant-backend"></a>
+
+## Fixed product, no merchant backend
 
 The merchant first configures a QuickPay product. The merchant page passes only the
 merchant ID and product key:
@@ -69,12 +71,14 @@ payButton.addEventListener('click', () => {
 })
 ```
 
-The hosted page resolves the product's server-side decimal price and the buyer
-chooses an eligible chain/token. The browser never supplies the product amount.
-This legacy direct Product opener is currently stablecoin-only. For a Product
-advertised on the Card rail, PayKit's `createFiatCheckoutLink()` or
-`create-card-checkout` can create the hosted payer link without a merchant API
-secret; the returned link is not payment confirmation.
+`open({ merchant, productKey })` opens the Product payment page. The hosted page
+resolves the product's server-side price and offers Crypto, Card, or both
+according to the merchant and Product configuration. For Crypto, the buyer
+chooses an eligible chain/token; for Card, the buyer completes hosted card
+payment. The browser never supplies the product amount.
+
+PayKit's `createFiatCheckoutLink()` or `create-card-checkout` is another way to
+create a Card payment link directly without a merchant API secret.
 
 ## Create a unified Checkout Session
 
@@ -94,6 +98,9 @@ The merchant is derived from the authenticated API key, not accepted from the
 request body.
 
 ### TypeScript: dynamic DIRECT checkout
+
+Set `GOATX402_API_URL` and the merchant credentials for the deployment you will
+use. The browser Checkout origin must belong to that same deployment.
 
 ```ts
 import { GoatFlowClient } from 'goatflow-sdk-server'
@@ -188,11 +195,15 @@ wrappers, and callback trust boundary are isolated in the
 ## Open the session in the browser
 
 Return the opaque `checkoutId` to the browser; never return the API secret.
+This example uses the Testnet3 Checkout origin to match the Card example above.
+For a session created with the Mainnet API, use
+`https://flow-quickpay.goat.network` instead. Keep the API, merchant credentials,
+and Checkout origin in the same deployment.
 
 ```ts
 import { GoatCheckout } from 'goatflow-checkout'
 
-const goat = GoatCheckout({ origin: 'https://flow-quickpay.goat.network' })
+const goat = GoatCheckout({ origin: 'https://flow-quickpay.testnet3.goat.network' })
 
 let checkoutHandle: { close(): void } | undefined
 checkoutHandle = goat.open({

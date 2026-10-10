@@ -126,6 +126,14 @@ const cardLink = await client.createFiatCheckoutLink({ productKey: 'mug' })
 // Redirect a human payer to cardLink.url; do not mark the purchase paid here.
 ```
 
+Choose exactly one of `productKey` or `amount`. A custom `amount` is a decimal
+string in the manifest's currency; Product mode rejects a non-empty `memo`.
+The returned `FiatCheckoutLink` uses `checkout_id` and `expires_at`. The server
+SDK's separate `createCheckoutSession()` uses `fiatAmount` / `fiatCurrency`
+and returns `checkoutId` / `expiresAt`. See the
+[Card SDK parameters and results](../docs/goat-flow-api-reference.md#create-a-hosted-card-link-with-paykit)
+for the complete PayKit option and result tables.
+
 The result has `human_action_required: true`: link creation is not payment
 confirmation. The payer must enter card details and complete the hosted flow.
 

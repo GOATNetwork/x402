@@ -81,16 +81,25 @@ payButton.addEventListener('click', () => {
 })
 ```
 
-This `open({ merchant, productKey })` route is the current stablecoin-only
-Crypto Product opener. For a Product advertised on the Card rail, use PayKit's
-`createFiatCheckoutLink()` or `create-card-checkout`; it creates a hosted link
-that still requires a human payer to complete the Card flow.
+`open({ merchant, productKey })` opens the Product payment page. Available
+payment methods come from merchant and Product configuration and can include
+Crypto and Card. The Product price remains server-authoritative. PayKit's
+`createFiatCheckoutLink()` or `create-card-checkout` is another way to create a
+Card payment link directly; the payer completes payment on the hosted page.
 
 ### Dynamic price
 
-Create the session on your backend:
+Create the session on your backend using your Testnet3 merchant credentials:
 
 ```ts
+import { GoatFlowClient } from 'goatflow-sdk-server'
+
+const client = new GoatFlowClient({
+  baseUrl: 'https://flow-api.testnet3.goat.network',
+  apiKey: process.env.GOATX402_API_KEY!,
+  apiSecret: process.env.GOATX402_API_SECRET!,
+})
+
 const session = await client.createCheckoutSession({
   checkoutType: 'DIRECT',
   price: '19.95',
@@ -99,7 +108,8 @@ const session = await client.createCheckoutSession({
 })
 ```
 
-Open the opaque session in the browser:
+Return `session.checkoutId` to the browser and open it with the Testnet3
+Checkout instance above:
 
 ```ts
 goat.open({ checkoutId: session.checkoutId })

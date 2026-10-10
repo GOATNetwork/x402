@@ -149,7 +149,8 @@ without sending a second payment.
 | Requirement | Use |
 | --- | --- |
 | Merchant backend creates a payment order | `goatflow-sdk-server` order API |
-| Fixed-price public catalog item | QuickPay Product + `goatflow-checkout` |
+| Fixed-price public catalog item | QuickPay Product + `goatflow-checkout`; Crypto and/or Card according to merchant/Product configuration |
+| Direct Card payment link | PayKit `createFiatCheckoutLink()` |
 | Dynamic cart or backend-priced purchase | `createCheckoutSession(...)` + `open({ checkoutId })` |
 | Tip or donation with a buyer-entered amount | QuickPay custom amount |
 | Agent pays to access an API route | GOAT Flow MPP adapter + profile middleware |

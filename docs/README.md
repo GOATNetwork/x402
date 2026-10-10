@@ -151,7 +151,7 @@ public SDK types do not define their complete policy.
 | Need | Recommended surface | Important boundary |
 | --- | --- | --- |
 | Create and track a backend payment | Server SDK order API | HTTP 402 is the expected create-order challenge |
-| Fixed-price Crypto item | QuickPay Product + Checkout SDK | Product price is server-authoritative; the legacy direct Product opener is stablecoin-only |
+| Fixed-price item with configured Crypto and/or Card | QuickPay Product + Checkout SDK | Product price and available payment methods are server-authoritative |
 | Dynamic or server-priced purchase | Hosted Checkout Session | Backend creates the amount and terms |
 | Eligible Card purchase | Hosted Checkout Product or Session | Payer completes the hosted page; creation/callback is not confirmation |
 | Custom amount, tip, or donation | QuickPay custom-amount flow | Browser-supplied amount is untrusted for fulfillment |

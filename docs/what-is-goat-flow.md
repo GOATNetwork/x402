@@ -56,8 +56,9 @@ or redirect.
 It supports two server-authoritative purchase forms:
 
 - **QuickPay Product:** the browser supplies `merchant` and `productKey`; the
-  product manifest supplies the decimal price, while the buyer chooses an
-  offered chain/token.
+  page supplies the server-authoritative price and offers Crypto, Card, or both
+  according to merchant and Product configuration. Crypto payers choose an
+  offered chain/token; Card payers complete the hosted card flow.
 - **Checkout Session:** the merchant backend creates an opaque `checkoutId`
   with `createCheckoutSession(...)`; the browser opens that ID and never sends
   the price.
@@ -78,6 +79,9 @@ from `paymentRails`; a `DIRECT` session may offer Crypto, Card, or both.
 
 Browser `onSuccess` is a UX signal only. The merchant must confirm payment from
 a trusted backend status source or an authenticated deployment-defined webhook.
+
+PayKit's `createFiatCheckoutLink()` is another way to create a Card payment link
+directly for an eligible Product.
 
 ---
 

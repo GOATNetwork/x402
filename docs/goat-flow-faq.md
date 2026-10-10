@@ -251,17 +251,18 @@ the Card quote.
 
 ### Can a fixed-price Product be opened without a merchant backend?
 
-For the current Crypto Product route, the Checkout SDK supports:
+Yes. The Checkout SDK opens the Product payment page with:
 
 ```ts
 goat.open({ merchant, productKey })
 ```
 
 The browser URL contains the merchant and product key, not the product price.
-The product must already exist in the merchant's QuickPay configuration. This
-legacy direct Product opener is stablecoin-only. For Card, use PayKit's
-`createFiatCheckoutLink()` or `create-card-checkout`; it returns a hosted link,
-not payment confirmation.
+The product must already exist in the merchant's QuickPay configuration. The
+page can offer Crypto, Card, or both according to the merchant and Product
+configuration. PayKit's `createFiatCheckoutLink()` or `create-card-checkout` is
+another way to create a Card payment link directly. The payer completes payment
+on the hosted page.
 
 ### What is a dynamic Hosted Checkout Session?
 

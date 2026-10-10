@@ -25,12 +25,16 @@ a script URL.
 <script src="/vendor/checkout.global.js"></script>
 ```
 
-## Crypto Product checkout
+<a id="crypto-product-checkout"></a>
 
-The current legacy Crypto Product route lets a QuickPay-enabled DIRECT merchant
-open a server-priced stablecoin Product without a merchant backend. The browser
-carries the product key, never the amount. This example uses the Mainnet
-Checkout origin; use `https://flow-quickpay.testnet3.goat.network` with a
+## Product checkout
+
+`open({ merchant, productKey })` opens the merchant's configured Product payment
+page without a merchant backend. The page can offer Crypto, Card, or both
+according to the merchant and Product configuration. The browser carries the
+product key, never the amount; the Product price remains server-authoritative.
+This example uses the Mainnet Checkout origin; use
+`https://flow-quickpay.testnet3.goat.network` with a
 Testnet3 merchant/Product when testing there.
 
 ```ts
@@ -87,16 +91,20 @@ handle unknown future values explicitly.
 
 | Browser call | Price source | Backend | Intended use |
 | --- | --- | --- | --- |
-| `open({ merchant, productKey })` | QuickPay product configured server-side | No | Fixed Crypto catalog item; this legacy direct Product route is stablecoin-only |
+| `open({ merchant, productKey })` | QuickPay product configured server-side | No | Fixed catalog item; Crypto and/or Card according to merchant and Product configuration |
 | `open({ checkoutId })` | HMAC-created Checkout Session | Yes | Dynamic Crypto and/or Card checkout; operator-provisioned compatibility sessions |
 | `openCustom({ merchant, amount })` | Browser-supplied amount | No | Donation/custom payment only |
 
 `openCustom` is deliberately untrusted. Never auto-fulfill a purchase from its
 browser amount; reconcile the confirmed amount server-side.
 
-For a Product advertised on the Card rail, use PayKit's
-`createFiatCheckoutLink()` or `create-card-checkout` to create the hosted human
-payer link. Do not treat link creation as payment confirmation.
+PayKit's `createFiatCheckoutLink()` or `create-card-checkout` provides another
+way to create a Card payment link directly for an eligible Product. The payer
+completes payment on the hosted page.
+
+The `stablecoin-only` Product comments in the published `0.2.0` type
+declarations are outdated. That version can continue to open the Product page,
+whose available payment methods come from merchant and Product configuration.
 
 `checkoutType` and payment rail are different dimensions: a server-created
 `DIRECT` session may offer `crypto`, `fiat`, or both. The browser package opens

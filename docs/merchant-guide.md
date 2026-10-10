@@ -808,11 +808,13 @@ For custom amounts, `POST /quickpay/v1/x402/sessions` accepts `merchant_id`, `pa
 
 For product sessions, send `product_key` with `merchant_id`, `payer_addr`, `chain_id`, `token_contract`, and optional `idempotency_key`.
 
-Browser merchants can open the current stablecoin-only Crypto Product route
-with `goatflow-checkout` and no merchant secret in the page. Card Product links
-use PayKit's `create-card-checkout` / `createFiatCheckoutLink()` and still
-require human completion. Dynamic DIRECT carts use an HMAC-created Checkout
-Session instead; see
+Browser merchants can open a Product payment page with `goatflow-checkout`
+using `open({ merchant, productKey })` and no merchant secret in the page. It
+can offer Crypto, Card, or both according to merchant and Product
+configuration. PayKit's `create-card-checkout` / `createFiatCheckoutLink()` is
+another way to create a Card payment link directly. The payer completes payment
+on the hosted page. Dynamic DIRECT carts use an HMAC-created Checkout Session;
+see
 [Hosted Checkout](goat-flow-checkout.md).
 
 PayKit agent/CLI entry points (see

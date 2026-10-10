@@ -107,7 +107,7 @@ implement the configuration boundary but stop before a live merchant API call.
 
 | Requirement | Primary path | Pricing authority | Fulfillment authority |
 | --- | --- | --- | --- |
-| Fixed Crypto catalog item, hosted wallet UI | Hosted Checkout Product | Merchant Product | Trusted session/order status; legacy direct Product opener is stablecoin-only |
+| Fixed catalog item, hosted payment UI | Hosted Checkout Product with Crypto and/or Card from merchant/Product configuration | Merchant Product | Trusted session/order status |
 | Dynamic cart or invoice, hosted wallet UI | Hosted Checkout Session | Merchant backend | Trusted session/order status |
 | Eligible Card purchase | Fiat-enabled Hosted Checkout Session or Product | Merchant backend/Product plus pinned fiat terms | Trusted Card/session status or verified webhook |
 | Fully custom wallet UI | Authenticated Order API | Merchant backend | Authenticated order status/proof |
@@ -157,6 +157,11 @@ Do not combine `checkoutId` with `merchant` or `productKey`. Product opens use
 `/checkout?cs=...` remains a hosted compatibility alias. The legacy
 `checkoutPath` configures product/custom opens, not sessions. The fulfillable
 URL must not contain an authoritative amount.
+
+`open({ merchant, productKey })` opens the Product payment page, which can
+offer Crypto, Card, or both according to merchant and Product configuration.
+PayKit's `createFiatCheckoutLink()` is another way to create a Card payment link
+directly. Product pricing remains server-authoritative.
 
 For a dynamic purchase, create the session on the backend:
 

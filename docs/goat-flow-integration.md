@@ -410,6 +410,11 @@ Use `ERC20Token.setApproval()` when the reset transaction hash is also needed.
 
 ### 7.1 Fixed product
 
+`open({ merchant, productKey })` opens the Product payment page. It can offer
+Crypto, Card, or both according to merchant and Product configuration. The
+Product price remains server-authoritative. PayKit's `createFiatCheckoutLink()`
+is another way to create a Card payment link directly.
+
 ```ts
 import { GoatCheckout } from 'goatflow-checkout'
 
@@ -466,6 +471,11 @@ const cardSession = await testnetClient.createCheckoutSession({
 // Persist cardSession.checkoutId and cardSession.url on the backend, then send
 // only the hosted URL/opaque handle to the browser. Creation is not payment.
 ```
+
+Open this Testnet3 Card session with a Checkout instance configured for
+`https://flow-quickpay.testnet3.goat.network`. See the
+[browser session example](./goat-flow-checkout.md#open-the-session-in-the-browser)
+for the matching frontend configuration.
 
 A session that offers both rails needs crypto `price` plus `fiatCurrency` and
 `fiatAmount`; the SDK and service do not convert one amount into the other.

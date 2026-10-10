@@ -405,11 +405,13 @@ not part of public merchant onboarding.
 
 ### Response
 
+For the Testnet3 Card session above, a response has this shape:
+
 ```json
 {
   "checkout_id": "cs_...",
   "checkout_type": "DIRECT",
-  "url": "https://flow-quickpay.goat.network/checkout?cs=cs_...",
+  "url": "https://flow-quickpay.testnet3.goat.network/checkout?cs=cs_...",
   "expires_at": 1780000000
 }
 ```
@@ -418,10 +420,11 @@ The exported `CheckoutSession.checkoutType` / Go `CheckoutType` response field
 is typed as `string`. Known current values are `DIRECT` and `DELEGATE`; handle an
 unknown future value explicitly.
 
-The browser receives only the opaque checkout ID:
+The browser receives only the opaque checkout ID. Use the Checkout origin from
+the same deployment as session creation; this example matches Testnet3 above:
 
 ```ts
-const goat = GoatCheckout({ origin: 'https://flow-quickpay.goat.network' })
+const goat = GoatCheckout({ origin: 'https://flow-quickpay.testnet3.goat.network' })
 goat.open({ checkoutId: session.checkoutId })
 ```
 
@@ -499,6 +502,60 @@ token, Product, or route entry selected for a payment. Current boundaries:
 
 Treat manifest validation as client-side discovery and preflight, not a
 replacement for server validation.
+
+### Create a hosted Card link with PayKit
+
+`QuickPayClient.createFiatCheckoutLink(options)` calls
+`POST /quickpay/v1/fiat/sessions` on the trusted PayKit link origin. The client
+derives `merchant_id` from that link; it does not require a merchant API secret
+or a wallet signer to create the link.
+
+| SDK option | Sent JSON field | Use |
+| --- | --- | --- |
+| `productKey` | `product_key` | Fixed-price Product advertised under `rails.fiat.products`; choose either this or `amount` |
+| `amount` | `amount` | Positive decimal string in the manifest's Card currency, such as `10.00`; precision follows `minor_unit_exponent` |
+| `memo` | `memo` | Custom-amount reference; required when the manifest sets `memo_required`; a non-empty memo is rejected in Product mode |
+
+Exactly one of `productKey` or `amount` must be provided. Currency comes from
+the manifest. The standalone `createFiatCheckoutLink()` function also takes
+`input`, the trusted PayKit URL; the client method uses its constructor URL.
+
+```ts
+import { QuickPayClient } from 'goatflow-paykit'
+
+const client = new QuickPayClient(
+  'https://flow-quickpay.testnet3.goat.network/paykit/merchant_123/agent.md',
+)
+
+const cardLink = await client.createFiatCheckoutLink({ productKey: 'mug' })
+// Return cardLink.url to the payer so they can complete hosted payment.
+```
+
+The SDK returns a `FiatCheckoutLink` object with these field names:
+
+| SDK result field | Type | Meaning |
+| --- | --- | --- |
+| `ok` | `true` | Link creation succeeded; payment still requires payer action |
+| `rail` | `'fiat'` | Card payment rail |
+| `merchant_id` | string | Merchant derived from the trusted link |
+| `checkout_id` | string | Opaque hosted Checkout handle |
+| `url` | string | Hosted payer URL validated against the trusted origin and Checkout handle |
+| `currency` | string | Currency returned by the service and checked against the manifest |
+| `expires_at` | number | Session expiration value returned by the service |
+| `product_key` | optional string | Selected Product key in Product mode |
+| `human_action_required` | `true` | The payer must complete payment on the hosted page |
+
+The SDK assembles this result: it adds `ok`, `rail`, `merchant_id`,
+`product_key`, and `human_action_required` locally. The table describes the SDK
+return value rather than a complete raw HTTP response schema. No amount is
+included in this SDK result.
+
+The two Card creation interfaces use different options and result names:
+
+| Interface | Amount and currency options | Authentication | Checkout result fields |
+| --- | --- | --- | --- |
+| PayKit `createFiatCheckoutLink()` | Custom `amount`, or server-priced `productKey`; currency from manifest | Public trusted PayKit link | `checkout_id`, `expires_at` |
+| Server SDK `createCheckoutSession()` | `paymentRails: ['fiat']`, `fiatAmount`, `fiatCurrency` | Merchant HMAC | `checkoutId`, `expiresAt` |
 
 CLI commands:
 

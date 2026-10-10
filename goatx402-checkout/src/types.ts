@@ -122,7 +122,10 @@ interface BaseOpenOptions {
 export interface OpenOptions extends BaseOpenOptions {
   /** Merchant id (required for product mode; ignored/derived for checkoutId mode). */
   merchant?: string
-  /** Server-priced product key. This legacy merchant/product route is currently stablecoin-only. */
+  /**
+   * Server-priced product key. The hosted Product page offers Crypto and/or Card
+   * according to the merchant and product configuration.
+   */
   productKey?: string
   /** Opaque server-created checkout session id (URL param `cs`); supports crypto, fiat, or both as pinned by the server. */
   checkoutId?: string
@@ -150,8 +153,9 @@ export interface OpenCustomOptions extends BaseOpenOptions {
 
 /**
  * Options for a full-page redirect to the hosted checkout (no callbacks).
- * Fulfillable only: carries `checkoutId` (cs, crypto/fiat/both) OR the legacy
- * stablecoin-only `merchant`+`productKey` — never a price. For a custom/donation
+ * Fulfillable only: carries `checkoutId` (cs, crypto/fiat/both) OR
+ * `merchant`+`productKey` (a server-priced Product), never a price. Product
+ * payment methods come from merchant/product configuration. For a custom/donation
  * stablecoin redirect use `openCustom({ display: 'redirect' })`.
  */
 export interface RedirectOptions {
